@@ -65,7 +65,8 @@ class TechnicalSignalAgent(BaseAgent):
         # Trend indicators
         prompt += "TREND:\n"
         if indicators.sma_20:
-            prompt += f"  SMA20: ${indicators.sma_20:,.2f} | SMA50: ${indicators.sma_50:,.2f if indicators.sma_50 else 'N/A'}\n"
+            sma50_str = f"${indicators.sma_50:,.2f}" if indicators.sma_50 else "N/A"
+            prompt += f"  SMA20: ${indicators.sma_20:,.2f} | SMA50: {sma50_str}\n"
         if indicators.ema_12 and indicators.ema_26:
             cross = "EMA12 ABOVE EMA26 (bullish)" if indicators.ema_12 > indicators.ema_26 else "EMA12 BELOW EMA26 (bearish)"
             prompt += f"  {cross} | EMA12=${indicators.ema_12:,.2f} EMA26=${indicators.ema_26:,.2f}\n"
