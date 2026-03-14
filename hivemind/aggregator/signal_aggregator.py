@@ -149,9 +149,23 @@ class SignalAggregator:
             return self._empty(symbol, signals)
 
         # ── Step 2: Separate by direction ──
-        bullish = [(s, w) for s, w in weighted_signals if s.action in BULLISH_ACTIONS]
-        bearish = [(s, w) for s, w in weighted_signals if s.action in BEARISH_ACTIONS]
-        neutral = [(s, w) for s, w in weighted_signals if s.action not in BULLISH_ACTIONS and s.action not in BEARISH_ACTIONS]
+        # CRITICAL: Conviction < 4 signals are NOISE, not data.
+        # Even if the manager mapped them to BUY/SHORT, they get zero weight.
+        MIN_ACTIONABLE_CONVICTION = 4
+        bullish = []
+        bearish = []
+        neutral = []
+        for s, w in weighted_signals:
+            conv = s.metadata.get("conviction", int(s.confidence * 10))
+            if conv < MIN_ACTIONABLE_CONVICTION:
+                # Low conviction = abstention regardless of action
+                neutral.append((s, w))
+            elif s.action in BULLISH_ACTIONS:
+                bullish.append((s, w))
+            elif s.action in BEARISH_ACTIONS:
+                bearish.append((s, w))
+            else:
+                neutral.append((s, w))
         n_total = len(weighted_signals)
 
         # All neutral → genuine no-trade
@@ -198,7 +212,7 @@ class SignalAggregator:
 
         # ── Step 4: Conviction distribution (polarization) ──
         all_convictions = [sig.metadata.get("conviction", int(sig.confidence * 10)) for sig, _ in weighted_signals]
-        polarization = self._compute_polarization(all_convictions)
+        polarization = self._compute_polarization(weighted_signals)
         if polarization > 0.7:
             alerts.append(AggregationAlert(
                 "POLARIZATION", "MEDIUM",
@@ -216,6 +230,17 @@ class SignalAggregator:
         entropy = _shannon_entropy(vote_counts, n_total)
         max_entropy = math.log2(3)
         disagreement = entropy / max_entropy if max_entropy > 0 else 0
+
+        # ── Step 6b: Consensus bonus ──
+        # When all directional signals agree, breadth of agreement should count.
+        # 5/5 same direction gets +15% boost. 3/5 gets no boost.
+        n_directional = len(bullish) + len(bearish)
+        if n_directional > 0:
+            unanimity = max(len(bullish), len(bearish)) / n_directional
+            if unanimity >= 0.95:  # Nearly unanimous
+                raw_confidence *= 1.15  # 15% boost
+            elif unanimity >= 0.80:
+                raw_confidence *= 1.08  # 8% boost
 
         # ── Step 7: Apply modifiers ──
         confidence = raw_confidence
@@ -328,15 +353,28 @@ class SignalAggregator:
     #  POLARIZATION
     # ─────────────────────────────────────────────
 
-    def _compute_polarization(self, convictions: list[int]) -> float:
+    def _compute_polarization(self, signals: list[tuple]) -> float:
         """
-        Measure how polarized the teams are. 0 = consensus, 1 = max polarization.
-        Uses max-min spread normalized to 0-1.
+        Measure DIRECTIONAL polarization — how split are teams on DIRECTION?
+        Only penalizes when teams disagree on bullish vs bearish.
+        Does NOT penalize conviction variance within the same direction.
         """
-        if len(convictions) < 2:
+        if len(signals) < 2:
             return 0.0
-        spread = max(convictions) - min(convictions)
-        return spread / 10.0
+
+        n_bull = sum(1 for s, _ in signals if s.action in BULLISH_ACTIONS)
+        n_bear = sum(1 for s, _ in signals if s.action in BEARISH_ACTIONS)
+        n_directional = n_bull + n_bear
+
+        if n_directional == 0:
+            return 0.0
+
+        # Polarization = how evenly split the directional votes are
+        # 0 = all one direction, 1 = perfectly split
+        minority = min(n_bull, n_bear)
+        polarization = (2 * minority) / n_directional  # 0 to 1
+
+        return polarization
 
     # ─────────────────────────────────────────────
     #  TEAM HIERARCHY: MACRO GATE
@@ -370,35 +408,36 @@ class SignalAggregator:
         macro_direction = macro_sig.metadata.get("direction", "BULLISH" if macro_sig.action in BULLISH_ACTIONS else "BEARISH")
         macro_is_bearish = macro_direction == "BEARISH"
 
-        # Crisis regime: Macro gets massive override power
+        # Crisis regime: Macro MODERATES, doesn't crush.
+        # History: March 2020 (F&G=9, CRISIS) was the best buy ever. Don't kill contrarian signals.
         if self._regime == "crisis":
             if macro_is_bearish and aggregate_direction == "bullish":
-                confidence *= 0.3  # Crush bullish confidence in crisis
+                confidence *= 0.65  # Moderate, not crush (was 0.3 → 0.65)
                 alerts.append(AggregationAlert(
                     "REGIME_OVERRIDE", "HIGH",
-                    "CRISIS regime + Macro BEARISH overrides bullish aggregate.",
+                    "CRISIS regime + Macro BEARISH. Bullish signal moderated (not killed — contrarian may be right).",
                 ))
-            # In crisis, all positions should be small
-            confidence *= 0.5
+            # In crisis, reduce position size but don't prevent trading
+            confidence *= 0.75  # Was 0.5 → 0.75
 
-        # Bear regime: Macro can veto bullish with high conviction
+        # Bear regime: Macro moderates, doesn't veto
         elif self._regime == "bear":
             if macro_is_bearish and macro_conviction >= 7 and aggregate_direction == "bullish":
-                confidence *= 0.5
+                confidence *= 0.70  # Was 0.5 → 0.70
                 alerts.append(AggregationAlert(
                     "REGIME_CONFLICT", "HIGH",
-                    f"BEAR regime + Macro BEARISH (conv {macro_conviction}) conflicts with bullish aggregate.",
+                    f"BEAR regime + Macro BEARISH (conv {macro_conviction}). Bullish signal moderated.",
                 ))
 
-        # Macro disagrees with aggregate in any regime
+        # Macro dissent: mild reduction, not a wall
         elif macro_conviction >= 8 and (
             (macro_is_bearish and aggregate_direction == "bullish") or
             (not macro_is_bearish and aggregate_direction == "bearish")
         ):
-            confidence *= 0.7
+            confidence *= 0.85  # Was 0.7 → 0.85
             alerts.append(AggregationAlert(
                 "MACRO_DISSENT", "MEDIUM",
-                f"Macro high-conviction ({macro_conviction}) dissent against {aggregate_direction} aggregate.",
+                f"Macro high-conviction ({macro_conviction}) dissent. Aggregate moderated.",
             ))
 
         return confidence, action, alerts
@@ -486,7 +525,13 @@ class SignalAggregator:
         oc_conv = onchain_sig.metadata.get("conviction", 0)
         se_conv = sentiment_sig.metadata.get("conviction", 0)
 
-        if oc_dir and se_dir and oc_dir != se_dir and oc_conv >= 5 and se_conv >= 5:
+        # Flag divergence when: directions oppose AND at least one side has strong conviction,
+        # OR when the conviction gap is large regardless of absolute levels
+        diverges = (
+            oc_dir and se_dir and oc_dir != se_dir and
+            (oc_conv >= 6 or se_conv >= 6 or abs(oc_conv - se_conv) > 4)
+        )
+        if diverges:
             alerts.append(AggregationAlert(
                 "SMART_MONEY_DIVERGENCE", "MEDIUM",
                 f"On-Chain ({oc_dir} {oc_conv}) vs Sentiment ({se_dir} {se_conv}). "

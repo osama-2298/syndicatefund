@@ -184,10 +184,15 @@ def compute_trade_params(
     else:
         trail_distance = stop_distance * 1.2  # Slightly wider than initial stop
 
-    # Position sizing: risk-based
+    # Position sizing: Half-Kelly inspired convex scaling
+    # Low confidence → much smaller position (not linear)
+    # High confidence → larger but capped position
     risk_per_trade = config["risk_per_trade"]
-    # Scale risk by confidence (higher confidence = closer to max risk)
-    adjusted_risk = risk_per_trade * min(confidence / 0.7, 1.0)
+    # Half-Kelly: edge = 2*confidence - 1. If confidence < 0.5, edge is negative (no trade).
+    # We use quarter-Kelly for additional safety.
+    edge = max(0, 2 * confidence - 1)  # 0 at conf 0.5, 1.0 at conf 1.0
+    kelly_fraction = edge * 0.25  # Quarter-Kelly
+    adjusted_risk = risk_per_trade * min(kelly_fraction / 0.25, 1.0)  # Normalize so conf=0.75 = baseline
 
     total_value = max(portfolio.total_value, 1)
     risk_amount = total_value * adjusted_risk

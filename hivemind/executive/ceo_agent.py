@@ -259,6 +259,63 @@ def compute_strategic_context(
     if btc_indicators.rsi_14:
         ctx["btc_rsi"] = round(btc_indicators.rsi_14, 1)
 
+    # ── Algorithmic regime suggestion (quantitative, not subjective) ──
+    # CEO can override but must justify departure
+    bull_score = 0
+    bear_score = 0
+    # Factor 1: Price vs SMA200
+    if btc_indicators.sma_200 and current_price:
+        pct_above = ((current_price - btc_indicators.sma_200) / btc_indicators.sma_200) * 100
+        if pct_above > 5:
+            bull_score += 2
+        elif pct_above > 0:
+            bull_score += 1
+        elif pct_above > -5:
+            bear_score += 1
+        else:
+            bear_score += 2
+    # Factor 2: RSI
+    if btc_indicators.rsi_14:
+        if btc_indicators.rsi_14 > 55:
+            bull_score += 1
+        elif btc_indicators.rsi_14 < 45:
+            bear_score += 1
+    # Factor 3: MA alignment
+    if btc_indicators.sma_20 and btc_indicators.sma_50 and btc_indicators.sma_200:
+        if btc_indicators.sma_20 > btc_indicators.sma_50 > btc_indicators.sma_200:
+            bull_score += 2
+        elif btc_indicators.sma_20 < btc_indicators.sma_50 < btc_indicators.sma_200:
+            bear_score += 2
+    # Factor 4: Fear & Greed
+    fg_val = intel.get("fear_greed", {}).get("current_value", 50)
+    if fg_val > 60:
+        bull_score += 1
+    elif fg_val < 25:
+        bear_score += 1
+        if fg_val < 10:
+            bear_score += 1  # Extreme fear
+    # Factor 5: 24h change
+    if change_24h > 3:
+        bull_score += 1
+    elif change_24h < -5:
+        bear_score += 1
+        if change_24h < -10:
+            bear_score += 1  # Potential crisis
+
+    # Classify
+    if bear_score >= 5 and fg_val < 15:
+        algo_regime = "CRISIS"
+    elif bull_score >= 4 and bull_score > bear_score + 1:
+        algo_regime = "BULL"
+    elif bear_score >= 4 and bear_score > bull_score + 1:
+        algo_regime = "BEAR"
+    else:
+        algo_regime = "RANGING"
+
+    ctx["algo_regime"] = algo_regime
+    ctx["algo_bull_score"] = bull_score
+    ctx["algo_bear_score"] = bear_score
+
     # Intelligence
     fg = intel.get("fear_greed")
     if fg:
@@ -491,6 +548,15 @@ class CEOAgent(BaseLLMCaller):
             prompt += f"vs SMA200: {ctx['btc_vs_200sma']}\n"
         if "btc_rsi" in ctx:
             prompt += f"RSI: {ctx['btc_rsi']}\n"
+
+        # Algorithmic regime suggestion (quantitative — you can override but must justify)
+        if "algo_regime" in ctx:
+            prompt += (
+                f"\n=== ALGORITHMIC REGIME SUGGESTION ===\n"
+                f"Suggested: {ctx['algo_regime']} (bull_score={ctx['algo_bull_score']}, bear_score={ctx['algo_bear_score']})\n"
+                f"This is computed from BTC vs SMA200, RSI, MA alignment, F&G, and 24h change.\n"
+                f"You may OVERRIDE this but must explain why in your reasoning.\n"
+            )
 
         prompt += "\n=== INTELLIGENCE ===\n"
         if "fear_greed" in ctx:

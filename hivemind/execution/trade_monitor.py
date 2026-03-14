@@ -248,16 +248,33 @@ class TradeMonitor:
             # ── Check STOP LOSS ──
             stop_price = params.stop_loss_price
             if trade.stop_moved_to_breakeven:
-                stop_price = trade.entry_price  # Breakeven stop
+                # After TP1: move stop to entry + 0.5R (lock in half an R of profit)
+                # Not just breakeven — gives position room to breathe
+                half_r = params.r_value * 0.5
+                if is_long:
+                    stop_price = trade.entry_price + half_r
+                else:
+                    stop_price = trade.entry_price - half_r
 
-            if is_long and low <= stop_price:
-                exit_price = stop_price
-                reason = "STOP_LOSS" if not trade.stop_moved_to_breakeven else "BREAKEVEN_STOP"
-                outcomes.append(self._create_outcome(trade, exit_price, reason, trade.quantity, candle))
-                trade.quantity = 0
-                break
+            # Determine if both SL and TP could be hit in same candle
+            # Use candle direction to infer which was hit first:
+            # Bullish candle (close > open) → TP likely hit first
+            # Bearish candle → SL likely hit first
+            sl_hit = (is_long and low <= stop_price) or (not is_long and high >= stop_price)
+            tp1_could_hit = (
+                not trade.tp1_hit and params.take_profit_1 > 0 and
+                ((is_long and high >= params.take_profit_1) or (not is_long and low <= params.take_profit_1))
+            )
 
-            if not is_long and high >= stop_price:
+            if sl_hit and tp1_could_hit:
+                # Both levels touched in same candle — use direction to decide
+                candle_bullish = candle.close > candle.open
+                if is_long and candle_bullish:
+                    sl_hit = False  # TP likely hit first on bullish candle for long
+                elif not is_long and not candle_bullish:
+                    sl_hit = False  # TP likely hit first on bearish candle for short
+
+            if sl_hit:
                 exit_price = stop_price
                 reason = "STOP_LOSS" if not trade.stop_moved_to_breakeven else "BREAKEVEN_STOP"
                 outcomes.append(self._create_outcome(trade, exit_price, reason, trade.quantity, candle))
