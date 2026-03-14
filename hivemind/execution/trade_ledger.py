@@ -425,16 +425,32 @@ class TradeLedger:
     def format_summary(self) -> str:
         """Format a human-readable summary for terminal display."""
         s = self.get_stats()
-
-        if s["closed_trades"] == 0:
-            open_n = s["open_trades"]
-            if open_n > 0:
-                return f"No closed trades yet. {open_n} open positions being monitored."
-            return "No trades executed yet."
-
         lines = []
+
+        # Open positions section (always show if there are any)
+        open_trades = [e for e in self.entries if e.exit_reason == "OPEN"]
+        if open_trades:
+            lines.append(f"OPEN POSITIONS ({len(open_trades)}):")
+            lines.append(f"  {'Symbol':<12} {'Side':<6} {'Entry':>10} {'SL':>10} {'TP1':>10} {'Tier':<10} {'Risk':>8}")
+            lines.append(f"  {'─' * 68}")
+            for e in open_trades:
+                sl_str = f"${e.stop_loss:,.2f}" if e.stop_loss else "N/A"
+                tp_str = f"${e.take_profit_1:,.2f}" if e.take_profit_1 else "N/A"
+                risk_str = f"${e.risk_amount:,.0f}" if e.risk_amount else "N/A"
+                lines.append(
+                    f"  {e.symbol:<12} {e.side:<6} ${e.entry_price:>9,.2f} {sl_str:>10} {tp_str:>10} {e.asset_tier:<10} {risk_str:>8}"
+                )
+            lines.append("")
+
+        # Closed trades summary
+        if s["closed_trades"] == 0:
+            if not open_trades:
+                return "No trades executed yet."
+            lines.append("No closed trades yet.")
+            return "\n".join(lines)
+
         lines.append(
-            f"{s['closed_trades']} trades  |  "
+            f"CLOSED: {s['closed_trades']} trades  |  "
             f"{s['wins']}W / {s['losses']}L / {s['breakeven']}BE  |  "
             f"Win rate: {s['win_rate']}%"
         )
