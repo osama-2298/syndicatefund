@@ -126,13 +126,14 @@ def compute_trade_params(
     tier = classify_tier(symbol)
     config = TIER_CONFIG[tier]
 
-    # Regime adjustments — tier-aware
-    # BTC trends run in bull, memes spike and die fast in all regimes
+    # Regime adjustments — tier-aware, data-backed
+    # Research: bear market needs WIDER stops (2.5-3x ATR vs 2x bull)
+    # 2x ATR reduced max drawdown by 32% vs fixed stops (research/technical_indicator_data.md)
     regime_stop_adj = 1.0
     regime_tp_adj = 1.0
     regime_time_adj = 1.0
     if regime == MarketRegime.BULL:
-        regime_stop_adj = 0.85
+        regime_stop_adj = 0.85  # Tighter stops in bull (cleaner trends)
         # Bull: let BTC/top5 run further, memes still spike fast
         if tier in ("btc", "top5"):
             regime_tp_adj = 1.4   # BTC/ETH trends extend in bull
@@ -142,7 +143,7 @@ def compute_trade_params(
             regime_tp_adj = 1.25
         regime_time_adj = 1.25
     elif regime == MarketRegime.BEAR:
-        regime_stop_adj = 1.20
+        regime_stop_adj = 1.30  # WIDER stops in bear (research: 2.5-3x ATR needed)
         # Bear: take profits fast everywhere, especially on shorts
         if tier in ("btc", "top5"):
             regime_tp_adj = 0.8   # BTC doesn't crash as hard

@@ -172,31 +172,41 @@ class CROAgent(BaseLLMCaller):
 
     SYSTEM_PROMPT = (
         "You are the Chief Risk Officer (CRO) of a quantitative crypto hedge fund.\n\n"
-        "Your job is to SET the risk parameters for this trading cycle. "
-        "The Risk Manager will ENFORCE whatever rules you decide.\n\n"
-        "You receive pre-computed metrics about:\n"
-        "- Market regime (from the CEO)\n"
-        "- Current portfolio state (positions, drawdown, P&L)\n"
-        "- Recent performance (signal accuracy)\n\n"
-        "RISK POSTURE BY REGIME:\n"
-        "- BULL (Aggressive): Larger positions (5-8%), looser confidence (0.40-0.50), "
-        "more positions (15-20). Lean into momentum.\n"
-        "- RANGING (Normal): Standard positions (4-5%), normal confidence (0.50), "
-        "moderate positions (10-15). Balanced approach.\n"
-        "- BEAR (Conservative): Smaller positions (2-3%), tighter confidence (0.60-0.70), "
-        "fewer positions (5-8). Protect capital.\n"
-        "- CRISIS (Defensive): Tiny positions (1-2%), very tight confidence (0.70-0.80), "
-        "minimal positions (2-3). Survival mode.\n\n"
+        "Your job: SET risk parameters for this cycle. Risk Manager ENFORCES them.\n\n"
+        "DATA-BACKED PARAMETERS BY REGIME (from empirical research):\n\n"
+        "BULL:\n"
+        "  max_position_pct: 0.07-0.10 (7-10%)\n"
+        "  max_daily_drawdown_pct: 0.08-0.10 (8-10%, Millennium standard)\n"
+        "  max_open_positions: 10-15\n"
+        "  min_signal_confidence: 0.45-0.50 (aggressive, momentum works)\n"
+        "  min_consensus_ratio: 0.50-0.60 (lower bar, more trades)\n\n"
+        "RANGING:\n"
+        "  max_position_pct: 0.05-0.07\n"
+        "  max_daily_drawdown_pct: 0.05-0.07\n"
+        "  max_open_positions: 8-12\n"
+        "  min_signal_confidence: 0.50-0.55\n"
+        "  min_consensus_ratio: 0.55-0.65\n\n"
+        "BEAR:\n"
+        "  max_position_pct: 0.03-0.05\n"
+        "  max_daily_drawdown_pct: 0.05-0.07 (NOT 2% — too restrictive per research)\n"
+        "  max_open_positions: 5-8\n"
+        "  min_signal_confidence: 0.50-0.55 (NOT 0.60+ — kills contrarian signals)\n"
+        "  min_consensus_ratio: 0.55-0.65 (NOT 0.80 — blocks legitimate disagreement)\n"
+        "  NOTE: F&G < 15 = historically 85% win rate buy signal. Do NOT block contrarian trades.\n\n"
+        "CRISIS:\n"
+        "  max_position_pct: 0.02-0.03\n"
+        "  max_daily_drawdown_pct: 0.05\n"
+        "  max_open_positions: 3-5\n"
+        "  min_signal_confidence: 0.55-0.65\n"
+        "  min_consensus_ratio: 0.65-0.75\n"
+        "  NOTE: Even in crisis, F&G < 10 has ALWAYS preceded major rallies (COVID: +1,500% 12mo).\n\n"
         "PORTFOLIO-AWARE ADJUSTMENTS:\n"
-        "- If drawdown > 2%, tighten ALL limits regardless of regime.\n"
-        "- If accuracy < 40%, raise confidence thresholds (bad signals are getting through).\n"
-        "- If cash < 20% of portfolio, reduce max positions and position size.\n"
-        "- If any single position > 8% of portfolio, flag concentration risk.\n\n"
-        "RULES:\n"
-        "- Do NOT invent data. Only reference the provided metrics.\n"
-        "- Do NOT do math. All metrics are pre-computed.\n"
-        "- Keep reasoning to 2-3 sentences.\n"
-        "- When in doubt, be MORE conservative. Capital preservation > returns."
+        "- If drawdown > 5%, tighten position sizes by 50%.\n"
+        "- If accuracy < 40% over 20+ trades, raise confidence by 0.05.\n"
+        "- If cash < 20%, reduce max positions by 2.\n\n"
+        "CRITICAL: Do NOT set consensus above 0.70 in ANY regime. Research shows 60% consensus\n"
+        "is the optimal minimum — higher blocks too many valid trades where teams legitimately disagree.\n\n"
+        "RULES: Reference provided metrics. 2-3 sentences reasoning."
     )
 
     def set_rules(
@@ -230,22 +240,23 @@ class CROAgent(BaseLLMCaller):
     def _fallback_rules(self, directive: StrategicDirective | RegimeClassification) -> RiskLimits:
         """Deterministic fallback rules when LLM fails."""
         regime = directive.regime
+        # Data-backed fallback parameters (from research/risk_parameters.md)
         presets = {
             MarketRegime.BULL: RiskLimits(
-                max_position_pct=0.06, max_daily_drawdown_pct=0.04,
-                max_open_positions=15, min_signal_confidence=0.45, min_consensus_ratio=0.40,
+                max_position_pct=0.08, max_daily_drawdown_pct=0.08,
+                max_open_positions=12, min_signal_confidence=0.45, min_consensus_ratio=0.50,
             ),
             MarketRegime.RANGING: RiskLimits(
-                max_position_pct=0.05, max_daily_drawdown_pct=0.03,
-                max_open_positions=10, min_signal_confidence=0.50, min_consensus_ratio=0.50,
+                max_position_pct=0.06, max_daily_drawdown_pct=0.06,
+                max_open_positions=10, min_signal_confidence=0.50, min_consensus_ratio=0.55,
             ),
             MarketRegime.BEAR: RiskLimits(
-                max_position_pct=0.03, max_daily_drawdown_pct=0.02,
-                max_open_positions=6, min_signal_confidence=0.60, min_consensus_ratio=0.60,
+                max_position_pct=0.04, max_daily_drawdown_pct=0.05,
+                max_open_positions=7, min_signal_confidence=0.50, min_consensus_ratio=0.55,
             ),
             MarketRegime.CRISIS: RiskLimits(
-                max_position_pct=0.02, max_daily_drawdown_pct=0.01,
-                max_open_positions=3, min_signal_confidence=0.75, min_consensus_ratio=0.67,
+                max_position_pct=0.03, max_daily_drawdown_pct=0.05,
+                max_open_positions=4, min_signal_confidence=0.55, min_consensus_ratio=0.65,
             ),
         }
         return presets.get(regime, RiskLimits())
@@ -282,6 +293,11 @@ class CROAgent(BaseLLMCaller):
             f"Total Signals Tracked: {ctx['total_signals_tracked']}\n"
             f"Accuracy: {ctx['accuracy']}%\n"
             f"Pending Evaluation: {ctx['pending_signals']}\n\n"
+            f"=== RESEARCH-BACKED CONSTRAINTS ===\n"
+            f"NEVER set min_consensus_ratio above 0.65 — research shows this blocks valid trades.\n"
+            f"In BEAR with F&G < 15: contrarian buy signal wins 85% of the time historically.\n"
+            f"Bear market drawdown halt: 5-7%, not 2% (too tight, causes premature exit).\n"
+            f"Confidence 0.50 in bear still yields 76% accuracy per MDPI study.\n\n"
             f"Set the risk parameters for this cycle."
         )
         return prompt

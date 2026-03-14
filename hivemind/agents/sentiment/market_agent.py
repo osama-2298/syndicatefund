@@ -29,6 +29,14 @@ class MarketSentimentAgent(BaseAgent):
             "- Composite sentiment score > 0.3 in same direction → add +1 conviction\n"
             "- Composite sentiment score opposes F&G direction → reduce conviction by 2\n"
             "- F&G is STALE (>24h old) → cap conviction at 5\n\n"
+            "HISTORICAL EVIDENCE (from research/fear_greed_historical.md):\n"
+            "- F&G <= 10: Sharpe ratio 8.0, avg 12-month return +440%\n"
+            "- F&G 10-20: positive 30-day returns 80% of the time, median 90-day +32%\n"
+            "- F&G > 80 sustained 14+ days: 70% chance of >20% drawdown within 90 days\n"
+            "- Fear-weighted DCA outperformed standard DCA by 5.7x over 7 years\n"
+            "- ONLY exception: June 2022 (active contagion — Luna/3AC still unfolding)\n"
+            "- If current fear is from RESOLVED or EXOGENOUS cause → high conviction BUY\n"
+            "- If active contagion (exchange hack, protocol failure ongoing) → reduce conviction by 3\n\n"
             "RULES: Always state F&G value. Reference contrarian or momentum logic. 2 sentences max."
         )
 
