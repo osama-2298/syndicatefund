@@ -39,8 +39,8 @@ USER_AGENT = "Hivemind/1.0 (crypto research bot)"
 
 # Keywords for sentiment classification
 BULLISH_WORDS = frozenset({
-    "bull", "bullish", "moon", "pump", "rally", "breakout", "ath", "all time high",
-    "buy", "buying", "accumulate", "long", "surge", "soar", "explode", "rocket",
+    "bull", "bullish", "moon", "pump", "rally", "breakout", "ath",
+    "buy", "buying", "accumulate", "long", "surge", "soar", "rocket",
     "adoption", "institutional", "etf", "approval", "green", "profit", "gains",
     "higher", "recovery", "support", "bottom", "undervalued", "cheap",
     "upgrade", "partnership", "launch", "mainnet", "halving",
@@ -48,10 +48,31 @@ BULLISH_WORDS = frozenset({
 
 BEARISH_WORDS = frozenset({
     "bear", "bearish", "crash", "dump", "sell", "selling", "short", "plunge",
-    "collapse", "fear", "panic", "bubble", "scam", "fraud", "hack", "rug",
-    "down", "lower", "resistance", "top", "capitulation", "liquidation",
-    "recession", "ban", "regulation", "sec", "lawsuit", "overvalued",
+    "collapse", "panic", "bubble", "scam", "fraud", "hack", "rug",
+    "lower", "resistance", "capitulation", "liquidation",
+    "recession", "ban", "lawsuit", "overvalued",
     "bankrupt", "insolvent", "exploit", "vulnerability",
+})
+
+# Multi-word phrases (higher weight than single words)
+BULLISH_PHRASES = [
+    "to the moon", "all time high", "new ath", "breaking out",
+    "institutional adoption", "etf approved", "etf approval",
+    "fear overblown", "crash overblown", "buying the dip", "buy the dip",
+    "accumulation phase", "golden cross", "bottom is in",
+]
+
+BEARISH_PHRASES = [
+    "going to crash", "about to dump", "death cross", "rug pull",
+    "ponzi scheme", "bubble burst", "market crash", "bear market",
+    "sell everything", "exit scam", "going to zero",
+]
+
+# Negation words that flip sentiment within a 3-word window
+NEGATION_WORDS = frozenset({
+    "not", "no", "won't", "wont", "don't", "dont", "isn't", "isnt",
+    "never", "neither", "overblown", "exaggerated", "unlikely",
+    "doubt", "debunked", "despite", "survived", "wrong",
 })
 
 # Coin mentions — maps keywords to symbols
@@ -108,12 +129,43 @@ def _fetch_subreddit(subreddit: str, limit: int = 10) -> list[dict]:
 
 
 def _classify_post(title: str, selftext: str = "") -> tuple[bool, bool, list[str]]:
-    """Classify a post as bullish/bearish and extract coin mentions."""
+    """Classify a post as bullish/bearish using context-aware matching with negation handling."""
     text = (title + " " + selftext).lower()
+    words = text.split()
 
-    is_bullish = any(word in text for word in BULLISH_WORDS)
-    is_bearish = any(word in text for word in BEARISH_WORDS)
+    # Phase 1: Phrase matching (higher priority, weighted 2x)
+    bull_phrase_count = sum(1 for p in BULLISH_PHRASES if p in text)
+    bear_phrase_count = sum(1 for p in BEARISH_PHRASES if p in text)
 
+    # Phase 2: Word-level matching with negation window
+    bull_word_count = 0
+    bear_word_count = 0
+    for i, word in enumerate(words):
+        # Check if any of the previous 3 words is a negation
+        # Check negation in a 4-word window BEFORE and AFTER the keyword
+        before = words[max(0, i - 4):i]
+        after = words[i + 1:min(len(words), i + 4)]
+        negated = any(w in NEGATION_WORDS for w in before) or any(w in NEGATION_WORDS for w in after)
+
+        if word in BULLISH_WORDS:
+            if negated:
+                bear_word_count += 1  # "not bullish" → bearish
+            else:
+                bull_word_count += 1
+        elif word in BEARISH_WORDS:
+            if negated:
+                bull_word_count += 1  # "no crash" → bullish
+            else:
+                bear_word_count += 1
+
+    # Combine: phrases weighted 2x
+    total_bull = bull_word_count + bull_phrase_count * 2
+    total_bear = bear_word_count + bear_phrase_count * 2
+
+    is_bullish = total_bull > total_bear and total_bull > 0
+    is_bearish = total_bear > total_bull and total_bear > 0
+
+    # Coin mentions
     mentions = set()
     for keyword, symbol in COIN_MENTIONS.items():
         if keyword in text:

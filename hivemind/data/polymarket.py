@@ -86,11 +86,16 @@ class PolymarketClient:
         except Exception as e:
             logger.warning("polymarket_economy_failed", error=str(e))
 
-        # Extract highest-signal markets across all categories
+        # Deduplicate: keep highest-volume contract per event (prevents double-counting)
         all_markets = result["crypto"] + result["fed"] + result["economy"]
-        # Sort by volume (most liquid = most reliable)
-        all_markets.sort(key=lambda x: x.get("volume", 0), reverse=True)
-        result["highlights"] = all_markets[:10]
+        seen_events: dict[str, dict] = {}
+        for m in all_markets:
+            event_key = m.get("event_title", m.get("question", ""))
+            if event_key not in seen_events or m.get("volume", 0) > seen_events[event_key].get("volume", 0):
+                seen_events[event_key] = m
+        deduped = list(seen_events.values())
+        deduped.sort(key=lambda x: x.get("volume", 0), reverse=True)
+        result["highlights"] = deduped[:10]
 
         return result
 

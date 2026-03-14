@@ -89,9 +89,8 @@ class WhaleTracker:
 
     def get_exchange_flows(self) -> dict:
         """
-        Check all known exchange wallets and compute aggregate flow signals.
-        Inflows to exchanges = selling pressure.
-        Outflows from exchanges = accumulation.
+        Check exchange wallets and compare against PREVIOUS cycle to detect flow direction.
+        Stores history in a JSON file for cycle-to-cycle comparison.
         """
         balances: dict[str, float] = {}
         total_exchange_btc = 0.0
@@ -104,15 +103,66 @@ class WhaleTracker:
             except Exception as e:
                 logger.warning("whale_balance_failed", wallet=name, error=str(e))
 
-        # Assessment
-        # Note: without historical baseline, we can only report current state
-        # In production, we'd compare against previous cycle's reading
+        total_exchange_btc = round(total_exchange_btc, 2)
+
+        # Load previous readings and compute delta
+        history = self._load_history()
+        previous_total = history[-1]["total"] if history else None
+        delta_btc = round(total_exchange_btc - previous_total, 2) if previous_total is not None else None
+
+        # Determine flow direction
+        if delta_btc is None:
+            flow_direction = "FIRST_READING"
+            assessment = f"First reading: {total_exchange_btc:,.0f} BTC on exchanges. No prior cycle to compare."
+        elif delta_btc < -100:
+            flow_direction = "OUTFLOW"
+            assessment = f"Exchange reserves DOWN {abs(delta_btc):,.0f} BTC from last cycle = ACCUMULATION (bullish signal)"
+        elif delta_btc > 100:
+            flow_direction = "INFLOW"
+            assessment = f"Exchange reserves UP {delta_btc:,.0f} BTC from last cycle = DISTRIBUTION (bearish signal)"
+        else:
+            flow_direction = "STABLE"
+            assessment = f"Exchange reserves roughly stable ({delta_btc:+,.0f} BTC). No significant flow detected."
+
+        # Save current reading to history
+        from datetime import datetime, timezone
+        history.append({
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "total": total_exchange_btc,
+            "balances": balances,
+        })
+        # Keep last 50 readings
+        if len(history) > 50:
+            history = history[-50:]
+        self._save_history(history)
+
         return {
             "exchange_balances": balances,
-            "total_exchange_btc": round(total_exchange_btc, 2),
+            "total_exchange_btc": total_exchange_btc,
+            "previous_total_btc": previous_total,
+            "delta_btc": delta_btc,
+            "flow_direction": flow_direction,
             "num_wallets_tracked": len(balances),
-            "assessment": (
-                "Exchange reserves tracked. Compare against previous cycles "
-                "to determine if BTC is flowing in (selling pressure) or out (accumulation)."
-            ),
+            "cycles_tracked": len(history),
+            "assessment": assessment,
         }
+
+    def _load_history(self) -> list[dict]:
+        """Load whale balance history from JSON file."""
+        import json
+        from pathlib import Path
+        path = Path("data/whale_history.json")
+        if not path.exists():
+            return []
+        try:
+            return json.loads(path.read_text())
+        except Exception:
+            return []
+
+    def _save_history(self, history: list[dict]) -> None:
+        """Save whale balance history to JSON file."""
+        import json
+        from pathlib import Path
+        path = Path("data/whale_history.json")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(history, indent=2, default=str))

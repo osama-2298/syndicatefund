@@ -52,12 +52,15 @@ def get_btc_onchain_stats() -> dict:
     miners_revenue = data.get("miners_revenue_usd", 0)
     total_fees = data.get("total_fees_btc", 0) / 1e8 if data.get("total_fees_btc") else 0
 
-    # Hash rate health assessment
-    if hash_rate > 500_000_000_000_000:  # 500 EH/s
+    # Hash rate: blockchain.info returns GH/s. Convert to EH/s: 1 EH/s = 1e9 GH/s
+    hash_rate_eh = hash_rate / 1e9
+
+    # Hash rate health assessment (in EH/s)
+    if hash_rate_eh > 700:
         hash_health = "ALL_TIME_HIGH — Network security at peak"
-    elif hash_rate > 300_000_000_000_000:
+    elif hash_rate_eh > 400:
         hash_health = "STRONG — Very healthy network"
-    elif hash_rate > 100_000_000_000_000:
+    elif hash_rate_eh > 200:
         hash_health = "MODERATE — Normal levels"
     else:
         hash_health = "LOW — Potential concern"
@@ -85,7 +88,7 @@ def get_btc_onchain_stats() -> dict:
 
     return {
         "hash_rate": hash_rate,
-        "hash_rate_eh": round(hash_rate / 1e18, 2),
+        "hash_rate_eh": round(hash_rate_eh, 2),
         "hash_health": hash_health,
         "difficulty": difficulty,
         "n_transactions_24h": n_tx,

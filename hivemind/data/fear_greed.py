@@ -53,6 +53,15 @@ def get_fear_greed(days: int = 7) -> dict:
 
     current = history[0]
 
+    # Calculate staleness
+    from datetime import datetime, timezone
+    current_ts = int(current.get("timestamp", 0))
+    if current_ts > 0:
+        update_time = datetime.fromtimestamp(current_ts, tz=timezone.utc)
+        hours_since = (datetime.now(timezone.utc) - update_time).total_seconds() / 3600
+    else:
+        hours_since = None
+
     # Calculate trend from history
     if len(history) >= 3:
         recent_avg = sum(h["value"] for h in history[:3]) / 3
@@ -72,4 +81,6 @@ def get_fear_greed(days: int = 7) -> dict:
         "current_label": current["label"],
         "history": history,
         "trend": trend,
+        "hours_since_update": round(hours_since, 1) if hours_since is not None else None,
+        "is_stale": hours_since > 24 if hours_since is not None else True,
     }

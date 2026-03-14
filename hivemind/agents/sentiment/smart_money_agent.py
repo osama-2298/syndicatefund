@@ -32,10 +32,27 @@ class SmartMoneySentimentAgent(BaseAgent):
         prompt = f"Read smart money positioning for {self.profile.symbol}.\n\n"
 
         if smart_money:
+            # Funding rate
             prompt += f"Funding: {smart_money.get('funding_sentiment', 'N/A')} ({smart_money.get('funding_rate_pct', 0):+.4f}%)\n"
-            prompt += f"Divergence: {smart_money.get('divergence', 'ALIGNED')}\n"
+
+            # Top trader positioning
+            if "top_trader_ratio" in smart_money:
+                prompt += f"Top Traders: {smart_money['top_trader_long_pct']:.0f}% long (ratio {smart_money['top_trader_ratio']:.3f}) — {smart_money.get('top_trader_signal', '')}\n"
+
+            # Taker flow
+            if "taker_buy_sell_ratio" in smart_money:
+                prompt += f"Taker Flow: {smart_money['taker_buy_sell_ratio']:.3f} — {smart_money.get('taker_signal', '')}\n"
+
+            # Divergence (only meaningful at extremes now)
+            divergence = smart_money.get("divergence")
+            if divergence and divergence not in ("ALIGNED", None):
+                mag = smart_money.get("divergence_magnitude", 0)
+                prompt += f"Smart Money Divergence: {divergence} (magnitude: {mag:.3f})\n"
+            elif divergence == "ALIGNED":
+                prompt += f"Smart Money vs Retail: ALIGNED (no divergence)\n"
         else:
-            prompt += "No derivatives data available. Pick based on general market sentiment.\n"
+            base = self.profile.symbol.replace("USDT", "")
+            prompt += f"No derivatives data for {base} (no Binance futures). Give conviction 1-2.\n"
 
         prompt += "\nPredict smart money direction."
         return prompt

@@ -21,6 +21,23 @@ logger = structlog.get_logger()
 
 FUTURES_BASE = "https://fapi.binance.com"
 
+# Symbols confirmed to have Binance USDM perpetual futures
+FUTURES_SYMBOLS: frozenset = frozenset({
+    "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT",
+    "DOGEUSDT", "ADAUSDT", "AVAXUSDT", "DOTUSDT", "LINKUSDT",
+    "MATICUSDT", "UNIUSDT", "ATOMUSDT", "NEARUSDT", "APTUSDT",
+    "SUIUSDT", "OPUSDT", "ARBUSDT", "SEIUSDT", "FETUSDT",
+    "RENDERUSDT", "FILUSDT", "AAVEUSDT", "MKRUSDT", "INJUSDT",
+    "TIAUSDT", "TAOUSDT", "PEPEUSDT", "SHIBUSDT", "BONKUSDT",
+    "WIFUSDT", "FLOKIUSDT", "PENDLEUSDT", "STXUSDT", "ARUSDT",
+    "HBARUSDT", "GRTUSDT", "ALGOUSDT", "XLMUSDT", "LTCUSDT",
+})
+
+
+def has_futures(symbol: str) -> bool:
+    """Check if a symbol has Binance USDM perpetual futures."""
+    return symbol in FUTURES_SYMBOLS
+
 
 class DerivativesClient:
     """Binance Futures public data — derivatives sentiment and positioning."""
@@ -251,16 +268,29 @@ class DerivativesClient:
             result["global_ls"] = None
 
         # Smart money divergence: when top traders and retail disagree
+        # Thresholds tightened: only flag at EXTREME divergence, not normal variation
         top_ls = result.get("top_trader_ls")
         global_ls = result.get("global_ls")
         if top_ls and global_ls:
             top_ratio = top_ls.get("ratio", 1.0)
             global_ratio = global_ls.get("ratio", 1.0)
-            if top_ratio > 1.2 and global_ratio < 0.8:
+            divergence_magnitude = round(abs(top_ratio - global_ratio), 3)
+            result["divergence_magnitude"] = divergence_magnitude
+
+            # EXTREME divergence only (old thresholds 1.2/0.8 fired 70% of the time)
+            if top_ratio > 1.8 and global_ratio < 0.6:
                 result["smart_money_divergence"] = "WHALES_LONG_RETAIL_SHORT — Potential squeeze up"
-            elif top_ratio < 0.8 and global_ratio > 1.2:
+            elif top_ratio < 0.6 and global_ratio > 1.8:
                 result["smart_money_divergence"] = "WHALES_SHORT_RETAIL_LONG — Potential dump"
+            # MILD divergence (informational, not actionable)
+            elif top_ratio > 1.4 and global_ratio < 0.7:
+                result["smart_money_divergence"] = "MILD_DIVERGENCE_BULLISH"
+            elif top_ratio < 0.7 and global_ratio > 1.4:
+                result["smart_money_divergence"] = "MILD_DIVERGENCE_BEARISH"
             else:
                 result["smart_money_divergence"] = "ALIGNED"
+        else:
+            result["smart_money_divergence"] = None
+            result["divergence_magnitude"] = 0
 
         return result

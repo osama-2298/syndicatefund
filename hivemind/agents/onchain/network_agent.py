@@ -30,18 +30,34 @@ class NetworkHealthAgent(BaseAgent):
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:
         btc_onchain = market_data.get("btc_onchain", {})
         chain_tvl = market_data.get("chain_tvl")
+        has_chain = market_data.get("has_chain_data", False)
+        base = self.profile.symbol.replace("USDT", "")
 
         prompt = f"Assess network health for {self.profile.symbol}.\n\n"
+
         if btc_onchain:
-            prompt += f"BTC Hash Rate: {btc_onchain.get('hash_rate_eh', 0)} EH/s — {btc_onchain.get('hash_health', 'N/A')}\n"
+            if base == "BTC":
+                prompt += "=== BTC NETWORK (direct on-chain data) ===\n"
+            else:
+                prompt += "=== BTC NETWORK (market proxy, not specific to this coin) ===\n"
+            prompt += f"Hash Rate: {btc_onchain.get('hash_rate_eh', 0)} EH/s — {btc_onchain.get('hash_health', 'N/A')}\n"
             prompt += f"Transactions 24h: {btc_onchain.get('n_transactions_24h', 0):,}\n"
             prompt += f"Block Time: {btc_onchain.get('minutes_between_blocks', 0):.1f}m — {btc_onchain.get('block_time_read', '')}\n"
-            prompt += f"Mempool: {btc_onchain.get('mempool_count', '?')} — {btc_onchain.get('mempool_read', '')}\n"
-        if chain_tvl:
-            prompt += f"\nChain TVL: ${chain_tvl.get('tvl', 0):,.0f}\n"
-            prompt += f"TVL Rank: #{chain_tvl.get('tvl_rank', 'N/A')}\n"
-            prompt += f"Tier: {chain_tvl.get('tvl_tier', 'N/A') if 'tvl_tier' in (chain_tvl or {}) else 'N/A'}\n"
-        if not btc_onchain and not chain_tvl:
-            prompt += "No on-chain data available. Pick based on general DeFi health with low conviction.\n"
+            mempool = btc_onchain.get('mempool_count')
+            if mempool is not None:
+                prompt += f"Mempool: {mempool:,} — {btc_onchain.get('mempool_read', '')}\n"
+
+        if has_chain and chain_tvl:
+            prompt += f"\n=== {base} CHAIN TVL ===\n"
+            prompt += f"TVL: ${chain_tvl.get('tvl', 0):,.0f}\n"
+            prompt += f"Rank: #{chain_tvl.get('tvl_rank', 'N/A')}\n"
+        elif not has_chain:
+            prompt += f"\n** NO CHAIN TVL DATA for {base}. **\n"
+            prompt += "This coin does not have a DeFi chain tracked by DeFiLlama.\n"
+            prompt += "Give LOW conviction (1-2). Do not invent chain metrics.\n"
+
+        if not btc_onchain and not has_chain:
+            prompt += "No on-chain data available. Give conviction 0 (genuinely no edge).\n"
+
         prompt += "\nPredict network health direction."
         return prompt

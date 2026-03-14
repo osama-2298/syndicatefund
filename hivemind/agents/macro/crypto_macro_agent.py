@@ -42,5 +42,19 @@ class CryptoMacroAgent(BaseAgent):
         prompt += f"Market Direction: {scores['market_direction']}\n"
         if "macro_30d_read" in scores:
             prompt += f"30d Macro: {scores['macro_30d_read']}\n"
+
+        # CoinPaprika cross-validation
+        paprika_global = market_data.get("paprika_global")
+        if paprika_global:
+            vol_change = paprika_global.get("volume_change_24h", 0)
+            mcap_ath = paprika_global.get("market_cap_ath", 0)
+            if vol_change:
+                prompt += f"\nVolume Change 24h (CoinPaprika): {vol_change:+.1f}%\n"
+            if mcap_ath:
+                current_mcap = scores.get("total_market_cap_usd", 0)
+                if current_mcap and mcap_ath:
+                    pct_from_ath = ((current_mcap - mcap_ath) / mcap_ath) * 100
+                    prompt += f"Market Cap vs ATH: {pct_from_ath:+.1f}%\n"
+
         prompt += "\nPredict crypto macro direction."
         return prompt

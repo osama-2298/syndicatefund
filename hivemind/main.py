@@ -523,7 +523,9 @@ def run_pipeline(
         data_layer.close()
         data_elapsed = time.monotonic() - t0
 
-        # Copy the intelligence we already gathered into the snapshot
+        # CRITICAL: Set intel on snapshot BEFORE agent analysis begins.
+        # Agents read from snapshot via for_sentiment(), for_macro(), etc.
+        # This MUST happen after fetch_all() and BEFORE _analyze_coin().
         snapshot.fear_greed = intel.get("fear_greed")
         snapshot.reddit_sentiment = intel.get("reddit_sentiment")
         snapshot.global_market = intel.get("global_market", {})

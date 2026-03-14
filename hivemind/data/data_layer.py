@@ -128,17 +128,26 @@ class MarketSnapshot:
         coin = self.coins.get(symbol)
         if coin is None:
             return {}
-        # Extract smart money divergence if available
+        # Build comprehensive smart money data packet
         smart_money = None
         if coin.derivatives:
-            smart_money = coin.derivatives.get("smart_money_divergence")
+            smart_money = {
+                "divergence": coin.derivatives.get("smart_money_divergence"),
+                "divergence_magnitude": coin.derivatives.get("divergence_magnitude", 0),
+            }
             funding = coin.derivatives.get("funding")
             if funding:
-                smart_money = {
-                    "divergence": coin.derivatives.get("smart_money_divergence", "ALIGNED"),
-                    "funding_sentiment": funding.get("sentiment", "UNKNOWN"),
-                    "funding_rate_pct": funding.get("current_rate_pct", 0),
-                }
+                smart_money["funding_sentiment"] = funding.get("sentiment", "UNKNOWN")
+                smart_money["funding_rate_pct"] = funding.get("current_rate_pct", 0)
+            top_ls = coin.derivatives.get("top_trader_ls")
+            if top_ls:
+                smart_money["top_trader_ratio"] = top_ls.get("ratio", 1.0)
+                smart_money["top_trader_long_pct"] = top_ls.get("long_pct", 50)
+                smart_money["top_trader_signal"] = top_ls.get("signal", "UNKNOWN")
+            taker = coin.derivatives.get("taker_volume")
+            if taker:
+                smart_money["taker_buy_sell_ratio"] = taker.get("buy_sell_ratio", 1.0)
+                smart_money["taker_signal"] = taker.get("signal", "UNKNOWN")
         return {
             "fear_greed": self.fear_greed,
             "reddit_sentiment": self.reddit_sentiment,
@@ -189,6 +198,7 @@ class MarketSnapshot:
         return {
             "btc_onchain": self.btc_onchain,
             "chain_tvl": coin.chain_tvl,
+            "has_chain_data": coin.chain_tvl is not None,
             "defi_summary": self.defi_summary,
             "top_protocols": self.top_protocols,
             "whale_flows": self.whale_flows,
@@ -257,7 +267,7 @@ class DataLayer:
                 except Exception:
                     pass
                 try:
-                    c1h = client.get_klines(symbol=symbol, interval="1h", limit=100)
+                    c1h = client.get_klines(symbol=symbol, interval="1h", limit=200)  # 200 for SMA200
                     coin.indicators_1h = compute_indicators(c1h, symbol)
                 except Exception:
                     pass
@@ -268,7 +278,7 @@ class DataLayer:
                 except Exception:
                     pass
                 try:
-                    c1w = client.get_klines(symbol=symbol, interval="1w", limit=100)
+                    c1w = client.get_klines(symbol=symbol, interval="1w", limit=200)  # 200 for SMA200 (~4 years)
                     coin.indicators_1w = compute_indicators(c1w, symbol)
                 except Exception:
                     pass
@@ -297,16 +307,16 @@ class DataLayer:
         def _enrich_coingecko():
             gecko = CoinGeckoClient()
             try:
-                for sym in symbols:
-                    try:
-                        data = gecko.get_coin(sym)
-                        if data and sym in snapshot.coins:
-                            snapshot.coins[sym].coingecko = data
-                            if sym == "BTCUSDT":
-                                changes = data.get("price_changes", {})
-                                snapshot.btc_change_30d = changes.get("30d")
-                    except Exception:
-                        pass
+                # Batch endpoint: ONE call for all coins (replaces N individual calls)
+                batch = gecko.get_coins_batch(symbols)
+                for sym, data in batch.items():
+                    if sym in snapshot.coins:
+                        snapshot.coins[sym].coingecko = data
+                        if sym == "BTCUSDT":
+                            changes = data.get("price_changes", {})
+                            snapshot.btc_change_30d = changes.get("30d")
+            except Exception as e:
+                snapshot.errors.append(f"CoinGecko batch: {str(e)[:60]}")
             finally:
                 gecko.close()
 
@@ -332,14 +342,16 @@ class DataLayer:
                 llama.close()
 
         def _enrich_derivatives():
+            from hivemind.data.derivatives import has_futures
             deriv = DerivativesClient()
             try:
                 for sym in symbols:
-                    try:
-                        if sym in snapshot.coins:
+                    if sym in snapshot.coins and has_futures(sym):
+                        try:
                             snapshot.coins[sym].derivatives = deriv.get_full_derivatives_snapshot(sym)
-                    except Exception:
-                        pass
+                        except Exception:
+                            pass
+                    # Coins without futures: derivatives stays None (set in CoinData.__init__)
             finally:
                 deriv.close()
 
