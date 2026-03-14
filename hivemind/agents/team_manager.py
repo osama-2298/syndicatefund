@@ -43,12 +43,13 @@ TEAM_SIGNAL_TOOL = {
             },
             "conviction": {
                 "type": "integer",
-                "minimum": 1,
+                "minimum": 0,
                 "maximum": 10,
                 "description": (
                     "Team conviction. Amplify when agents agree (8-10 if all aligned). "
                     "Reduce when they disagree (1-3 if conflicting). "
-                    "5-7 if mostly aligned with minor dissent."
+                    "5-7 if mostly aligned with minor dissent. "
+                    "0 ONLY if all agents show conviction 0 — genuinely no edge. Extremely rare."
                 ),
             },
             "agreement_level": {
@@ -137,11 +138,13 @@ class BaseTeamManager(BaseLLMCaller, ABC):
             return self._deterministic_fallback(agent_signals, symbol)
 
         direction = raw.get("direction", "BULLISH")
-        conviction = max(1, min(10, int(raw.get("conviction", 5))))
+        conviction = max(0, min(10, int(raw.get("conviction", 5))))
         confidence = conviction / 10.0
 
         # Map conviction to action (same as base agent)
-        if conviction < CONVICTION_TRADE_THRESHOLD:
+        if conviction == 0:
+            action = SignalAction.HOLD
+        elif conviction < CONVICTION_TRADE_THRESHOLD:
             action = SignalAction.HOLD
         elif direction == "BULLISH":
             action = SignalAction.BUY

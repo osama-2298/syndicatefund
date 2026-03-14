@@ -50,10 +50,12 @@ SIGNAL_TOOL = {
             },
             "conviction": {
                 "type": "integer",
-                "minimum": 1,
+                "minimum": 0,
                 "maximum": 10,
                 "description": (
-                    "How strongly you believe in your direction, from 1 to 10. "
+                    "How strongly you believe in your direction, from 0 to 10. "
+                    "0: GENUINELY NO EDGE — the data is truly directionless. Use LESS THAN 10% of the time. "
+                    "This is NOT for uncertainty — if you lean even slightly, pick that direction with 1-2. "
                     "1-2: barely leaning, essentially a coin flip. "
                     "3-4: slight edge, some supporting evidence. "
                     "5-6: clear edge, multiple signals aligned. "
@@ -212,14 +214,17 @@ class BaseAgent(BaseLLMCaller, ABC):
 
         direction = raw.get("direction", "BULLISH")
         conviction = int(raw.get("conviction", 1))
-        conviction = max(1, min(10, conviction))
+        conviction = max(0, min(10, conviction))
         reasoning = raw.get("reasoning", "")
 
         # Map conviction to confidence (0.0 to 1.0)
         confidence = conviction / 10.0
 
         # Map direction + conviction to action
-        if conviction < CONVICTION_TRADE_THRESHOLD:
+        if conviction == 0:
+            # Agent explicitly says "genuinely no edge" — strongest no-trade signal
+            action = SignalAction.HOLD
+        elif conviction < CONVICTION_TRADE_THRESHOLD:
             # System decides: not enough conviction to trade
             action = SignalAction.HOLD
         elif direction == "BULLISH":
