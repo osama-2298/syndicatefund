@@ -22,7 +22,6 @@ EXCHANGE_WALLETS: dict[str, str] = {
     "Binance Hot": "34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo",
     "Binance Cold": "3LYJfcfHPXYJreMsASk2jkn69LWEYKzexb",
     "Bitfinex": "3D2oetdNuZUqQHPJmcMDDHYoqkyNVsFk9r",
-    "Kraken": "3AfAJRiVqEiLnQ8FodJg37WiNJkFuGEjMZ",
 }
 
 # Satoshi in a BTC
