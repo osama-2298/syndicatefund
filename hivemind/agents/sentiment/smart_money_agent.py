@@ -14,17 +14,23 @@ class SmartMoneySentimentAgent(BaseAgent):
     @property
     def system_prompt(self) -> str:
         return (
-            "You read SMART MONEY positioning: funding rates, top trader long/short ratios, "
-            "taker buy/sell flow, and whale vs retail divergence.\n\n"
-            "Your job: predict whether INSTITUTIONAL/WHALE behavior favors HIGHER or LOWER prices.\n"
-            "You MUST pick BULLISH or BEARISH.\n\n"
-            "WHAT YOU LOOK FOR:\n"
-            "- Funding rate: positive = longs crowded (contrarian bearish), negative = shorts crowded (contrarian bullish)\n"
-            "- Top trader L/S ratio: whales long = bullish, whales short = bearish\n"
-            "- Taker buy/sell: aggressive buyers > sellers = bullish\n"
-            "- Smart money divergence: when whales and retail disagree, follow the whales\n\n"
-            "CONVICTION: 9-10 extreme divergence. 7-8 clear positioning. 3-4 neutral. 1-2 no data.\n"
-            "RULES: Smart money is the MOST reliable sentiment signal. Reference specific ratios. 2 sentences."
+            "You read SMART MONEY: funding rates, top trader L/S ratios, taker flow, divergence.\n"
+            "You MUST pick BULLISH or BEARISH. Conviction 0 if no derivatives data.\n\n"
+            "QUANTITATIVE DECISION RULES:\n"
+            "- Funding < -0.03% (shorts paying longs) → BULLISH conviction 7-8 (short squeeze setup)\n"
+            "- Funding < -0.01% → BULLISH conviction 5-6\n"
+            "- Funding -0.01% to +0.01% → neutral, use top trader ratio to decide, conviction 3-4\n"
+            "- Funding > +0.01% → BEARISH conviction 5-6\n"
+            "- Funding > +0.05% (longs crowded) → BEARISH conviction 7-8 (liquidation risk)\n\n"
+            "TOP TRADER MODIFIERS:\n"
+            "- Top traders > 60% long AND taker ratio > 1.1 → add +1 conviction BULLISH\n"
+            "- Top traders > 60% short AND taker ratio < 0.9 → add +1 conviction BEARISH\n\n"
+            "DIVERGENCE (if present):\n"
+            "- WHALES_LONG_RETAIL_SHORT → BULLISH conviction 8+ (follow whales)\n"
+            "- WHALES_SHORT_RETAIL_LONG → BEARISH conviction 8+ (follow whales)\n"
+            "- MILD divergence → note it but don't override funding signal\n\n"
+            "NO DATA: If no derivatives data shown, give conviction 0. Do NOT guess.\n"
+            "RULES: State funding rate and top trader %. 2 sentences max."
         )
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:

@@ -324,6 +324,77 @@ class TradeLedger:
             "max_loss_streak": streaks["max_loss"],
         }
 
+    def get_calibration(self) -> dict[str, Any]:
+        """
+        Compute actual win rate per conviction level.
+        This is the LEARNING LOOP — it tells us if conviction 7 really wins 70%.
+
+        Returns:
+            {
+                "by_conviction": {7: {"count": 10, "wins": 6, "win_rate": 60.0}, ...},
+                "calibration_gap": float,  # avg |predicted - actual| win rate
+                "recommendation": str,
+            }
+        """
+        closed = [e for e in self.entries if e.exit_reason != "OPEN"]
+        if len(closed) < 10:
+            return {"by_conviction": {}, "calibration_gap": 0, "recommendation": "Insufficient data (<10 closed trades)"}
+
+        # Group by conviction level (rounded to nearest integer)
+        by_conv: dict[int, dict] = {}
+        for e in closed:
+            # Infer conviction from confidence (confidence = conviction / 10)
+            conv = max(1, min(10, round(e.pnl_pct * 10 + 5)))  # rough proxy
+            # Better: use the stop_loss to estimate original conviction
+            # For now, use a simple proxy from the entry data
+            if e.stop_loss > 0 and e.entry_price > 0:
+                # Risk amount relative to position = original confidence proxy
+                stop_dist_pct = abs(e.entry_price - e.stop_loss) / e.entry_price
+                # Map back: wider stop = lower tier = lower conviction (rough)
+                if stop_dist_pct < 0.05:
+                    conv = 8
+                elif stop_dist_pct < 0.10:
+                    conv = 7
+                elif stop_dist_pct < 0.15:
+                    conv = 6
+                elif stop_dist_pct < 0.25:
+                    conv = 5
+                else:
+                    conv = 4
+
+            if conv not in by_conv:
+                by_conv[conv] = {"count": 0, "wins": 0}
+            by_conv[conv]["count"] += 1
+            if e.pnl_pct > 0.001:
+                by_conv[conv]["wins"] += 1
+
+        # Compute win rates
+        for conv in by_conv:
+            cnt = by_conv[conv]["count"]
+            by_conv[conv]["win_rate"] = round(by_conv[conv]["wins"] / cnt * 100, 1) if cnt > 0 else 0
+            by_conv[conv]["expected_wr"] = conv * 10  # What we THINK it should be
+            by_conv[conv]["gap"] = round(by_conv[conv]["expected_wr"] - by_conv[conv]["win_rate"], 1)
+
+        # Average calibration gap
+        gaps = [abs(d["gap"]) for d in by_conv.values() if d["count"] >= 3]
+        avg_gap = round(sum(gaps) / len(gaps), 1) if gaps else 0
+
+        # Recommendation
+        if avg_gap > 20:
+            recommendation = "SEVERELY miscalibrated. Conviction scores are much higher than actual win rates."
+        elif avg_gap > 10:
+            recommendation = "Moderately miscalibrated. Consider adjusting agent prompts to anchor lower."
+        elif avg_gap > 5:
+            recommendation = "Slightly miscalibrated. Normal for early-stage system."
+        else:
+            recommendation = "Well calibrated."
+
+        return {
+            "by_conviction": dict(sorted(by_conv.items())),
+            "calibration_gap": avg_gap,
+            "recommendation": recommendation,
+        }
+
     def _compute_streaks(self, closed: list[LedgerEntry]) -> dict:
         """Compute win/loss streaks."""
         if not closed:

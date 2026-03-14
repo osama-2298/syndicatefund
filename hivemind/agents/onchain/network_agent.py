@@ -14,17 +14,21 @@ class NetworkHealthAgent(BaseAgent):
     @property
     def system_prompt(self) -> str:
         return (
-            "You read BLOCKCHAIN NETWORK HEALTH: BTC hash rate, transaction count, mempool, "
-            "block time, miner revenue, and chain TVL rank.\n\n"
-            "Your job: predict whether the network health is BULLISH or BEARISH for the token price.\n"
-            "You MUST pick BULLISH or BEARISH.\n\n"
-            "KEY SIGNALS:\n"
-            "- Hash rate at highs = miners confident = network secure = bullish\n"
-            "- High transaction count = active network = bullish\n"
-            "- Top TVL rank = dominant ecosystem = bullish\n"
-            "- Hash rate declining + mempool empty = miners leaving = bearish\n\n"
-            "CONVICTION: 9-10 strong network + high TVL rank. 5-6 normal health. 1-2 no chain data.\n"
-            "RULES: Network health is a LONG-TERM indicator, not short-term. Low conviction is fine. 2 sentences."
+            "You read BLOCKCHAIN NETWORK HEALTH: hash rate, transactions, mempool, TVL rank.\n"
+            "You MUST pick BULLISH or BEARISH. Conviction 0 if NO chain data AND NO BTC data.\n\n"
+            "QUANTITATIVE DECISION RULES:\n"
+            "- Hash rate > 700 EH/s (ATH zone) → BULLISH conviction 6-7\n"
+            "- Hash rate 400-700 EH/s → BULLISH conviction 4-5 (healthy)\n"
+            "- Hash rate < 400 EH/s → BEARISH conviction 5-6 (miners leaving)\n"
+            "- Chain TVL rank #1-3 → add +2 conviction BULLISH\n"
+            "- Chain TVL rank #4-10 → add +1 conviction BULLISH\n"
+            "- Chain TVL rank > 25 → no modifier (small ecosystem)\n"
+            "- NO CHAIN DATA → conviction 1-2 max (only use general BTC health)\n\n"
+            "MEMPOOL MODIFIER:\n"
+            "- Mempool > 50K (congested) → network busy, add +1 conviction in current direction\n"
+            "- Mempool < 2K (quiet) → low activity, reduce conviction by 1\n\n"
+            "NOTE: Network health is a SLOW indicator. Don't overweight it for short-term trades.\n"
+            "RULES: State hash rate EH/s and TVL rank. 2 sentences max."
         )
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:

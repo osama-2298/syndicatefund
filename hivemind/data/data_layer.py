@@ -86,6 +86,7 @@ class MarketSnapshot:
 
     def __init__(self) -> None:
         self.coins: dict[str, CoinData] = {}
+        self.created_at: float = time.monotonic()  # Snapshot creation time
 
         # Global data by source
         self.fear_greed: dict | None = None

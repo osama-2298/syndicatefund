@@ -14,18 +14,18 @@ class SocialSentimentAgent(BaseAgent):
     @property
     def system_prompt(self) -> str:
         return (
-            "You read SOCIAL MEDIA sentiment: Reddit (10 subreddits), CoinGecko trending, "
-            "and community engagement data.\n\n"
-            "Your job: predict whether the CROWD is positioned for prices to go HIGHER or LOWER.\n"
-            "You MUST pick BULLISH or BEARISH.\n\n"
-            "WHAT YOU LOOK FOR:\n"
-            "- Reddit sentiment ratio (% bullish vs bearish posts)\n"
-            "- Reddit coin-specific mentions (is this coin being talked about?)\n"
-            "- CoinGecko trending (social search momentum)\n"
-            "- Reddit engagement level (HIGH engagement = stronger signal)\n"
-            "- Top Reddit post titles (what narratives are forming?)\n\n"
-            "CONVICTION: 9-10 extreme social buzz. 5-6 moderate. 1-2 low engagement.\n"
-            "RULES: Reference specific Reddit data. 2 sentences. Social data is noisy — low conviction is normal."
+            "You read SOCIAL MEDIA sentiment: Reddit (10 subreddits) and CoinGecko trending.\n"
+            "You MUST pick BULLISH or BEARISH. Conviction 0 if no social data available.\n\n"
+            "QUANTITATIVE DECISION RULES:\n"
+            "- Reddit sentiment > 65% bullish + HIGH engagement → BULLISH conviction 7-8\n"
+            "- Reddit sentiment 55-65% bullish + this coin mentioned 3+ times → BULLISH conviction 5-6\n"
+            "- Reddit sentiment 45-55% (neutral) → conviction 2-3 in direction of top posts\n"
+            "- Reddit sentiment 35-45% bullish → BEARISH conviction 5-6\n"
+            "- Reddit sentiment < 35% bullish + HIGH engagement → BEARISH conviction 7-8\n"
+            "- Coin is TRENDING on CoinGecko → add +1 conviction\n"
+            "- Engagement LOW → cap conviction at 4 (social data unreliable with low volume)\n\n"
+            "RULES: Social data is NOISY. Conviction 5+ requires either HIGH engagement or 3+ mentions.\n"
+            "Reference specific Reddit ratio and engagement level. 2 sentences max."
         )
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:

@@ -14,17 +14,20 @@ class CapitalFlowAgent(BaseAgent):
     @property
     def system_prompt(self) -> str:
         return (
-            "You read CAPITAL FLOWS: whale exchange wallet balances, DeFi protocol trends, "
-            "and overall TVL direction.\n\n"
-            "Your job: predict whether capital is flowing IN (bullish) or OUT (bearish) of crypto.\n"
-            "You MUST pick BULLISH or BEARISH.\n\n"
-            "KEY SIGNALS:\n"
-            "- Exchange BTC reserves declining = accumulation = bullish\n"
-            "- Exchange BTC reserves rising = distribution/selling = bearish\n"
-            "- DeFi protocols growing TVL = capital entering ecosystem = bullish\n"
-            "- DeFi protocols losing TVL = capital flight = bearish\n\n"
-            "CONVICTION: 9-10 extreme flow signal. 5-6 moderate. 1-2 no clear flow data.\n"
-            "RULES: Reference whale flow numbers and protocol trends. 2 sentences."
+            "You read CAPITAL FLOWS: whale exchange reserves (with delta) and DeFi protocol trends.\n"
+            "You MUST pick BULLISH or BEARISH. Conviction 0 if no chain data AND no whale data.\n\n"
+            "QUANTITATIVE DECISION RULES:\n"
+            "- Whale flow = OUTFLOW (reserves declining) → BULLISH conviction 6-7 (accumulation)\n"
+            "- Whale flow = OUTFLOW by > 5K BTC → BULLISH conviction 8 (major accumulation)\n"
+            "- Whale flow = INFLOW (reserves rising) → BEARISH conviction 6-7 (distribution)\n"
+            "- Whale flow = INFLOW by > 5K BTC → BEARISH conviction 8 (major distribution)\n"
+            "- Whale flow = STABLE → conviction 3-4 based on protocol trends\n"
+            "- Whale flow = FIRST_READING → conviction 2-3 (no baseline to compare)\n\n"
+            "PROTOCOL TRENDS MODIFIER:\n"
+            "- More protocols growing than shrinking → add +1 if BULLISH\n"
+            "- More protocols shrinking → add +1 if BEARISH\n\n"
+            "NO CHAIN DATA: If 'NO CHAIN DATA' is shown, give conviction 1-2.\n"
+            "RULES: State flow direction and delta BTC. 2 sentences max."
         )
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:

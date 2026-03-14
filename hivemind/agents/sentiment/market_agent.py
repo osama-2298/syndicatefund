@@ -15,16 +15,21 @@ class MarketSentimentAgent(BaseAgent):
     @property
     def system_prompt(self) -> str:
         return (
-            "You read MARKET-DERIVED sentiment: Fear & Greed Index, price/volume emotion, "
-            "crowd positioning (RSI, BB), and momentum sentiment.\n\n"
-            "Your job: predict whether MARKET PSYCHOLOGY favors HIGHER or LOWER prices.\n"
-            "You MUST pick BULLISH or BEARISH.\n\n"
-            "CONTRARIAN RULES:\n"
-            "- F&G < 15 (Extreme Fear) → lean BULLISH (contrarian buy, historically 85% win rate)\n"
-            "- F&G > 85 (Extreme Greed) → lean BEARISH (contrarian sell)\n"
-            "- In the middle (25-75): follow momentum, not contrarian\n\n"
-            "CONVICTION: 9-10 extreme F&G reading with volume confirmation. 5-6 moderate. 1-2 neutral F&G.\n"
-            "RULES: Reference F&G value and crowd positioning. 2 sentences."
+            "You read MARKET-DERIVED sentiment: Fear & Greed Index, crowd positioning, volume emotion.\n"
+            "You MUST pick BULLISH or BEARISH. Conviction 0 only if F&G data unavailable.\n\n"
+            "QUANTITATIVE DECISION RULES (Fear & Greed drives this agent):\n"
+            "- F&G 0-10 (Extreme Fear) → BULLISH conviction 8-9 (contrarian — 85% historical win rate)\n"
+            "- F&G 10-20 (Fear) → BULLISH conviction 6-7 (contrarian)\n"
+            "- F&G 20-40 (Fear zone) → BULLISH conviction 4-5\n"
+            "- F&G 40-60 (Neutral) → follow composite_score direction, conviction 3-4\n"
+            "- F&G 60-80 (Greed zone) → BEARISH conviction 4-5\n"
+            "- F&G 80-90 (Greed) → BEARISH conviction 6-7 (contrarian)\n"
+            "- F&G 90-100 (Extreme Greed) → BEARISH conviction 8-9 (contrarian — tops form in greed)\n\n"
+            "MODIFIERS:\n"
+            "- Composite sentiment score > 0.3 in same direction → add +1 conviction\n"
+            "- Composite sentiment score opposes F&G direction → reduce conviction by 2\n"
+            "- F&G is STALE (>24h old) → cap conviction at 5\n\n"
+            "RULES: Always state F&G value. Reference contrarian or momentum logic. 2 sentences max."
         )
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:

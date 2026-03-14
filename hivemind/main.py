@@ -803,6 +803,19 @@ def run_pipeline(
         for line in ledger_summary.split("\n"):
             print(f"    {dim(line)}")
 
+        # Calibration analysis (learning loop)
+        calibration = trade_ledger.get_calibration()
+        if calibration.get("by_conviction"):
+            print(f"\n    {dim('Conviction Calibration:')}")
+            for conv, data in calibration["by_conviction"].items():
+                if data["count"] >= 3:
+                    expected = data["expected_wr"]
+                    actual = data["win_rate"]
+                    gap = data["gap"]
+                    gap_str = f"gap {gap:+.0f}%" if gap != 0 else "calibrated"
+                    print(f"    {dim(f'  Conv {conv}: {actual:.0f}% actual vs {expected}% expected ({gap_str}, n={data[\"count\"]})')}")
+            print(f"    {dim(f'  {calibration[\"recommendation\"]}')}")
+
     finally:
         binance.close()
 

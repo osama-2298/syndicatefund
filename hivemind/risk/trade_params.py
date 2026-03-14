@@ -33,21 +33,21 @@ TIER_CONFIG = {
     "btc": {
         "stop_atr_mult": 2.0,
         "trail_atr_mult": 2.5,
-        "tp1_r_mult": 1.5,
-        "tp2_r_mult": 2.5,
-        "risk_per_trade": 0.015,  # 1.5% of portfolio
+        "tp1_r_mult": 2.0,  # BTC trends run longer — wider TP1
+        "tp2_r_mult": 4.0,  # Let BTC winners run
+        "risk_per_trade": 0.015,
         "max_position_pct": 0.20,
-        "max_holding_hours": 360,  # 15 days
-        "fallback_stop_pct": 0.065,  # 6.5%
+        "max_holding_hours": 360,
+        "fallback_stop_pct": 0.065,
     },
     "top5": {
         "stop_atr_mult": 2.5,
         "trail_atr_mult": 3.0,
         "tp1_r_mult": 1.5,
-        "tp2_r_mult": 2.5,
+        "tp2_r_mult": 3.0,  # ETH/SOL can run — wider TP2
         "risk_per_trade": 0.012,
         "max_position_pct": 0.12,
-        "max_holding_hours": 240,  # 10 days
+        "max_holding_hours": 240,
         "fallback_stop_pct": 0.10,
     },
     "large_cap": {
@@ -57,7 +57,7 @@ TIER_CONFIG = {
         "tp2_r_mult": 2.5,
         "risk_per_trade": 0.01,
         "max_position_pct": 0.08,
-        "max_holding_hours": 168,  # 7 days
+        "max_holding_hours": 168,
         "fallback_stop_pct": 0.12,
     },
     "mid_cap": {
@@ -67,17 +67,17 @@ TIER_CONFIG = {
         "tp2_r_mult": 3.0,
         "risk_per_trade": 0.0075,
         "max_position_pct": 0.05,
-        "max_holding_hours": 120,  # 5 days
+        "max_holding_hours": 120,
         "fallback_stop_pct": 0.20,
     },
     "meme": {
         "stop_atr_mult": 4.5,
         "trail_atr_mult": 5.0,
-        "tp1_r_mult": 2.0,
-        "tp2_r_mult": 4.0,
-        "risk_per_trade": 0.0025,  # 0.25% — tiny risk per meme trade
+        "tp1_r_mult": 1.0,  # Memes spike fast — take profit quickly at 1R
+        "tp2_r_mult": 2.0,  # Don't expect 4R from a meme
+        "risk_per_trade": 0.0025,
         "max_position_pct": 0.02,
-        "max_holding_hours": 48,  # 2 days
+        "max_holding_hours": 48,
         "fallback_stop_pct": 0.35,
     },
 }
@@ -126,21 +126,34 @@ def compute_trade_params(
     tier = classify_tier(symbol)
     config = TIER_CONFIG[tier]
 
-    # Regime adjustments
+    # Regime adjustments — tier-aware
+    # BTC trends run in bull, memes spike and die fast in all regimes
     regime_stop_adj = 1.0
     regime_tp_adj = 1.0
     regime_time_adj = 1.0
     if regime == MarketRegime.BULL:
-        regime_stop_adj = 0.85   # Tighter stops in bull (cleaner trends)
-        regime_tp_adj = 1.25     # Wider targets (let winners run)
-        regime_time_adj = 1.25   # Longer holds
+        regime_stop_adj = 0.85
+        # Bull: let BTC/top5 run further, memes still spike fast
+        if tier in ("btc", "top5"):
+            regime_tp_adj = 1.4   # BTC/ETH trends extend in bull
+        elif tier == "meme":
+            regime_tp_adj = 1.1   # Memes don't trend — barely adjust
+        else:
+            regime_tp_adj = 1.25
+        regime_time_adj = 1.25
     elif regime == MarketRegime.BEAR:
-        regime_stop_adj = 1.20   # Wider stops in bear (more volatile)
-        regime_tp_adj = 0.75     # Tighter targets (take profits fast)
-        regime_time_adj = 0.75   # Shorter holds
+        regime_stop_adj = 1.20
+        # Bear: take profits fast everywhere, especially on shorts
+        if tier in ("btc", "top5"):
+            regime_tp_adj = 0.8   # BTC doesn't crash as hard
+        elif tier == "meme":
+            regime_tp_adj = 0.6   # Memes collapse — take what you can
+        else:
+            regime_tp_adj = 0.75
+        regime_time_adj = 0.75
     elif regime == MarketRegime.CRISIS:
         regime_stop_adj = 1.30
-        regime_tp_adj = 0.60
+        regime_tp_adj = 0.6       # Crisis: grab profits fast
         regime_time_adj = 0.50
 
     # Calculate stop distance

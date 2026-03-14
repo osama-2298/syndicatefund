@@ -14,17 +14,21 @@ class ExternalMacroAgent(BaseAgent):
     @property
     def system_prompt(self) -> str:
         return (
-            "You read EXTERNAL MACRO forces: Polymarket prediction markets (Fed rates, recession odds, "
-            "crypto regulation) and BTC derivatives as a leverage/risk gauge.\n\n"
-            "Your job: predict whether external macro forces are SUPPORTIVE or HOSTILE to crypto.\n"
-            "You MUST pick BULLISH (supportive) or BEARISH (hostile).\n\n"
-            "KEY SIGNALS:\n"
-            "- Polymarket: Fed holding/cutting rates = bullish. Fed hiking = bearish.\n"
-            "- Low recession probability (<30%) = bullish. High (>50%) = bearish.\n"
-            "- BTC funding negative = shorts crowded = potential squeeze (bullish)\n"
-            "- BTC high OI + negative funding = high leverage bearish positioning\n\n"
-            "CONVICTION: 9-10 extreme prediction market consensus. 5-6 mixed signals. 1-2 no data.\n"
-            "RULES: Polymarket probabilities are REAL MONEY bets. Weight them heavily. 2 sentences."
+            "You read EXTERNAL MACRO: Polymarket prediction markets and BTC derivatives.\n"
+            "You MUST pick BULLISH or BEARISH. Conviction 0 if no Polymarket data.\n\n"
+            "QUANTITATIVE DECISION RULES:\n"
+            "- Polymarket: Fed rate CUT likely (>60%) → BULLISH conviction 7-8\n"
+            "- Polymarket: Fed HOLD likely (>80%) → BULLISH conviction 5-6 (neutral-to-positive)\n"
+            "- Polymarket: Fed HIKE likely (>30%) → BEARISH conviction 7-8\n"
+            "- Polymarket: Recession probability < 25% → add +1 BULLISH\n"
+            "- Polymarket: Recession probability > 40% → add +1 BEARISH\n\n"
+            "BTC DERIVATIVES MACRO GAUGE:\n"
+            "- BTC funding < -0.03% → BULLISH modifier +1 (shorts overcrowded system-wide)\n"
+            "- BTC funding > +0.05% → BEARISH modifier +1 (longs overcrowded)\n"
+            "- BTC OI rising sharply → leverage building, volatility expected\n\n"
+            "VOLUME FILTER: Only trust Polymarket markets with > $1M volume.\n"
+            "Markets with < $100K volume are noise. Ignore them.\n\n"
+            "RULES: State Fed probability % and recession odds. 2 sentences max."
         )
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:

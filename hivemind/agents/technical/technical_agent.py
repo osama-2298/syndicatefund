@@ -132,18 +132,30 @@ def compute_technical_scores(indicators: TechnicalIndicators, stats_24h: dict) -
         scores["volume_ratio"] = round(vr, 2)
         change_24h = float(stats_24h.get("price_change_pct", 0))
 
-        # Volume confirms direction
+        # Absolute volume discount: high ratio on thin volume is less reliable
+        quote_volume = float(stats_24h.get("quote_volume", 0))
+        if quote_volume < 5_000_000:  # < $5M daily
+            vol_reliability = 0.3  # Very thin — discount volume signal heavily
+            scores["volume_liquidity"] = "VERY_THIN"
+        elif quote_volume < 50_000_000:  # < $50M daily
+            vol_reliability = 0.7  # Moderate
+            scores["volume_liquidity"] = "MODERATE"
+        else:  # $50M+ daily
+            vol_reliability = 1.0  # Liquid — volume signal is reliable
+            scores["volume_liquidity"] = "LIQUID"
+
+        # Volume confirms direction (weighted by reliability)
         if vr > 1.5 and change_24h > 0:
-            volume_signals.append(1)  # High volume up = strong bullish
+            volume_signals.append(1 * vol_reliability)
             scores["volume_confirmation"] = "STRONG_BULLISH"
         elif vr > 1.5 and change_24h < 0:
-            volume_signals.append(-1)  # High volume down = strong bearish
+            volume_signals.append(-1 * vol_reliability)
             scores["volume_confirmation"] = "STRONG_BEARISH"
         elif vr < 0.7 and change_24h > 0:
-            volume_signals.append(-0.3)  # Low volume up = weak, bearish divergence
+            volume_signals.append(-0.3 * vol_reliability)
             scores["volume_confirmation"] = "WEAK_BULLISH_DIVERGENCE"
         elif vr < 0.7 and change_24h < 0:
-            volume_signals.append(0.3)  # Low volume down = selling exhaustion
+            volume_signals.append(0.3 * vol_reliability)
             scores["volume_confirmation"] = "SELLING_EXHAUSTION"
         else:
             scores["volume_confirmation"] = "NEUTRAL"

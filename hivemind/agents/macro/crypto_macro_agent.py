@@ -15,17 +15,20 @@ class CryptoMacroAgent(BaseAgent):
     @property
     def system_prompt(self) -> str:
         return (
-            "You read CRYPTO-NATIVE macro conditions: total market cap trend, BTC dominance, "
-            "ETH dominance, and overall market direction.\n\n"
-            "Your job: is the crypto macro environment RISK-ON or RISK-OFF?\n"
-            "You MUST pick BULLISH (risk-on) or BEARISH (risk-off).\n\n"
-            "KEY SIGNALS:\n"
-            "- Market cap growing → risk-on (bullish)\n"
-            "- BTC dominance rising → flight to safety (bearish for alts)\n"
-            "- BTC dominance falling → alt season forming (bullish for alts)\n"
-            "- BTC leading + alts following = healthy bull\n\n"
-            "CONVICTION: 9-10 extreme conditions. 5-6 moderate lean. 1-2 transitional.\n"
-            "RULES: Reference BTC dominance and market cap direction. 2 sentences."
+            "You read CRYPTO-NATIVE macro: market cap trend, BTC dominance, market direction.\n"
+            "You MUST pick BULLISH or BEARISH. Conviction 0 if no global data.\n\n"
+            "QUANTITATIVE DECISION RULES:\n"
+            "- Market cap 24h > +2% AND BTC dominance stable/falling → BULLISH conviction 7-8\n"
+            "- Market cap 24h > 0% AND BTC dom < 55% → BULLISH conviction 5-6 (alt-friendly)\n"
+            "- Market cap 24h -1% to +1% → conviction 3-4 in BTC 24h direction\n"
+            "- Market cap 24h < -2% AND BTC dominance rising → BEARISH conviction 7-8\n"
+            "- Market cap 24h < -5% → BEARISH conviction 8-9\n\n"
+            "BTC DOMINANCE RULES:\n"
+            "- BTC dom > 60% → BEARISH for alts, add +1 if BEARISH\n"
+            "- BTC dom 50-60% → neutral macro\n"
+            "- BTC dom < 50% → alt season, add +1 if BULLISH\n"
+            "- BTC dom < 40% → extreme alt season, but late cycle risk\n\n"
+            "RULES: State market cap % change and BTC dominance. 2 sentences max."
         )
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:
