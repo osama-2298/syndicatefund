@@ -551,8 +551,25 @@ def run_pipeline(
         # ═══════════════════════════════════════
         # STEP 6: Aggregate per coin
         # ═══════════════════════════════════════
-        aggregator = SignalAggregator(team_weight_overrides=team_weights.weights)
+        aggregator = SignalAggregator(
+            team_weight_overrides=team_weights.weights,
+            regime=directive.regime.value,
+        )
         aggregated = aggregator.aggregate(all_coin_signals, all_agent_profiles)
+
+        # Display aggregation alerts
+        for agg in aggregated:
+            alerts = agg.weighted_scores.get("_alerts", [])
+            quality = agg.weighted_scores.get("_decision_quality", "")
+            if alerts:
+                base = agg.symbol.replace("USDT", "")
+                for alert_str in alerts:
+                    if "[HIGH]" in alert_str:
+                        print(f"    {c('!', C.B_RED)} {base}: {dim(alert_str)}")
+                    elif "[MEDIUM]" in alert_str:
+                        print(f"    {c('~', C.B_YELLOW)} {base}: {dim(alert_str)}")
+                    elif "[INFO]" in alert_str and "UNANIMOUS" in alert_str:
+                        print(f"    {c('*', C.B_GREEN)} {base}: {dim(alert_str)}")
 
         # ═══════════════════════════════════════
         # STEP 7: Risk Manager (enforces CRO rules)

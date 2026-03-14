@@ -218,7 +218,7 @@ class AggregatedSignal(BaseModel):
     aggregated_confidence: float = Field(ge=0.0, le=1.0)
     contributing_signals: list[Signal]
     consensus_ratio: float  # what % of signals agree with the recommended action
-    weighted_scores: dict[str, float]  # action -> weighted score
+    weighted_scores: dict[str, Any]  # action -> score, plus enriched metadata (_decision_quality, _alerts, etc.)
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     def __str__(self) -> str:
