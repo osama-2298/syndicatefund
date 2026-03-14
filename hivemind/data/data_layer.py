@@ -238,153 +238,150 @@ class DataLayer:
         """
         snapshot = MarketSnapshot()
 
-        # ── 1. Binance: multi-timeframe candles + indicators per coin ──
-        t0 = time.monotonic()
-        for symbol in symbols:
+        # ── 1. Binance: multi-timeframe candles + indicators per coin (PARALLEL) ──
+        from concurrent.futures import ThreadPoolExecutor
+
+        def _fetch_coin_data(symbol: str) -> tuple[str, CoinData]:
+            """Fetch all timeframe data for one coin. Thread-safe — uses its own BinanceClient."""
+            client = BinanceClient()
             coin = CoinData(symbol)
             try:
-                # 24h stats (always needed)
-                coin.stats_24h = self.binance.get_24h_stats(symbol=symbol)
+                coin.stats_24h = client.get_24h_stats(symbol=symbol)
                 coin.current_price = float(coin.stats_24h["close"])
 
-                # Primary timeframe: 4H (200 candles = ~33 days)
-                candles_4h = self.binance.get_klines(symbol=symbol, interval="4h", limit=200)
-                coin.indicators_4h = compute_indicators(candles_4h, symbol)
-                coin.price_history_4h = format_price_history(candles_4h, last_n=20)
-
-                # Entry timeframe: 1H (100 candles = ~4 days)
+                # Fetch 4 timeframes (each independent)
                 try:
-                    candles_1h = self.binance.get_klines(symbol=symbol, interval="1h", limit=100)
-                    coin.indicators_1h = compute_indicators(candles_1h, symbol)
+                    c4h = client.get_klines(symbol=symbol, interval="4h", limit=200)
+                    coin.indicators_4h = compute_indicators(c4h, symbol)
+                    coin.price_history_4h = format_price_history(c4h, last_n=20)
                 except Exception:
                     pass
-
-                # Trend timeframe: 1D (200 candles = ~200 days)
                 try:
-                    candles_1d = self.binance.get_klines(symbol=symbol, interval="1d", limit=200)
-                    coin.indicators_1d = compute_indicators(candles_1d, symbol)
-                    coin.price_history_1d = format_price_history(candles_1d, last_n=20)
+                    c1h = client.get_klines(symbol=symbol, interval="1h", limit=100)
+                    coin.indicators_1h = compute_indicators(c1h, symbol)
                 except Exception:
                     pass
-
-                # Macro timeframe: 1W (100 candles = ~2 years)
                 try:
-                    candles_1w = self.binance.get_klines(symbol=symbol, interval="1w", limit=100)
-                    coin.indicators_1w = compute_indicators(candles_1w, symbol)
+                    c1d = client.get_klines(symbol=symbol, interval="1d", limit=200)
+                    coin.indicators_1d = compute_indicators(c1d, symbol)
+                    coin.price_history_1d = format_price_history(c1d, last_n=20)
                 except Exception:
                     pass
-
-            except Exception as e:
-                snapshot.errors.append(f"Binance {symbol}: {str(e)[:60]}")
-
-            # Order book depth
-            try:
-                coin.order_book = self.binance.get_order_book(symbol=symbol, limit=20)
+                try:
+                    c1w = client.get_klines(symbol=symbol, interval="1w", limit=100)
+                    coin.indicators_1w = compute_indicators(c1w, symbol)
+                except Exception:
+                    pass
+                try:
+                    coin.order_book = client.get_order_book(symbol=symbol, limit=20)
+                except Exception:
+                    pass
             except Exception:
                 pass
+            finally:
+                client.close()
+            return symbol, coin
 
+        t0 = time.monotonic()
+        # Fetch all coins in parallel (each creates its own HTTP client)
+        with ThreadPoolExecutor(max_workers=min(len(symbols), 8)) as pool:
+            results = list(pool.map(lambda s: _fetch_coin_data(s), symbols))
+        for symbol, coin in results:
             snapshot.coins[symbol] = coin
         snapshot.fetch_times["binance"] = round(time.monotonic() - t0, 2)
 
-        # ── 2. CoinGecko per-coin enrichment ──
-        t0 = time.monotonic()
-        self._gecko = CoinGeckoClient()
-        try:
-            for symbol in symbols:
+        # ── 2-8. All enrichment sources IN PARALLEL ──
+        # These are all independent of each other. Run them concurrently.
+        t0_enrich = time.monotonic()
+
+        def _enrich_coingecko():
+            gecko = CoinGeckoClient()
+            try:
+                for sym in symbols:
+                    try:
+                        data = gecko.get_coin(sym)
+                        if data and sym in snapshot.coins:
+                            snapshot.coins[sym].coingecko = data
+                            if sym == "BTCUSDT":
+                                changes = data.get("price_changes", {})
+                                snapshot.btc_change_30d = changes.get("30d")
+                    except Exception:
+                        pass
+            finally:
+                gecko.close()
+
+        def _enrich_blockchain():
+            try:
+                snapshot.btc_onchain = get_btc_onchain_stats()
+            except Exception as e:
+                snapshot.errors.append(f"Blockchain.com: {str(e)[:60]}")
+
+        def _enrich_defillama():
+            llama = DeFiLlamaClient()
+            try:
+                if not snapshot.defi_summary:
+                    snapshot.defi_summary = llama.get_defi_summary()
+                snapshot.top_protocols = llama.get_top_protocols(limit=15)
+                for sym in symbols:
+                    tvl = llama.get_chain_tvl(sym)
+                    if tvl and sym in snapshot.coins:
+                        snapshot.coins[sym].chain_tvl = tvl
+            except Exception as e:
+                snapshot.errors.append(f"DeFiLlama: {str(e)[:60]}")
+            finally:
+                llama.close()
+
+        def _enrich_derivatives():
+            deriv = DerivativesClient()
+            try:
+                for sym in symbols:
+                    try:
+                        if sym in snapshot.coins:
+                            snapshot.coins[sym].derivatives = deriv.get_full_derivatives_snapshot(sym)
+                    except Exception:
+                        pass
+            finally:
+                deriv.close()
+
+        def _enrich_coinpaprika():
+            paprika = CoinPaprikaClient()
+            try:
+                snapshot.paprika_global = paprika.get_global()
+                for sym in symbols:
+                    try:
+                        ticker = paprika.get_ticker(sym)
+                        if ticker and sym in snapshot.coins:
+                            snapshot.coins[sym].paprika = ticker
+                    except Exception:
+                        pass
+            finally:
+                paprika.close()
+
+        def _enrich_whales():
+            wt = WhaleTracker()
+            try:
+                snapshot.whale_flows = wt.get_exchange_flows()
+            except Exception as e:
+                snapshot.errors.append(f"Whales: {str(e)[:60]}")
+            finally:
+                wt.close()
+
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            enrichment_futures = [
+                pool.submit(_enrich_coingecko),
+                pool.submit(_enrich_blockchain),
+                pool.submit(_enrich_defillama),
+                pool.submit(_enrich_derivatives),
+                pool.submit(_enrich_coinpaprika),
+                pool.submit(_enrich_whales),
+            ]
+            # Wait for all to complete
+            for fut in enrichment_futures:
                 try:
-                    coin_data = self._gecko.get_coin(symbol)
-                    if coin_data:
-                        snapshot.coins[symbol].coingecko = coin_data
-                        if symbol == "BTCUSDT":
-                            changes = coin_data.get("price_changes", {})
-                            snapshot.btc_change_30d = changes.get("30d")
-                except Exception:
-                    pass
-        except Exception as e:
-            snapshot.errors.append(f"CoinGecko: {str(e)[:60]}")
-        finally:
-            self._gecko.close()
-        snapshot.fetch_times["coingecko"] = round(time.monotonic() - t0, 2)
+                    fut.result()
+                except Exception as e:
+                    snapshot.errors.append(f"Enrichment: {str(e)[:60]}")
 
-        # ── 3. Blockchain.com: BTC on-chain stats ──
-        t0 = time.monotonic()
-        try:
-            snapshot.btc_onchain = get_btc_onchain_stats()
-        except Exception as e:
-            snapshot.errors.append(f"Blockchain.com: {str(e)[:60]}")
-        snapshot.fetch_times["blockchain"] = round(time.monotonic() - t0, 2)
-
-        # ── 4. DeFiLlama: per-chain TVL + protocol trends ──
-        t0 = time.monotonic()
-        self._llama = DeFiLlamaClient()
-        try:
-            if not snapshot.defi_summary:
-                snapshot.defi_summary = self._llama.get_defi_summary()
-            snapshot.top_protocols = self._llama.get_top_protocols(limit=15)
-
-            for symbol in symbols:
-                tvl_data = self._llama.get_chain_tvl(symbol)
-                if tvl_data:
-                    snapshot.coins[symbol].chain_tvl = tvl_data
-        except Exception as e:
-            snapshot.errors.append(f"DeFiLlama: {str(e)[:60]}")
-        finally:
-            self._llama.close()
-        snapshot.fetch_times["defillama"] = round(time.monotonic() - t0, 2)
-
-        # ── 5. Binance Futures: derivatives data (funding, OI, taker flow) ──
-        t0 = time.monotonic()
-        deriv = DerivativesClient()
-        try:
-            for symbol in symbols:
-                try:
-                    snapshot.coins[symbol].derivatives = deriv.get_full_derivatives_snapshot(symbol)
-                except Exception:
-                    pass  # Not all coins have futures
-        except Exception as e:
-            snapshot.errors.append(f"Derivatives: {str(e)[:60]}")
-        finally:
-            deriv.close()
-        snapshot.fetch_times["derivatives"] = round(time.monotonic() - t0, 2)
-
-        # ── 6. CoinPaprika: beta values, short-term changes, global macro ──
-        t0 = time.monotonic()
-        paprika = CoinPaprikaClient()
-        try:
-            snapshot.paprika_global = paprika.get_global()
-            for symbol in symbols:
-                try:
-                    ticker = paprika.get_ticker(symbol)
-                    if ticker:
-                        snapshot.coins[symbol].paprika = ticker
-                except Exception:
-                    pass
-        except Exception as e:
-            snapshot.errors.append(f"CoinPaprika: {str(e)[:60]}")
-        finally:
-            paprika.close()
-        snapshot.fetch_times["coinpaprika"] = round(time.monotonic() - t0, 2)
-
-        # ── 7. Polymarket: prediction market probabilities ──
-        t0 = time.monotonic()
-        poly = PolymarketClient()
-        try:
-            snapshot.prediction_markets = poly.get_all_relevant_markets()
-        except Exception as e:
-            snapshot.errors.append(f"Polymarket: {str(e)[:60]}")
-        finally:
-            poly.close()
-        snapshot.fetch_times["polymarket"] = round(time.monotonic() - t0, 2)
-
-        # ── 8. Whale tracking: exchange BTC flows ──
-        t0 = time.monotonic()
-        whales = WhaleTracker()
-        try:
-            snapshot.whale_flows = whales.get_exchange_flows()
-        except Exception as e:
-            snapshot.errors.append(f"Whales: {str(e)[:60]}")
-        finally:
-            whales.close()
-        snapshot.fetch_times["whales"] = round(time.monotonic() - t0, 2)
+        snapshot.fetch_times["enrichment"] = round(time.monotonic() - t0_enrich, 2)
 
         return snapshot

@@ -101,6 +101,20 @@ structlog.configure(
 logging.basicConfig(level=logging.WARNING)
 
 
+def _run_single_agent(agent_cls, team_type, symbol, data, api_key, provider):
+    """Run a single agent. Thread-safe — each call creates its own agent instance."""
+    profile = AgentProfile(
+        team=team_type, symbol=symbol,
+        model=settings.default_llm_model, provider=provider.value,
+    )
+    agent = agent_cls(profile=profile, api_key=api_key, provider=provider)
+    t0 = time.monotonic()
+    signal = agent.analyze(data)
+    elapsed = time.monotonic() - t0
+    agent_name = agent_cls.__name__.replace("Agent", "").replace("Technical", "")
+    return signal, agent_name, elapsed
+
+
 def _run_team(
     team_name: str,
     team_type: TeamType,
@@ -110,32 +124,37 @@ def _run_team(
     symbol: str,
     api_key: str,
     provider,
-) -> tuple[Signal, list[Signal]]:
+    executor,
+) -> tuple[Signal, list[str]]:
     """
-    Run all agents in a team, then synthesize through the manager.
-    Returns (manager_signal, raw_agent_signals).
+    Run all agents in a team IN PARALLEL, then synthesize through the manager.
+    Sub-agents are independent — they never see each other's output.
     """
-    agent_signals = []
+    from concurrent.futures import Future
 
+    # Launch all sub-agents in parallel
+    futures: list[Future] = []
     for agent_cls in agent_classes:
-        profile = AgentProfile(
-            team=team_type, symbol=symbol,
-            model=settings.default_llm_model, provider=provider.value,
+        fut = executor.submit(
+            _run_single_agent, agent_cls, team_type, symbol, data, api_key, provider,
         )
-        agent = agent_cls(profile=profile, api_key=api_key, provider=provider)
+        futures.append(fut)
 
-        t0 = time.monotonic()
-        signal = agent.analyze(data)
-        elapsed = time.monotonic() - t0
-
+    # Collect results (order preserved)
+    agent_signals = []
+    display_lines = []
+    for fut in futures:
+        signal, agent_name, elapsed = fut.result()
         direction = signal.metadata.get("direction", signal.action.value)
         conviction = signal.metadata.get("conviction", int(signal.confidence * 10))
-        agent_name = agent_cls.__name__.replace("Agent", "").replace("Technical", "")
-        print(f"      {dim(agent_name):<18} {direction} {conviction}/10  {dim(f'{elapsed:.1f}s')}")
-
+        display_lines.append(f"      {dim(agent_name):<18} {direction} {conviction}/10  {dim(f'{elapsed:.1f}s')}")
         agent_signals.append(signal)
 
-    # Manager synthesizes
+    # Display sub-agent results
+    for line in display_lines:
+        print(line)
+
+    # Manager synthesizes (sequential — needs all agent signals)
     manager = manager_cls(api_key=api_key, provider=provider, model=settings.default_llm_model)
     t0 = time.monotonic()
     team_signal = manager.synthesize(agent_signals, symbol)
@@ -143,21 +162,19 @@ def _run_team(
 
     # Convert TeamSignal to Signal for the aggregator
     final_signal = team_signal.to_signal()
-    final_signal.metadata["current_price"] = 0  # Will be set by caller
-    final_signal.metadata["atr_14"] = 0  # Will be set by caller
 
     # Display manager result
     from hivemind.display import action_badge, conf_bar, conf
     agree_str = f"{team_signal.agreement_level:.0%} agree"
     tf_str = f" [{team_signal.timeframe_alignment}]" if team_signal.timeframe_alignment and team_signal.timeframe_alignment != "N/A" else ""
-    print(
+    mgr_line = (
         f"    {c(team_name, C.B_WHITE)}  "
         f"{action_badge(final_signal.action.value)}  "
         f"{conf_bar(final_signal.confidence)} {conf(final_signal.confidence)}  "
         f"{dim(f'{agree_str}{tf_str}  {mgr_elapsed:.1f}s')}"
     )
 
-    return final_signal, agent_signals
+    return final_signal, [*display_lines, mgr_line]
 
 
 def _analyze_coin(
@@ -167,10 +184,16 @@ def _analyze_coin(
     provider,
 ) -> tuple[list[Signal], dict[str, AgentProfile], float]:
     """
-    Run all 5 agent teams for a single coin.
-    Each team has multiple sub-agents → manager → one TeamSignal.
+    Run all 5 agent teams for a single coin IN PARALLEL.
+    Within each team, sub-agents also run in parallel.
     Only manager signals go to the aggregator (5 signals, not 12).
+
+    Parallelization:
+      5 teams in parallel (each independent, different data slices)
+        └─ Within each: 2-3 sub-agents in parallel, then manager sequential
     """
+    from concurrent.futures import ThreadPoolExecutor, Future
+
     coin = snapshot.coins.get(symbol)
     if coin is None or coin.indicators is None:
         return [], {}, 0.0
@@ -186,7 +209,6 @@ def _analyze_coin(
         TeamType.ONCHAIN: snapshot.for_onchain(symbol),
     }
 
-    # Team configurations: (name, type, [sub-agents], manager_class)
     teams = [
         ("Technical", TeamType.TECHNICAL,
          [TechnicalTrendAgent, TechnicalSignalAgent, TechnicalTimingAgent],
@@ -205,30 +227,50 @@ def _analyze_coin(
          OnChainManager),
     ]
 
-    all_manager_signals = []
-    agent_profiles = {}
+    # Run all 5 teams in parallel
+    # Each team internally parallelizes its sub-agents
+    # Max workers: 5 teams × 3 agents = 15 concurrent LLM calls (safe for Anthropic rate limits)
+    with ThreadPoolExecutor(max_workers=15) as executor:
+        team_futures: list[tuple[str, TeamType, Future]] = []
 
-    for team_name, team_type, agent_classes, manager_cls in teams:
-        manager_signal, raw_signals = _run_team(
-            team_name, team_type, agent_classes, manager_cls,
-            team_data[team_type], symbol, api_key, provider,
-        )
+        for team_name, team_type, agent_classes, manager_cls in teams:
+            fut = executor.submit(
+                _run_team,
+                team_name, team_type, agent_classes, manager_cls,
+                team_data[team_type], symbol, api_key, provider,
+                executor,  # Share the executor for sub-agent parallelism
+            )
+            team_futures.append((team_name, team_type, fut))
 
-        # Set price metadata
-        manager_signal.metadata["current_price"] = coin.current_price
-        manager_signal.metadata["stats_24h"] = coin.stats_24h
-        if coin.indicators_4h and coin.indicators_4h.atr_14:
-            manager_signal.metadata["atr_14"] = coin.indicators_4h.atr_14
+        # Collect results and display in order
+        all_manager_signals = []
+        agent_profiles = {}
 
-        all_manager_signals.append(manager_signal)
+        for team_name, team_type, fut in team_futures:
+            try:
+                manager_signal, display_lines = fut.result()
 
-        # Create a manager profile for the aggregator
-        mgr_profile = AgentProfile(
-            agent_id=f"manager_{team_type.value}",
-            team=team_type, symbol=symbol,
-            model=settings.default_llm_model, provider=provider.value,
-        )
-        agent_profiles[mgr_profile.agent_id] = mgr_profile
+                # Display (buffered per team for clean output)
+                for line in display_lines:
+                    print(line)
+
+                # Set price metadata
+                manager_signal.metadata["current_price"] = coin.current_price
+                manager_signal.metadata["stats_24h"] = coin.stats_24h
+                if coin.indicators_4h and coin.indicators_4h.atr_14:
+                    manager_signal.metadata["atr_14"] = coin.indicators_4h.atr_14
+
+                all_manager_signals.append(manager_signal)
+
+                mgr_profile = AgentProfile(
+                    agent_id=f"manager_{team_type.value}",
+                    team=team_type, symbol=symbol,
+                    model=settings.default_llm_model, provider=provider.value,
+                )
+                agent_profiles[mgr_profile.agent_id] = mgr_profile
+
+            except Exception as e:
+                logger.error("team_failed", team=team_name, symbol=symbol, error=str(e))
 
     return all_manager_signals, agent_profiles, coin.current_price
 
@@ -290,65 +332,95 @@ def run_pipeline(
                 n = len(trade_monitor.open_trades)
                 print(f"    {dim(f'{n} open positions — no exits triggered')}")
         # ═══════════════════════════════════════
-        # STEP 1: Intelligence Gathering
+        # STEP 1: Intelligence Gathering (ALL SOURCES IN PARALLEL)
         # ═══════════════════════════════════════
         section("Intelligence Gathering")
 
+        from concurrent.futures import ThreadPoolExecutor
         from hivemind.data.fear_greed import get_fear_greed
         from hivemind.data.reddit import get_crypto_reddit_sentiment
         from hivemind.data.coingecko import CoinGeckoClient
         from hivemind.data.defi_llama import DeFiLlamaClient
+        from hivemind.data.polymarket import PolymarketClient
 
-        # Fetch BTC data (needed by CEO)
-        btc_candles = binance.get_klines(symbol="BTCUSDT", interval=interval, limit=candle_count)
+        # BTC data for CEO (quick, 2 calls)
+        btc_candles = binance.get_klines(symbol="BTCUSDT", interval="4h", limit=200)
         btc_stats = binance.get_24h_stats(symbol="BTCUSDT")
         btc_indicators = compute_indicators(btc_candles, "BTCUSDT")
 
         intel: dict = {}
         t0 = time.monotonic()
 
-        try:
-            intel["fear_greed"] = get_fear_greed(days=7)
+        # Define all intelligence fetchers
+        def _fetch_fg():
+            return "fear_greed", get_fear_greed(days=7)
+
+        def _fetch_reddit():
+            return "reddit_sentiment", get_crypto_reddit_sentiment(limit_per_sub=10)
+
+        def _fetch_coingecko():
+            g = CoinGeckoClient()
+            try:
+                gm = g.get_global()
+                trending = g.get_trending()
+                return "coingecko", {"global_market": gm, "trending": trending}
+            finally:
+                g.close()
+
+        def _fetch_defillama():
+            ll = DeFiLlamaClient()
+            try:
+                return "defi_summary", ll.get_defi_summary()
+            finally:
+                ll.close()
+
+        def _fetch_polymarket():
+            p = PolymarketClient()
+            try:
+                return "prediction_markets", p.get_all_relevant_markets()
+            finally:
+                p.close()
+
+        # Run ALL intelligence sources in parallel
+        with ThreadPoolExecutor(max_workers=5) as intel_executor:
+            futures = [
+                intel_executor.submit(_fetch_fg),
+                intel_executor.submit(_fetch_reddit),
+                intel_executor.submit(_fetch_coingecko),
+                intel_executor.submit(_fetch_defillama),
+                intel_executor.submit(_fetch_polymarket),
+            ]
+
+            for fut in futures:
+                try:
+                    key, data = fut.result()
+                    if key == "coingecko":
+                        intel["global_market"] = data["global_market"]
+                        intel["trending"] = data["trending"]
+                    else:
+                        intel[key] = data
+                except Exception as e:
+                    logger.warning("intel_fetch_failed", error=str(e))
+
+        # Display results
+        if intel.get("fear_greed"):
             fg = intel["fear_greed"]
             print(f"    {dim('Fear & Greed')}     {fg['current_value']}/100 ({fg['current_label']}) trend: {fg.get('trend', '?')}")
-        except Exception as e:
-            print(f"    {dim('Fear & Greed')}     {dim(f'unavailable: {str(e)[:40]}')}")
-
-        try:
-            intel["reddit_sentiment"] = get_crypto_reddit_sentiment(limit_per_sub=10)
+        if intel.get("reddit_sentiment"):
             rs = intel["reddit_sentiment"]
             ratio_pct = round(rs.get("sentiment_ratio", 0.5) * 100)
             print(f"    {dim('Reddit')}          {rs['total_posts']} posts · {ratio_pct}% bullish · {rs['engagement_level']} engagement")
-        except Exception as e:
-            print(f"    {dim('Reddit')}          {dim(f'unavailable: {str(e)[:40]}')}")
-
-        gecko = CoinGeckoClient()
-        try:
-            gm = gecko.get_global()
-            intel["global_market"] = gm
+        if intel.get("global_market"):
+            gm = intel["global_market"]
             print(f"    {dim('CoinGecko')}       BTC dom {gm.get('btc_dominance', 0):.1f}% · market {gm.get('market_cap_change_24h_pct', 0):+.1f}% 24h")
-
-            trending = gecko.get_trending()
-            intel["trending"] = trending
-            names = [t["symbol"] for t in trending[:5]]
+        if intel.get("trending"):
+            names = [t["symbol"] for t in intel["trending"][:5]]
             print(f"    {dim('Trending')}        {', '.join(names)}")
-        except Exception as e:
-            print(f"    {dim('CoinGecko')}       {dim(f'unavailable: {str(e)[:40]}')}")
-
-        llama = DeFiLlamaClient()
-        try:
-            ds = llama.get_defi_summary()
-            intel["defi_summary"] = ds
+        if intel.get("defi_summary"):
+            ds = intel["defi_summary"]
             print(f"    {dim('DeFiLlama')}      TVL ${ds.get('total_tvl', 0):,.0f} · {ds.get('num_chains', 0)} chains")
-        except Exception as e:
-            print(f"    {dim('DeFiLlama')}      {dim(f'unavailable: {str(e)[:40]}')}")
-
-        # Polymarket prediction markets
-        from hivemind.data.polymarket import PolymarketClient
-        poly = PolymarketClient()
-        try:
-            pred = poly.get_all_relevant_markets()
-            intel["prediction_markets"] = pred
+        if intel.get("prediction_markets"):
+            pred = intel["prediction_markets"]
             highlights = pred.get("highlights", [])
             if highlights:
                 top = highlights[0]
@@ -357,13 +429,9 @@ def run_pipeline(
                 prob_str = " / ".join(f"{k}:{v:.0f}%" for k, v in list(probs.items())[:2])
                 n_markets = len(pred.get("crypto", [])) + len(pred.get("fed", [])) + len(pred.get("economy", []))
                 print(f"    {dim('Polymarket')}     {n_markets} markets · top: {q} ({prob_str})")
-        except Exception as e:
-            print(f"    {dim('Polymarket')}     {dim(f'unavailable: {str(e)[:40]}')}")
-        finally:
-            poly.close()
 
         intel_elapsed = time.monotonic() - t0
-        print(f"    {dim(f'Intelligence gathered in {intel_elapsed:.1f}s')}")
+        print(f"    {dim(f'All sources fetched in parallel · {intel_elapsed:.1f}s')}")
 
         # ═══════════════════════════════════════
         # STEP 2: CEO — Strategic Directive
