@@ -50,5 +50,6 @@ data/performance_history.json
 data/team_weights.json
 
 # Generated files
-*.png
 generate_architecture.py
+# Allow architecture diagram in docs/
+!docs/architecture.png

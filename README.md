@@ -4,6 +4,8 @@ A multi-agent AI system that analyzes the entire crypto market and executes trad
 
 ## Architecture
 
+![Hivemind Architecture](docs/architecture.png)
+
 ```
 CEO (Pre-Cycle) → Intelligence Gathering → COO (Coin Selection) → CRO (Risk Rules)
                                                     ↓
