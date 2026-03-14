@@ -813,8 +813,10 @@ def run_pipeline(
                     actual = data["win_rate"]
                     gap = data["gap"]
                     gap_str = f"gap {gap:+.0f}%" if gap != 0 else "calibrated"
-                    print(f"    {dim(f'  Conv {conv}: {actual:.0f}% actual vs {expected}% expected ({gap_str}, n={data[\"count\"]})')}")
-            print(f"    {dim(f'  {calibration[\"recommendation\"]}')}")
+                    cnt = data["count"]
+                    print(f"    {dim(f'  Conv {conv}: {actual:.0f}% actual vs {expected}% expected ({gap_str}, n={cnt})')}")
+            rec = calibration["recommendation"]
+            print(f"    {dim(f'  {rec}')}")
 
     finally:
         binance.close()
