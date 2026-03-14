@@ -1,4 +1,4 @@
-"""Market Sentiment Agent — reads Fear & Greed, volume emotion, crowd positioning."""
+"""Market Sentiment Agent — Fear & Greed + crowd positioning. REAL ANALYST with historical data."""
 
 from __future__ import annotations
 from typing import Any
@@ -15,29 +15,19 @@ class MarketSentimentAgent(BaseAgent):
     @property
     def system_prompt(self) -> str:
         return (
-            "You read MARKET-DERIVED sentiment: Fear & Greed Index, crowd positioning, volume emotion.\n"
-            "You MUST pick BULLISH or BEARISH. Conviction 0 only if F&G data unavailable.\n\n"
-            "QUANTITATIVE DECISION RULES (Fear & Greed drives this agent):\n"
-            "- F&G 0-10 (Extreme Fear) → BULLISH conviction 8-9 (contrarian — 85% historical win rate)\n"
-            "- F&G 10-20 (Fear) → BULLISH conviction 6-7 (contrarian)\n"
-            "- F&G 20-40 (Fear zone) → BULLISH conviction 4-5\n"
-            "- F&G 40-60 (Neutral) → follow composite_score direction, conviction 3-4\n"
-            "- F&G 60-80 (Greed zone) → BEARISH conviction 4-5\n"
-            "- F&G 80-90 (Greed) → BEARISH conviction 6-7 (contrarian)\n"
-            "- F&G 90-100 (Extreme Greed) → BEARISH conviction 8-9 (contrarian — tops form in greed)\n\n"
-            "MODIFIERS:\n"
-            "- Composite sentiment score > 0.3 in same direction → add +1 conviction\n"
-            "- Composite sentiment score opposes F&G direction → reduce conviction by 2\n"
-            "- F&G is STALE (>24h old) → cap conviction at 5\n\n"
-            "HISTORICAL EVIDENCE (from research/fear_greed_historical.md):\n"
-            "- F&G <= 10: Sharpe ratio 8.0, avg 12-month return +440%\n"
-            "- F&G 10-20: positive 30-day returns 80% of the time, median 90-day +32%\n"
-            "- F&G > 80 sustained 14+ days: 70% chance of >20% drawdown within 90 days\n"
-            "- Fear-weighted DCA outperformed standard DCA by 5.7x over 7 years\n"
-            "- ONLY exception: June 2022 (active contagion — Luna/3AC still unfolding)\n"
-            "- If current fear is from RESOLVED or EXOGENOUS cause → high conviction BUY\n"
-            "- If active contagion (exchange hack, protocol failure ongoing) → reduce conviction by 3\n\n"
-            "RULES: Always state F&G value. Reference contrarian or momentum logic. 2 sentences max."
+            "You are a market psychologist at a crypto hedge fund. "
+            "You read the Fear & Greed Index and market-derived emotion indicators.\n\n"
+            "You are a CONTRARIAN thinker backed by historical data:\n\n"
+            "HISTORICAL EVIDENCE (from 2018-2026 data):\n"
+            "- F&G 0-10: Sharpe ratio 8.0. Avg 12-month return +440%. ALWAYS preceded major rallies.\n"
+            "  Examples: COVID F&G=9 → +1,500% in 12mo. FTX F&G=6 → +85% in 12mo.\n"
+            "- F&G 10-20: Positive 30-day return 80% of the time. Median 90-day return +32%.\n"
+            "- F&G 80-90: 70% chance of >20% drawdown within 90 days.\n"
+            "- ONE EXCEPTION: June 2022 (F&G=6 during ACTIVE Luna contagion — buy signal was 5 months early).\n"
+            "  Rule: if fear is from ONGOING protocol/exchange failure, wait. Otherwise, BUY.\n\n"
+            "ANALYZE the F&G reading in CONTEXT. A 16 reading with BTC above SMA200 is DIFFERENT from\n"
+            "a 16 reading with BTC 50% below SMA200. Context matters more than the number.\n\n"
+            "You MUST pick BULLISH or BEARISH. Conviction 0 only if F&G data unavailable."
         )
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:
@@ -45,18 +35,77 @@ class MarketSentimentAgent(BaseAgent):
         stats = market_data.get("stats_24h", {})
         fear_greed = market_data.get("fear_greed")
 
-        prompt = f"Read market sentiment for {self.profile.symbol}.\n\n"
+        prompt = f"Read market psychology for {self.profile.symbol}.\n\n"
 
+        # Fear & Greed — the primary input
         if fear_greed:
-            prompt += f"Fear & Greed: {fear_greed['current_value']}/100 ({fear_greed['current_label']}) trend: {fear_greed.get('trend', '?')}\n"
+            val = fear_greed["current_value"]
+            label = fear_greed["current_label"]
+            trend = fear_greed.get("trend", "?")
+            hours = fear_greed.get("hours_since_update")
+            stale = fear_greed.get("is_stale", False)
 
+            prompt += f"=== FEAR & GREED INDEX ===\n"
+            prompt += f"Current: {val}/100 ({label})\n"
+            prompt += f"Trend: {trend}\n"
+            if hours:
+                prompt += f"Data age: {hours:.0f} hours"
+                if stale:
+                    prompt += " (STALE — more than 24h old)"
+                prompt += "\n"
+
+            history = fear_greed.get("history", [])
+            if len(history) >= 3:
+                recent = [h["value"] for h in history[:3]]
+                prompt += f"Last 3 readings: {recent}\n"
+        else:
+            prompt += "** NO Fear & Greed data available. **\n"
+
+        # Market-derived emotion from indicators
         if indicators:
-            scores = compute_sentiment_scores(indicators, stats, fear_greed)
-            prompt += f"Fear/Greed Score: {scores['fear_greed_score']:+.3f} ({scores['fear_greed_label']})\n"
-            prompt += f"Crowd Score: {scores['crowd_score']:+.3f} ({scores['crowd_label']})\n"
-            prompt += f"Momentum Sentiment: {scores['momentum_sentiment_score']:+.3f} ({scores['momentum_sentiment_label']})\n"
-            prompt += f"Contrarian Score: {scores['contrarian_score']:+.3f} ({scores['contrarian_label']})\n"
-            prompt += f"Composite: {scores['composite_score']:+.3f} ({scores['composite_label']})\n"
+            prompt += f"\n=== MARKET EMOTION INDICATORS ===\n"
+            price = float(stats.get("close", 0))
+            change = float(stats.get("price_change_pct", 0))
+            prompt += f"Price: ${price:,.2f} | 24h Change: {change:+.2f}%\n"
 
-        prompt += "\nPredict market sentiment direction."
+            if indicators.rsi_14 is not None:
+                prompt += f"RSI(14): {indicators.rsi_14:.1f}"
+                if indicators.rsi_14 > 70:
+                    prompt += " — OVERBOUGHT (crowd is greedy)"
+                elif indicators.rsi_14 < 30:
+                    prompt += " — OVERSOLD (crowd is fearful)"
+                else:
+                    prompt += " — neutral zone"
+                prompt += "\n"
+
+            if indicators.volume_ratio is not None:
+                prompt += f"Volume: {indicators.volume_ratio:.2f}x average"
+                if indicators.volume_ratio > 2:
+                    prompt += " — CLIMACTIC (emotional extreme)"
+                elif indicators.volume_ratio > 1.5:
+                    prompt += " — elevated (crowd is paying attention)"
+                elif indicators.volume_ratio < 0.7:
+                    prompt += " — quiet (crowd is apathetic)"
+                prompt += "\n"
+
+            if indicators.sma_200 and price:
+                pct = ((price - indicators.sma_200) / indicators.sma_200) * 100
+                prompt += f"Price vs SMA200: {pct:+.1f}% — "
+                if pct > 30:
+                    prompt += "crowd is euphoric (far above mean)"
+                elif pct > 0:
+                    prompt += "above long-term mean (cautiously optimistic)"
+                elif pct > -20:
+                    prompt += "below mean (crowd is nervous)"
+                else:
+                    prompt += "deep below mean (crowd has capitulated)"
+                prompt += "\n"
+
+        prompt += (
+            f"\n=== YOUR ANALYSIS ===\n"
+            f"What is the market FEELING right now? Fear? Greed? Apathy?\n"
+            f"Is this an extreme that historically reverses? Or is the crowd right?\n"
+            f"Consider: is the fear from a RESOLVED cause or is something still unfolding?"
+        )
+
         return prompt

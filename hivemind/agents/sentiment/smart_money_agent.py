@@ -1,4 +1,4 @@
-"""Smart Money Sentiment Agent — reads derivatives and institutional positioning."""
+"""Smart Money Sentiment Agent — derivatives + institutional positioning. REAL ANALYST."""
 
 from __future__ import annotations
 from typing import Any
@@ -14,51 +14,70 @@ class SmartMoneySentimentAgent(BaseAgent):
     @property
     def system_prompt(self) -> str:
         return (
-            "You read SMART MONEY: funding rates, top trader L/S ratios, taker flow, divergence.\n"
-            "You MUST pick BULLISH or BEARISH. Conviction 0 if no derivatives data.\n\n"
-            "QUANTITATIVE DECISION RULES:\n"
-            "- Funding < -0.03% (shorts paying longs) → BULLISH conviction 7-8 (short squeeze setup)\n"
-            "- Funding < -0.01% → BULLISH conviction 5-6\n"
-            "- Funding -0.01% to +0.01% → neutral, use top trader ratio to decide, conviction 3-4\n"
-            "- Funding > +0.01% → BEARISH conviction 5-6\n"
-            "- Funding > +0.05% (longs crowded) → BEARISH conviction 7-8 (liquidation risk)\n\n"
-            "TOP TRADER MODIFIERS:\n"
-            "- Top traders > 60% long AND taker ratio > 1.1 → add +1 conviction BULLISH\n"
-            "- Top traders > 60% short AND taker ratio < 0.9 → add +1 conviction BEARISH\n\n"
-            "DIVERGENCE (if present):\n"
-            "- WHALES_LONG_RETAIL_SHORT → BULLISH conviction 8+ (follow whales)\n"
-            "- WHALES_SHORT_RETAIL_LONG → BEARISH conviction 8+ (follow whales)\n"
-            "- MILD divergence → note it but don't override funding signal\n\n"
-            "NO DATA: If no derivatives data shown, give conviction 0. Do NOT guess.\n"
-            "RULES: State funding rate and top trader %. 2 sentences max."
+            "You are a derivatives analyst at a crypto hedge fund. "
+            "You read funding rates, positioning data, and taker flow to understand "
+            "what INSTITUTIONAL players and whales are doing.\n\n"
+            "ANALYZE the data — don't just apply rules.\n\n"
+            "What a great derivatives analyst thinks about:\n"
+            "- Funding rate CONTEXT: -0.01% is normal. -0.05% means shorts are crowded and paying for it.\n"
+            "  When shorts are this crowded, a squeeze is likely (70-75% bounce probability per research).\n"
+            "- Top trader positioning: are the biggest accounts leaning differently from retail?\n"
+            "  When whales and retail disagree, whales are right ~65% of the time.\n"
+            "- Taker flow: aggressive MARKET orders (not limits) reveal urgency.\n"
+            "  Buy/sell > 1.1 = aggressive buying. < 0.9 = aggressive selling.\n"
+            "- Smart money divergence: the STRONGEST signal. When detected, follow the whales.\n\n"
+            "NO DERIVATIVES DATA: For coins without Binance futures, give conviction 0.\n"
+            "This is non-negotiable — you cannot analyze what you cannot see.\n\n"
+            "You MUST pick BULLISH or BEARISH."
         )
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:
         smart_money = market_data.get("smart_money")
-        prompt = f"Read smart money positioning for {self.profile.symbol}.\n\n"
+        prompt = f"What are institutions and whales doing with {self.profile.symbol}?\n\n"
 
         if smart_money:
-            # Funding rate
-            prompt += f"Funding: {smart_money.get('funding_sentiment', 'N/A')} ({smart_money.get('funding_rate_pct', 0):+.4f}%)\n"
+            prompt += "=== DERIVATIVES DATA (live from Binance Futures) ===\n\n"
 
-            # Top trader positioning
+            # Funding
+            funding_pct = smart_money.get("funding_rate_pct", 0)
+            funding_sent = smart_money.get("funding_sentiment", "UNKNOWN")
+            prompt += f"FUNDING RATE: {funding_pct:+.4f}% — {funding_sent}\n"
+            if funding_pct < -0.03:
+                prompt += f"  ** Shorts are PAYING significantly. Squeeze setup. Historical bounce rate: 70-75% **\n"
+            elif funding_pct > 0.05:
+                prompt += f"  ** Longs are heavily crowded. Liquidation risk elevated. **\n"
+
+            # Top traders
             if "top_trader_ratio" in smart_money:
-                prompt += f"Top Traders: {smart_money['top_trader_long_pct']:.0f}% long (ratio {smart_money['top_trader_ratio']:.3f}) — {smart_money.get('top_trader_signal', '')}\n"
+                ratio = smart_money["top_trader_ratio"]
+                long_pct = smart_money["top_trader_long_pct"]
+                signal = smart_money.get("top_trader_signal", "")
+                prompt += f"\nTOP TRADERS (whales): {long_pct:.0f}% long / {100-long_pct:.0f}% short (ratio: {ratio:.3f})\n"
+                prompt += f"  Signal: {signal}\n"
 
             # Taker flow
             if "taker_buy_sell_ratio" in smart_money:
-                prompt += f"Taker Flow: {smart_money['taker_buy_sell_ratio']:.3f} — {smart_money.get('taker_signal', '')}\n"
+                taker = smart_money["taker_buy_sell_ratio"]
+                taker_sig = smart_money.get("taker_signal", "")
+                prompt += f"\nTAKER FLOW: Buy/Sell ratio = {taker:.4f}\n"
+                prompt += f"  {taker_sig}\n"
+                if taker > 1.15:
+                    prompt += f"  Aggressive BUYERS dominating — institutional accumulation likely\n"
+                elif taker < 0.85:
+                    prompt += f"  Aggressive SELLERS dominating — institutional distribution likely\n"
 
-            # Divergence (only meaningful at extremes now)
+            # Divergence
             divergence = smart_money.get("divergence")
+            magnitude = smart_money.get("divergence_magnitude", 0)
             if divergence and divergence not in ("ALIGNED", None):
-                mag = smart_money.get("divergence_magnitude", 0)
-                prompt += f"Smart Money Divergence: {divergence} (magnitude: {mag:.3f})\n"
+                prompt += f"\nSMART MONEY DIVERGENCE: {divergence} (magnitude: {magnitude:.3f})\n"
+                prompt += f"  ** When whales and retail disagree, follow the whales. **\n"
             elif divergence == "ALIGNED":
-                prompt += f"Smart Money vs Retail: ALIGNED (no divergence)\n"
+                prompt += f"\nWhales and retail are ALIGNED (no divergence detected).\n"
         else:
             base = self.profile.symbol.replace("USDT", "")
-            prompt += f"No derivatives data for {base} (no Binance futures). Give conviction 1-2.\n"
+            prompt += f"** NO DERIVATIVES DATA for {base}. No Binance futures exist for this coin. **\n"
+            prompt += f"Give conviction 0. You cannot analyze what you cannot see.\n"
 
-        prompt += "\nPredict smart money direction."
+        prompt += "\nWhat are the smart money players telling you? Form your thesis."
         return prompt

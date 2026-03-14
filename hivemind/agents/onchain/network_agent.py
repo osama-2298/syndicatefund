@@ -1,4 +1,4 @@
-"""Network Health Agent — reads BTC network stats and chain TVL."""
+"""Network Health Agent — blockchain fundamentals. REAL ANALYST."""
 
 from __future__ import annotations
 from typing import Any
@@ -14,21 +14,22 @@ class NetworkHealthAgent(BaseAgent):
     @property
     def system_prompt(self) -> str:
         return (
-            "You read BLOCKCHAIN NETWORK HEALTH: hash rate, transactions, mempool, TVL rank.\n"
-            "You MUST pick BULLISH or BEARISH. Conviction 0 if NO chain data AND NO BTC data.\n\n"
-            "QUANTITATIVE DECISION RULES:\n"
-            "- Hash rate > 700 EH/s (ATH zone) → BULLISH conviction 6-7\n"
-            "- Hash rate 400-700 EH/s → BULLISH conviction 4-5 (healthy)\n"
-            "- Hash rate < 400 EH/s → BEARISH conviction 5-6 (miners leaving)\n"
-            "- Chain TVL rank #1-3 → add +2 conviction BULLISH\n"
-            "- Chain TVL rank #4-10 → add +1 conviction BULLISH\n"
-            "- Chain TVL rank > 25 → no modifier (small ecosystem)\n"
-            "- NO CHAIN DATA → conviction 1-2 max (only use general BTC health)\n\n"
-            "MEMPOOL MODIFIER:\n"
-            "- Mempool > 50K (congested) → network busy, add +1 conviction in current direction\n"
-            "- Mempool < 2K (quiet) → low activity, reduce conviction by 1\n\n"
-            "NOTE: Network health is a SLOW indicator. Don't overweight it for short-term trades.\n"
-            "RULES: State hash rate EH/s and TVL rank. 2 sentences max."
+            "You are a blockchain network analyst at a crypto hedge fund. "
+            "You read on-chain fundamentals: hash rate, transaction volume, mempool, block times, TVL.\n\n"
+            "ANALYZE the data — think about what it MEANS, not just what the numbers are.\n\n"
+            "What a great on-chain analyst considers:\n"
+            "- Hash rate is a LONG-TERM confidence indicator. Miners invest millions in hardware.\n"
+            "  Rising hash rate = miners believe in the asset's future. This is the strongest on-chain signal.\n"
+            "  Current BTC hash rate > 700 EH/s is at or near all-time highs.\n"
+            "- Transaction count = network usage. More transactions = more demand.\n"
+            "- Mempool = immediate demand pressure. Congested = high demand. Empty = quiet.\n"
+            "- Block time = network health. ~10 min for BTC is normal.\n"
+            "- Chain TVL (if available) = how much capital is deployed in this chain's DeFi ecosystem.\n"
+            "  Top 5 TVL chains are the dominant ecosystems. Below rank 25 = minor.\n\n"
+            "IMPORTANT: Network health is a SLOW signal. It changes over weeks, not hours.\n"
+            "High conviction (7+) requires STRONG on-chain data. Low conviction is normal.\n"
+            "NO CHAIN DATA: If this coin has no on-chain metrics, give conviction 1-2 at most.\n\n"
+            "You MUST pick BULLISH or BEARISH."
         )
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:
@@ -37,31 +38,39 @@ class NetworkHealthAgent(BaseAgent):
         has_chain = market_data.get("has_chain_data", False)
         base = self.profile.symbol.replace("USDT", "")
 
-        prompt = f"Assess network health for {self.profile.symbol}.\n\n"
+        prompt = f"Assess the network health behind {self.profile.symbol}.\n\n"
 
         if btc_onchain:
             if base == "BTC":
-                prompt += "=== BTC NETWORK (direct on-chain data) ===\n"
+                prompt += "=== BTC NETWORK DATA (direct on-chain) ===\n"
             else:
-                prompt += "=== BTC NETWORK (market proxy, not specific to this coin) ===\n"
+                prompt += "=== BTC NETWORK (market proxy — not specific to this coin) ===\n"
             prompt += f"Hash Rate: {btc_onchain.get('hash_rate_eh', 0)} EH/s — {btc_onchain.get('hash_health', 'N/A')}\n"
             prompt += f"Transactions 24h: {btc_onchain.get('n_transactions_24h', 0):,}\n"
-            prompt += f"Block Time: {btc_onchain.get('minutes_between_blocks', 0):.1f}m — {btc_onchain.get('block_time_read', '')}\n"
+            prompt += f"Block Time: {btc_onchain.get('minutes_between_blocks', 0):.1f} min — {btc_onchain.get('block_time_read', '')}\n"
             mempool = btc_onchain.get('mempool_count')
             if mempool is not None:
-                prompt += f"Mempool: {mempool:,} — {btc_onchain.get('mempool_read', '')}\n"
+                prompt += f"Mempool: {mempool:,} unconfirmed txs — {btc_onchain.get('mempool_read', '')}\n"
+            est_vol = btc_onchain.get("est_tx_volume_usd", 0)
+            if est_vol:
+                prompt += f"Est. Tx Volume: ${est_vol:,.0f}\n"
+            miners = btc_onchain.get("miners_revenue_usd", 0)
+            if miners:
+                prompt += f"Miner Revenue: ${miners:,.0f}\n"
 
         if has_chain and chain_tvl:
             prompt += f"\n=== {base} CHAIN TVL ===\n"
             prompt += f"TVL: ${chain_tvl.get('tvl', 0):,.0f}\n"
             prompt += f"Rank: #{chain_tvl.get('tvl_rank', 'N/A')}\n"
+            dom = chain_tvl.get('tvl_dominance_pct', 0)
+            if dom:
+                prompt += f"Dominance: {dom:.1f}% of total DeFi TVL\n"
         elif not has_chain:
-            prompt += f"\n** NO CHAIN TVL DATA for {base}. **\n"
-            prompt += "This coin does not have a DeFi chain tracked by DeFiLlama.\n"
+            prompt += f"\n** NO CHAIN DATA for {base}. This coin does not have DeFi TVL tracked. **\n"
             prompt += "Give LOW conviction (1-2). Do not invent chain metrics.\n"
 
         if not btc_onchain and not has_chain:
-            prompt += "No on-chain data available. Give conviction 0 (genuinely no edge).\n"
+            prompt += "No on-chain data available at all. Give conviction 0.\n"
 
-        prompt += "\nPredict network health direction."
+        prompt += "\nWhat does the network health tell you? Is this a healthy, growing ecosystem? Form your thesis."
         return prompt

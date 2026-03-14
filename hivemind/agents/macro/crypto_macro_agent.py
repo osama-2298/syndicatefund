@@ -1,4 +1,4 @@
-"""Crypto Macro Agent — reads crypto-native macro conditions."""
+"""Crypto Macro Agent — reads crypto-native macro conditions. REAL ANALYST."""
 
 from __future__ import annotations
 from typing import Any
@@ -15,49 +15,55 @@ class CryptoMacroAgent(BaseAgent):
     @property
     def system_prompt(self) -> str:
         return (
-            "You read CRYPTO-NATIVE macro: market cap trend, BTC dominance, market direction.\n"
-            "You MUST pick BULLISH or BEARISH. Conviction 0 if no global data.\n\n"
-            "QUANTITATIVE DECISION RULES:\n"
-            "- Market cap 24h > +2% AND BTC dominance stable/falling → BULLISH conviction 7-8\n"
-            "- Market cap 24h > 0% AND BTC dom < 55% → BULLISH conviction 5-6 (alt-friendly)\n"
-            "- Market cap 24h -1% to +1% → conviction 3-4 in BTC 24h direction\n"
-            "- Market cap 24h < -2% AND BTC dominance rising → BEARISH conviction 7-8\n"
-            "- Market cap 24h < -5% → BEARISH conviction 8-9\n\n"
-            "BTC DOMINANCE RULES:\n"
-            "- BTC dom > 60% → BEARISH for alts, add +1 if BEARISH\n"
-            "- BTC dom 50-60% → neutral macro\n"
-            "- BTC dom < 50% → alt season, add +1 if BULLISH\n"
-            "- BTC dom < 40% → extreme alt season, but late cycle risk\n\n"
-            "RULES: State market cap % change and BTC dominance. 2 sentences max."
+            "You are a macro strategist at a crypto hedge fund. "
+            "You read the big picture: total market cap, BTC dominance, capital rotation.\n\n"
+            "THINK like a macro strategist:\n"
+            "- Total market cap direction = is money entering or leaving crypto?\n"
+            "- BTC dominance = where is money flowing WITHIN crypto?\n"
+            "  Rising dominance = flight to safety (bearish for alts, can be neutral for BTC).\n"
+            "  Falling dominance = risk-on, money rotating into alts (alt season forming).\n"
+            "- BTC dominance thresholds from research: >60% extreme safety, 50-60% neutral, <50% alt season.\n"
+            "- Market cap + direction = macro conviction.\n"
+            "  Growing + alts outperforming = strong bull. Shrinking + BTC only = defensive bear.\n\n"
+            "Use CoinPaprika data for cross-validation when available.\n\n"
+            "You MUST pick BULLISH or BEARISH. Your signal applies to ALL positions."
         )
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:
         global_data = market_data.get("global_data", {})
+        paprika_global = market_data.get("paprika_global")
         stats = market_data.get("stats_24h", {})
         btc_30d = market_data.get("btc_change_30d")
 
-        scores = compute_macro_scores(global_data, stats, btc_30d)
+        prompt = f"What is the crypto macro environment telling you about {self.profile.symbol}?\n\n"
 
-        prompt = f"Read crypto macro conditions for {self.profile.symbol}.\n\n"
-        prompt += f"COMPOSITE: {scores['composite_score']:+.3f} ({scores['composite_label']})\n"
-        prompt += f"Market Cap 24h: {scores['mcap_change_24h']:+.2f}% — {scores['mcap_trend']}\n"
-        prompt += f"BTC Dominance: {scores['btc_dominance']:.1f}% — {scores['btc_dom_read']}\n"
-        prompt += f"Market Direction: {scores['market_direction']}\n"
-        if "macro_30d_read" in scores:
-            prompt += f"30d Macro: {scores['macro_30d_read']}\n"
+        if global_data:
+            prompt += "=== CRYPTO MACRO DATA (CoinGecko) ===\n"
+            total_mcap = global_data.get("total_market_cap_usd", 0)
+            mcap_change = global_data.get("market_cap_change_24h_pct", 0)
+            btc_dom = global_data.get("btc_dominance", 0)
+            eth_dom = global_data.get("eth_dominance", 0)
 
-        # CoinPaprika cross-validation
-        paprika_global = market_data.get("paprika_global")
+            prompt += f"Total Crypto Market Cap: ${total_mcap:,.0f}\n"
+            prompt += f"Market Cap 24h Change: {mcap_change:+.2f}%\n"
+            prompt += f"BTC Dominance: {btc_dom:.1f}%\n"
+            prompt += f"ETH Dominance: {eth_dom:.1f}%\n"
+        else:
+            prompt += "** No global market data available. **\n"
+
+        btc_change = float(stats.get("price_change_pct", 0))
+        prompt += f"\nBTC 24h: {btc_change:+.2f}%\n"
+        if btc_30d is not None:
+            prompt += f"BTC 30d: {btc_30d:+.2f}%\n"
+
         if paprika_global:
             vol_change = paprika_global.get("volume_change_24h", 0)
             mcap_ath = paprika_global.get("market_cap_ath", 0)
             if vol_change:
-                prompt += f"\nVolume Change 24h (CoinPaprika): {vol_change:+.1f}%\n"
-            if mcap_ath:
-                current_mcap = scores.get("total_market_cap_usd", 0)
-                if current_mcap and mcap_ath:
-                    pct_from_ath = ((current_mcap - mcap_ath) / mcap_ath) * 100
-                    prompt += f"Market Cap vs ATH: {pct_from_ath:+.1f}%\n"
+                prompt += f"\nCoinPaprika Volume Change 24h: {vol_change:+.1f}%\n"
+            if mcap_ath and total_mcap:
+                pct_from_ath = ((total_mcap - mcap_ath) / mcap_ath) * 100
+                prompt += f"Market Cap vs ATH: {pct_from_ath:+.1f}%\n"
 
-        prompt += "\nPredict crypto macro direction."
+        prompt += "\nIs the macro environment risk-on or risk-off? Where is capital flowing? Form your thesis."
         return prompt

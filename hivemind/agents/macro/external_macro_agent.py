@@ -1,4 +1,4 @@
-"""External Macro Agent — reads Polymarket prediction markets and BTC derivatives."""
+"""External Macro Agent — Polymarket + BTC derivatives. REAL ANALYST."""
 
 from __future__ import annotations
 from typing import Any
@@ -14,47 +14,53 @@ class ExternalMacroAgent(BaseAgent):
     @property
     def system_prompt(self) -> str:
         return (
-            "You read EXTERNAL MACRO: Polymarket prediction markets and BTC derivatives.\n"
-            "You MUST pick BULLISH or BEARISH. Conviction 0 if no Polymarket data.\n\n"
-            "QUANTITATIVE DECISION RULES:\n"
-            "- Polymarket: Fed rate CUT likely (>60%) → BULLISH conviction 7-8\n"
-            "- Polymarket: Fed HOLD likely (>80%) → BULLISH conviction 5-6 (neutral-to-positive)\n"
-            "- Polymarket: Fed HIKE likely (>30%) → BEARISH conviction 7-8\n"
-            "- Polymarket: Recession probability < 25% → add +1 BULLISH\n"
-            "- Polymarket: Recession probability > 40% → add +1 BEARISH\n\n"
-            "BTC DERIVATIVES MACRO GAUGE:\n"
-            "- BTC funding < -0.03% → BULLISH modifier +1 (shorts overcrowded system-wide)\n"
-            "- BTC funding > +0.05% → BEARISH modifier +1 (longs overcrowded)\n"
-            "- BTC OI rising sharply → leverage building, volatility expected\n\n"
-            "VOLUME FILTER: Only trust Polymarket markets with > $1M volume.\n"
-            "Markets with < $100K volume are noise. Ignore them.\n\n"
-            "RULES: State Fed probability % and recession odds. 2 sentences max."
+            "You are an external macro analyst at a crypto hedge fund. "
+            "You read PREDICTION MARKETS (Polymarket) and BTC derivatives for macro signals.\n\n"
+            "Polymarket data is REAL MONEY. These are not polls — people have their capital at risk.\n"
+            "When $100M says the Fed will hold rates, that's more reliable than any analyst opinion.\n\n"
+            "THINK like a macro strategist:\n"
+            "- Fed rate decisions move ALL risk assets. Cuts = bullish. Hikes = bearish. Hold = neutral-to-positive.\n"
+            "- Recession probability: <25% = tailwind. 25-40% = headwind. >40% = strong headwind.\n"
+            "- BTC derivatives as SYSTEM-WIDE leverage gauge:\n"
+            "  Very negative funding = system is short, squeeze risk = bullish for crypto.\n"
+            "  Very positive funding = system is long, liquidation risk = bearish.\n"
+            "  High OI = lots of leverage in the system = volatility incoming.\n\n"
+            "VOLUME FILTER: Only trust Polymarket markets with >$1M volume.\n"
+            "Low-volume markets are noise — ignore them.\n\n"
+            "You MUST pick BULLISH or BEARISH. Conviction 0 if no Polymarket data."
         )
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:
         pred = market_data.get("prediction_markets", {})
         btc_deriv = market_data.get("btc_derivatives", {})
 
-        prompt = f"Read external macro forces for {self.profile.symbol}.\n\n"
+        prompt = f"What are external macro forces saying about {self.profile.symbol}?\n\n"
 
         if pred:
             highlights = pred.get("highlights", [])
             if highlights:
-                prompt += "=== POLYMARKET (real money bets) ===\n"
-                for m in highlights[:5]:
-                    q = m.get("question", "?")[:55]
+                prompt += "=== POLYMARKET — REAL MONEY PREDICTIONS ===\n"
+                for m in highlights[:7]:
+                    q = m.get("question", m.get("event_title", "?"))
+                    if len(q) > 70:
+                        q = q[:69] + "…"
                     probs = m.get("probabilities", {})
                     vol = m.get("volume", 0)
                     prob_str = " / ".join(f"{k}: {v:.0f}%" for k, v in probs.items() if v > 1)
-                    prompt += f"  {q}… → {prob_str} (vol: ${vol:,.0f})\n"
+                    vol_str = f"${vol:,.0f}" if vol > 0 else "low volume"
+                    prompt += f"  {q}\n    → {prob_str} (volume: {vol_str})\n\n"
+        else:
+            prompt += "** No Polymarket data available. **\n"
 
         if btc_deriv:
+            prompt += "=== BTC DERIVATIVES (system-wide leverage gauge) ===\n"
             funding = btc_deriv.get("funding", {})
             oi = btc_deriv.get("open_interest", {})
             if funding:
-                prompt += f"\nBTC Funding: {funding.get('current_rate_pct', 0):+.4f}% — {funding.get('sentiment', '')}\n"
+                rate = funding.get("current_rate_pct", 0)
+                prompt += f"BTC Funding Rate: {rate:+.4f}% — {funding.get('sentiment', '')}\n"
             if oi:
                 prompt += f"BTC Open Interest: {oi.get('open_interest', 0):,.0f} contracts\n"
 
-        prompt += "\nPredict external macro direction."
+        prompt += "\nAre external forces supportive or hostile to crypto? Form your thesis."
         return prompt
