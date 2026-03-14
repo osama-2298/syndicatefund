@@ -1,0 +1,54 @@
+# Environment
+.env
+.env.local
+.env.production
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# mypy
+.mypy_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data
+*.db
+*.sqlite3
+
+# Runtime state (persisted between cycles)
+data/ceo_memory.json
+data/open_trades.json
+data/trade_ledger.json
+data/performance_history.json
+data/team_weights.json
+
+# Generated files
+*.png
+generate_architecture.py

@@ -1,0 +1,738 @@
+"""
+Hivemind — Multi-Coin Pipeline Orchestrator
+
+Architecture flow:
+  1. CEO classifies market regime (BTC as proxy)
+  2. COO selects which coins to analyze
+  3. Data Layer fetches ALL external data (Reddit, CoinGecko, DeFiLlama, Blockchain.com, Fear&Greed)
+  4. CRO sets risk rules for this cycle
+  5. For each coin: 5 agent teams (Technical, Sentiment, Fundamental, Macro, On-Chain)
+  6. Aggregate signals per coin
+  7. Risk Manager enforces CRO rules
+  8. Portfolio Managers approve/filter by segment
+  9. Execute orders via paper trader
+ 10. Performance Agent reviews and fires/promotes
+"""
+
+from __future__ import annotations
+
+import logging
+import sys
+import time
+from datetime import datetime, timezone
+
+import structlog
+
+# Sub-agents
+from hivemind.agents.technical.trend_agent import TechnicalTrendAgent
+from hivemind.agents.technical.signal_agent import TechnicalSignalAgent
+from hivemind.agents.technical.timing_agent import TechnicalTimingAgent
+from hivemind.agents.sentiment.social_agent import SocialSentimentAgent
+from hivemind.agents.sentiment.market_agent import MarketSentimentAgent
+from hivemind.agents.sentiment.smart_money_agent import SmartMoneySentimentAgent
+from hivemind.agents.fundamental.valuation_agent import ValuationAgent
+from hivemind.agents.fundamental.cycle_agent import CyclePositionAgent
+from hivemind.agents.macro.crypto_macro_agent import CryptoMacroAgent
+from hivemind.agents.macro.external_macro_agent import ExternalMacroAgent
+from hivemind.agents.onchain.network_agent import NetworkHealthAgent
+from hivemind.agents.onchain.capital_flow_agent import CapitalFlowAgent
+# Team managers
+from hivemind.agents.technical.technical_manager import TechnicalManager
+from hivemind.agents.sentiment.sentiment_manager import SentimentManager
+from hivemind.agents.fundamental.fundamental_manager import FundamentalManager
+from hivemind.agents.macro.macro_manager import MacroManager
+from hivemind.agents.onchain.onchain_manager import OnChainManager
+from hivemind.aggregator.signal_aggregator import SignalAggregator
+from hivemind.config import settings
+from hivemind.data.binance_client import BinanceClient
+from hivemind.data.data_layer import DataLayer, MarketSnapshot
+from hivemind.data.models import (
+    AgentProfile,
+    AggregatedSignal,
+    Signal,
+    TeamType,
+)
+from hivemind.data.technical_indicators import compute_indicators
+from hivemind.display import (
+    C,
+    agent_result,
+    banner,
+    c,
+    coin_header,
+    coin_selection_card,
+    conf,
+    cro_card,
+    dim,
+    footer,
+    multi_verdict_row,
+    pct,
+    ceo_review_card,
+    pm_summary,
+    portfolio_card,
+    regime_card,
+    section,
+    strategic_directive_card,
+    trade_fill,
+)
+from hivemind.evaluation.performance_tracker import PerformanceTracker
+from hivemind.executive.ceo_agent import CEOAgent
+from hivemind.executive.coo_agent import COOAgent
+from hivemind.executive.cro_agent import CROAgent
+# PerfAgent removed — CEO absorbs the performance review role (post-cycle)
+from hivemind.execution.paper_trader import PaperTrader
+from hivemind.execution.trade_ledger import TradeLedger
+from hivemind.execution.trade_monitor import TradeMonitor
+from hivemind.portfolio.manager import PortfolioManagerGroup
+from hivemind.risk.risk_manager import RiskManager
+
+logger = structlog.get_logger()
+
+# Quiet structlog
+structlog.configure(
+    processors=[
+        structlog.stdlib.filter_by_level,
+        structlog.stdlib.add_log_level,
+        structlog.dev.ConsoleRenderer(colors=True),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+)
+logging.basicConfig(level=logging.WARNING)
+
+
+def _run_team(
+    team_name: str,
+    team_type: TeamType,
+    agent_classes: list,
+    manager_cls,
+    data: dict,
+    symbol: str,
+    api_key: str,
+    provider,
+) -> tuple[Signal, list[Signal]]:
+    """
+    Run all agents in a team, then synthesize through the manager.
+    Returns (manager_signal, raw_agent_signals).
+    """
+    agent_signals = []
+
+    for agent_cls in agent_classes:
+        profile = AgentProfile(
+            team=team_type, symbol=symbol,
+            model=settings.default_llm_model, provider=provider.value,
+        )
+        agent = agent_cls(profile=profile, api_key=api_key, provider=provider)
+
+        t0 = time.monotonic()
+        signal = agent.analyze(data)
+        elapsed = time.monotonic() - t0
+
+        direction = signal.metadata.get("direction", signal.action.value)
+        conviction = signal.metadata.get("conviction", int(signal.confidence * 10))
+        agent_name = agent_cls.__name__.replace("Agent", "").replace("Technical", "")
+        print(f"      {dim(agent_name):<18} {direction} {conviction}/10  {dim(f'{elapsed:.1f}s')}")
+
+        agent_signals.append(signal)
+
+    # Manager synthesizes
+    manager = manager_cls(api_key=api_key, provider=provider, model=settings.default_llm_model)
+    t0 = time.monotonic()
+    team_signal = manager.synthesize(agent_signals, symbol)
+    mgr_elapsed = time.monotonic() - t0
+
+    # Convert TeamSignal to Signal for the aggregator
+    final_signal = team_signal.to_signal()
+    final_signal.metadata["current_price"] = 0  # Will be set by caller
+    final_signal.metadata["atr_14"] = 0  # Will be set by caller
+
+    # Display manager result
+    from hivemind.display import action_badge, conf_bar, conf
+    agree_str = f"{team_signal.agreement_level:.0%} agree"
+    tf_str = f" [{team_signal.timeframe_alignment}]" if team_signal.timeframe_alignment and team_signal.timeframe_alignment != "N/A" else ""
+    print(
+        f"    {c(team_name, C.B_WHITE)}  "
+        f"{action_badge(final_signal.action.value)}  "
+        f"{conf_bar(final_signal.confidence)} {conf(final_signal.confidence)}  "
+        f"{dim(f'{agree_str}{tf_str}  {mgr_elapsed:.1f}s')}"
+    )
+
+    return final_signal, agent_signals
+
+
+def _analyze_coin(
+    symbol: str,
+    snapshot: MarketSnapshot,
+    api_key: str,
+    provider,
+) -> tuple[list[Signal], dict[str, AgentProfile], float]:
+    """
+    Run all 5 agent teams for a single coin.
+    Each team has multiple sub-agents → manager → one TeamSignal.
+    Only manager signals go to the aggregator (5 signals, not 12).
+    """
+    coin = snapshot.coins.get(symbol)
+    if coin is None or coin.indicators is None:
+        return [], {}, 0.0
+
+    coin_header(symbol, coin.current_price, coin.stats_24h.get("price_change_pct", 0))
+
+    # Team-specific data packets (strict separation)
+    team_data = {
+        TeamType.TECHNICAL: snapshot.for_technical(symbol),
+        TeamType.SENTIMENT: snapshot.for_sentiment(symbol),
+        TeamType.FUNDAMENTAL: snapshot.for_fundamental(symbol),
+        TeamType.MACRO: snapshot.for_macro(symbol),
+        TeamType.ONCHAIN: snapshot.for_onchain(symbol),
+    }
+
+    # Team configurations: (name, type, [sub-agents], manager_class)
+    teams = [
+        ("Technical", TeamType.TECHNICAL,
+         [TechnicalTrendAgent, TechnicalSignalAgent, TechnicalTimingAgent],
+         TechnicalManager),
+        ("Sentiment", TeamType.SENTIMENT,
+         [SocialSentimentAgent, MarketSentimentAgent, SmartMoneySentimentAgent],
+         SentimentManager),
+        ("Fundamental", TeamType.FUNDAMENTAL,
+         [ValuationAgent, CyclePositionAgent],
+         FundamentalManager),
+        ("Macro", TeamType.MACRO,
+         [CryptoMacroAgent, ExternalMacroAgent],
+         MacroManager),
+        ("On-Chain", TeamType.ONCHAIN,
+         [NetworkHealthAgent, CapitalFlowAgent],
+         OnChainManager),
+    ]
+
+    all_manager_signals = []
+    agent_profiles = {}
+
+    for team_name, team_type, agent_classes, manager_cls in teams:
+        manager_signal, raw_signals = _run_team(
+            team_name, team_type, agent_classes, manager_cls,
+            team_data[team_type], symbol, api_key, provider,
+        )
+
+        # Set price metadata
+        manager_signal.metadata["current_price"] = coin.current_price
+        manager_signal.metadata["stats_24h"] = coin.stats_24h
+        if coin.indicators_4h and coin.indicators_4h.atr_14:
+            manager_signal.metadata["atr_14"] = coin.indicators_4h.atr_14
+
+        all_manager_signals.append(manager_signal)
+
+        # Create a manager profile for the aggregator
+        mgr_profile = AgentProfile(
+            agent_id=f"manager_{team_type.value}",
+            team=team_type, symbol=symbol,
+            model=settings.default_llm_model, provider=provider.value,
+        )
+        agent_profiles[mgr_profile.agent_id] = mgr_profile
+
+    return all_manager_signals, agent_profiles, coin.current_price
+
+
+def run_pipeline(
+    interval: str = "4h",
+    candle_count: int = 200,
+) -> None:
+    """Run the full multi-coin pipeline with real data from all sources."""
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    banner("Multi-Coin Cycle", now)
+
+    api_key = settings.get_active_llm_key()
+    provider = settings.default_llm_provider
+    max_coins = settings.max_coins_per_cycle
+    cycle_start = time.monotonic()
+
+    binance = BinanceClient()
+    paper_trader = PaperTrader(initial_cash=100_000.0)
+    tracker = PerformanceTracker(storage_path=settings.performance_history_path)
+
+    # CEO memory — persists across cycles
+    from hivemind.executive.ceo_memory import CEOMemory
+    ceo_memory = CEOMemory(storage_path="data/ceo_memory.json")
+    trade_monitor = TradeMonitor(storage_path="data/open_trades.json")
+    trade_ledger = TradeLedger(storage_path="data/trade_ledger.json")
+
+    from hivemind.executive.team_weights import TeamWeightManager
+    team_weights = TeamWeightManager(storage_path="data/team_weights.json")
+
+    try:
+        # ═══════════════════════════════════════
+        # STEP 0: Check Open Trades from Previous Cycles
+        # ═══════════════════════════════════════
+        if trade_monitor.open_trades:
+            section("Trade Monitor — Checking Open Positions")
+            outcomes = trade_monitor.check_all(binance, paper_trader=paper_trader, interval="1h")
+            # Record outcomes in the ledger
+            for o in outcomes:
+                trade_ledger.record_outcome(o)
+            if outcomes:
+                for o in outcomes:
+                    # Color based on outcome
+                    if o.pnl_pct > 0:
+                        icon = c("WIN", C.B_GREEN)
+                    elif o.pnl_pct < 0:
+                        icon = c("LOSS", C.B_RED)
+                    else:
+                        icon = dim("FLAT")
+                    base = o.symbol.replace("USDT", "")
+                    print(f"    {icon}  {base} {o.exit_reason} @ ${o.exit_price:,.2f} "
+                          f"→ {o.pnl_pct:+.1%} (${o.pnl_usd:+,.2f}) in {o.holding_hours:.0f}h")
+                # Summary
+                wins = sum(1 for o in outcomes if o.pnl_pct > 0)
+                losses = sum(1 for o in outcomes if o.pnl_pct < 0)
+                total_pnl = sum(o.pnl_usd for o in outcomes)
+                print(f"    {dim(f'{wins}W / {losses}L  |  Net P&L: ${total_pnl:+,.2f}')}")
+            else:
+                n = len(trade_monitor.open_trades)
+                print(f"    {dim(f'{n} open positions — no exits triggered')}")
+        # ═══════════════════════════════════════
+        # STEP 1: Intelligence Gathering
+        # ═══════════════════════════════════════
+        section("Intelligence Gathering")
+
+        from hivemind.data.fear_greed import get_fear_greed
+        from hivemind.data.reddit import get_crypto_reddit_sentiment
+        from hivemind.data.coingecko import CoinGeckoClient
+        from hivemind.data.defi_llama import DeFiLlamaClient
+
+        # Fetch BTC data (needed by CEO)
+        btc_candles = binance.get_klines(symbol="BTCUSDT", interval=interval, limit=candle_count)
+        btc_stats = binance.get_24h_stats(symbol="BTCUSDT")
+        btc_indicators = compute_indicators(btc_candles, "BTCUSDT")
+
+        intel: dict = {}
+        t0 = time.monotonic()
+
+        try:
+            intel["fear_greed"] = get_fear_greed(days=7)
+            fg = intel["fear_greed"]
+            print(f"    {dim('Fear & Greed')}     {fg['current_value']}/100 ({fg['current_label']}) trend: {fg.get('trend', '?')}")
+        except Exception as e:
+            print(f"    {dim('Fear & Greed')}     {dim(f'unavailable: {str(e)[:40]}')}")
+
+        try:
+            intel["reddit_sentiment"] = get_crypto_reddit_sentiment(limit_per_sub=10)
+            rs = intel["reddit_sentiment"]
+            ratio_pct = round(rs.get("sentiment_ratio", 0.5) * 100)
+            print(f"    {dim('Reddit')}          {rs['total_posts']} posts · {ratio_pct}% bullish · {rs['engagement_level']} engagement")
+        except Exception as e:
+            print(f"    {dim('Reddit')}          {dim(f'unavailable: {str(e)[:40]}')}")
+
+        gecko = CoinGeckoClient()
+        try:
+            gm = gecko.get_global()
+            intel["global_market"] = gm
+            print(f"    {dim('CoinGecko')}       BTC dom {gm.get('btc_dominance', 0):.1f}% · market {gm.get('market_cap_change_24h_pct', 0):+.1f}% 24h")
+
+            trending = gecko.get_trending()
+            intel["trending"] = trending
+            names = [t["symbol"] for t in trending[:5]]
+            print(f"    {dim('Trending')}        {', '.join(names)}")
+        except Exception as e:
+            print(f"    {dim('CoinGecko')}       {dim(f'unavailable: {str(e)[:40]}')}")
+
+        llama = DeFiLlamaClient()
+        try:
+            ds = llama.get_defi_summary()
+            intel["defi_summary"] = ds
+            print(f"    {dim('DeFiLlama')}      TVL ${ds.get('total_tvl', 0):,.0f} · {ds.get('num_chains', 0)} chains")
+        except Exception as e:
+            print(f"    {dim('DeFiLlama')}      {dim(f'unavailable: {str(e)[:40]}')}")
+
+        # Polymarket prediction markets
+        from hivemind.data.polymarket import PolymarketClient
+        poly = PolymarketClient()
+        try:
+            pred = poly.get_all_relevant_markets()
+            intel["prediction_markets"] = pred
+            highlights = pred.get("highlights", [])
+            if highlights:
+                top = highlights[0]
+                q = top.get("question", "?")[:50]
+                probs = top.get("probabilities", {})
+                prob_str = " / ".join(f"{k}:{v:.0f}%" for k, v in list(probs.items())[:2])
+                n_markets = len(pred.get("crypto", [])) + len(pred.get("fed", [])) + len(pred.get("economy", []))
+                print(f"    {dim('Polymarket')}     {n_markets} markets · top: {q} ({prob_str})")
+        except Exception as e:
+            print(f"    {dim('Polymarket')}     {dim(f'unavailable: {str(e)[:40]}')}")
+        finally:
+            poly.close()
+
+        intel_elapsed = time.monotonic() - t0
+        print(f"    {dim(f'Intelligence gathered in {intel_elapsed:.1f}s')}")
+
+        # ═══════════════════════════════════════
+        # STEP 2: CEO — Strategic Directive
+        # ═══════════════════════════════════════
+        section("CEO — Strategic Directive")
+
+        portfolio_summary = paper_trader.get_summary()
+        perf_summary = tracker.get_summary()
+
+        ceo = CEOAgent(api_key=api_key, provider=provider, model=settings.default_llm_model)
+        last_feedback = ceo_memory.get_last_feedback()
+        experience = ceo_memory.get_experience_summary()
+        t0 = time.monotonic()
+        directive = ceo.direct(
+            btc_indicators, btc_stats, intel, portfolio_summary, perf_summary,
+            last_feedback, experience,
+        )
+        ceo_elapsed = time.monotonic() - t0
+
+        if ceo_memory.cycle_count > 0:
+            print(f"    {dim(f'CEO experience: {ceo_memory.cycle_count} prior cycles')}")
+        strategic_directive_card(directive, ceo_elapsed)
+
+        # Emergency halt check
+        if directive.emergency_halt:
+            print(f"\n    {c('EMERGENCY HALT — All trading suspended.', C.B_RED)}")
+            print(f"    {dim(directive.halt_reason)}")
+            footer()
+            return
+
+        # ═══════════════════════════════════════
+        # STEP 3: COO — Coin Selection (guided by CEO strategy)
+        # ═══════════════════════════════════════
+        section("COO — Coin Selection")
+
+        t0 = time.monotonic()
+        all_stats = binance.get_all_24h_stats(
+            quote_asset="USDT",
+            min_volume=settings.min_volume_24h,
+        )
+        # Pass CEO's focus strategy to COO
+        intel["ceo_focus_strategy"] = directive.focus_strategy
+        intel["ceo_sector_weights"] = directive.sector_weights
+        coo = COOAgent(api_key=api_key, provider=provider, model=settings.default_llm_model)
+        selection = coo.select(all_stats, directive.regime, max_coins=max_coins, extra_intelligence=intel)
+        coo_elapsed = time.monotonic() - t0
+
+        coin_selection_card(
+            selection.selected_coins, selection.scores,
+            selection.reasoning, coo_elapsed,
+        )
+
+        selected_coins = selection.selected_coins
+        if not selected_coins:
+            print(f"\n    {dim('No coins selected. Exiting.')}")
+            footer()
+            return
+
+        # ═══════════════════════════════════════
+        # STEP 3b: Hot Coin Injection
+        # ═══════════════════════════════════════
+        from hivemind.data.hot_coins import detect_hot_coins
+        hot_additions = detect_hot_coins(intel, selected_coins, max_additions=3)
+
+        if hot_additions:
+            # Verify hot coins exist on Binance AND aren't already selected
+            all_binance_symbols = {s["symbol"] for s in all_stats}
+            selected_set = set(selected_coins)
+            verified_hot = [
+                h for h in hot_additions
+                if h["symbol"] in all_binance_symbols and h["symbol"] not in selected_set
+            ]
+
+            if verified_hot:
+                for h in verified_hot:
+                    selected_coins.append(h["symbol"])
+                    selected_set.add(h["symbol"])
+                    base = h["symbol"].replace("USDT", "")
+                    print(f"    {c('HOT', C.B_MAGENTA)} {c(base, C.B_WHITE)}  {dim(h['reason'])}")
+
+        # ═══════════════════════════════════════
+        # STEP 4: Data Layer — Per-Coin Enrichment
+        # ═══════════════════════════════════════
+        section("Data Layer — Per-Coin Enrichment")
+
+        data_layer = DataLayer()
+        t0 = time.monotonic()
+        snapshot = data_layer.fetch_all(selected_coins)
+        data_layer.close()
+        data_elapsed = time.monotonic() - t0
+
+        # Copy the intelligence we already gathered into the snapshot
+        snapshot.fear_greed = intel.get("fear_greed")
+        snapshot.reddit_sentiment = intel.get("reddit_sentiment")
+        snapshot.global_market = intel.get("global_market", {})
+        snapshot.trending_coins = intel.get("trending", [])
+        snapshot.prediction_markets = intel.get("prediction_markets")
+
+        # Show enrichment stats
+        enriched_gecko = sum(1 for c in snapshot.coins.values() if c.coingecko)
+        enriched_deriv = sum(1 for c in snapshot.coins.values() if c.derivatives)
+        enriched_paprika = sum(1 for c in snapshot.coins.values() if c.paprika)
+        chain_data = sum(1 for c in snapshot.coins.values() if c.chain_tvl)
+        if snapshot.btc_onchain:
+            bc = snapshot.btc_onchain
+            print(f"    {dim('BTC On-Chain')}    hash {bc.get('hash_rate_eh', 0)} EH/s · {bc.get('n_transactions_24h', 0):,} tx · mempool {bc.get('mempool_count', '?')}")
+        # Show derivatives snapshot for BTC
+        btc_coin = snapshot.coins.get("BTCUSDT")
+        if btc_coin and btc_coin.derivatives:
+            d = btc_coin.derivatives
+            funding = d.get("funding", {})
+            oi = d.get("open_interest", {})
+            taker = d.get("taker_volume", {})
+            top_ls = d.get("top_trader_ls", {})
+            parts = []
+            if funding:
+                parts.append(f"funding {funding.get('current_rate_pct', 0):+.4f}%")
+            if oi:
+                parts.append(f"OI {oi.get('open_interest', 0):,.0f} BTC")
+            if taker:
+                parts.append(f"taker {taker.get('buy_sell_ratio', 1):.3f}")
+            if top_ls:
+                parts.append(f"whales {top_ls.get('long_pct', 50):.0f}%L")
+            if parts:
+                print(f"    {dim('Derivatives')}    {' · '.join(parts)}")
+            divergence = d.get("smart_money_divergence", "ALIGNED")
+            if divergence != "ALIGNED":
+                print(f"    {dim('Smart Money')}    {divergence}")
+        # Whale flows
+        if snapshot.whale_flows:
+            wf = snapshot.whale_flows
+            total_btc = wf.get("total_exchange_btc", 0)
+            n_wallets = wf.get("num_wallets_tracked", 0)
+            print(f"    {dim('Whale Flows')}    {total_btc:,.0f} BTC across {n_wallets} exchange wallets")
+
+        n = len(selected_coins)
+        print(f"    {dim('Enrichment')}     {enriched_gecko}/{n} CoinGecko · {enriched_deriv}/{n} derivatives · {enriched_paprika}/{n} CoinPaprika · {chain_data}/{n} chain TVL")
+
+        if snapshot.errors:
+            for err in snapshot.errors:
+                print(f"    {dim('Warning')}        {dim(err)}")
+
+        print(f"    {dim(f'Per-coin data loaded in {data_elapsed:.1f}s')}")
+
+        # ═══════════════════════════════════════
+        # STEP 5: CRO — Risk Rules
+        # ═══════════════════════════════════════
+        section("CRO — Risk Rules")
+
+        cro_perf_summary = tracker.get_summary()
+        cro = CROAgent(api_key=api_key, provider=provider, model=settings.default_llm_model)
+        t0 = time.monotonic()
+        risk_limits, cro_reasoning = cro.set_rules(directive, paper_trader.portfolio, cro_perf_summary)
+        cro_elapsed = time.monotonic() - t0
+
+        cro_card(
+            {
+                "max_position_pct": risk_limits.max_position_pct,
+                "max_daily_drawdown_pct": risk_limits.max_daily_drawdown_pct,
+                "max_open_positions": risk_limits.max_open_positions,
+                "min_signal_confidence": risk_limits.min_signal_confidence,
+                "min_consensus_ratio": risk_limits.min_consensus_ratio,
+            },
+            cro_reasoning,
+            cro_elapsed,
+        )
+
+        # ═══════════════════════════════════════
+        # STEP 6: Analyze Each Coin (5 teams × N coins)
+        # ═══════════════════════════════════════
+        section(f"Agent Analysis — {len(selected_coins)} coins × 5 teams")
+
+        all_coin_signals: list[Signal] = []
+        all_agent_profiles: dict[str, AgentProfile] = {}
+        coin_prices: dict[str, float] = {}
+
+        for symbol in selected_coins:
+            signals, profiles, price = _analyze_coin(
+                symbol, snapshot, api_key, provider,
+            )
+            all_coin_signals.extend(signals)
+            all_agent_profiles.update(profiles)
+            coin_prices[symbol] = price
+
+        # ═══════════════════════════════════════
+        # STEP 6: Aggregate per coin
+        # ═══════════════════════════════════════
+        aggregator = SignalAggregator(team_weight_overrides=team_weights.weights)
+        aggregated = aggregator.aggregate(all_coin_signals, all_agent_profiles)
+
+        # ═══════════════════════════════════════
+        # STEP 7: Risk Manager (enforces CRO rules)
+        # ═══════════════════════════════════════
+        risk_manager = RiskManager(limits=risk_limits, regime=directive.regime)
+        risk_orders = risk_manager.evaluate(aggregated, paper_trader.portfolio)
+
+        # ═══════════════════════════════════════
+        # STEP 8: Portfolio Managers (segment allocation)
+        # ═══════════════════════════════════════
+        section("Portfolio Managers")
+        pm_group = PortfolioManagerGroup(ceo_sector_weights=directive.sector_weights)
+        orders_before_pm = len(risk_orders)
+        final_orders = pm_group.review(risk_orders, paper_trader.portfolio)
+        orders_after_pm = len(final_orders)
+        segment_exposure = pm_group.get_segment_exposure(paper_trader.portfolio)
+        pm_summary(segment_exposure, orders_before_pm, orders_after_pm)
+
+        # ═══════════════════════════════════════
+        # STEP 9: Verdicts
+        # ═══════════════════════════════════════
+        section("Verdicts")
+        agg_by_symbol: dict[str, AggregatedSignal] = {a.symbol: a for a in aggregated}
+        traded_symbols = {o.symbol for o in final_orders}
+
+        for symbol in selected_coins:
+            agg = agg_by_symbol.get(symbol)
+            if agg is None:
+                multi_verdict_row(symbol, "HOLD", 0, 0, blocked=True, reason="no signal")
+                continue
+
+            blocked = symbol not in traded_symbols
+            reason = ""
+            if blocked:
+                if agg.recommended_action.value == "HOLD":
+                    reason = "agents recommend HOLD"
+                elif agg.aggregated_confidence < risk_limits.min_signal_confidence:
+                    reason = f"conf {agg.aggregated_confidence:.0%} < {risk_limits.min_signal_confidence:.0%}"
+                elif agg.consensus_ratio < risk_limits.min_consensus_ratio:
+                    reason = f"consensus {agg.consensus_ratio:.0%} < {risk_limits.min_consensus_ratio:.0%}"
+                else:
+                    reason = "risk/PM rules"
+
+            multi_verdict_row(
+                symbol, agg.recommended_action.value,
+                agg.aggregated_confidence, agg.consensus_ratio,
+                blocked=blocked, reason=reason,
+            )
+
+        # ═══════════════════════════════════════
+        # STEP 10: Execution
+        # ═══════════════════════════════════════
+        if final_orders:
+            section("Execution")
+            results = paper_trader.execute_batch(final_orders)
+            order_by_symbol = {o.symbol: o for o in final_orders}
+            for result in results:
+                order = order_by_symbol.get(result.symbol)
+                params = order.params if order else None
+                trade_fill(result.side.value, result.quantity, result.symbol, result.executed_price, params)
+
+                # Register trade for monitoring + ledger
+                if order and order.params.stop_loss_price > 0:
+                    trade_monitor.register_trade(
+                        symbol=result.symbol,
+                        side=result.side,
+                        entry_price=result.executed_price,
+                        quantity=result.quantity,
+                        params=order.params,
+                    )
+                    trade_ledger.record_entry(
+                        symbol=result.symbol,
+                        side=result.side.value,
+                        entry_price=result.executed_price,
+                        quantity=result.quantity,
+                        asset_tier=order.params.asset_tier,
+                        risk_amount=order.params.risk_amount_usd,
+                        stop_loss=order.params.stop_loss_price,
+                        take_profit_1=order.params.take_profit_1,
+                    )
+            paper_trader.update_prices(coin_prices)
+
+        summary = paper_trader.get_summary()
+        portfolio_card(summary, paper_trader.portfolio.positions or None)
+
+        # ═══════════════════════════════════════
+        # STEP 11: Performance Tracking
+        # ═══════════════════════════════════════
+        tracker.record_signals(all_coin_signals, coin_prices)
+        eval_results = tracker.evaluate_pending(coin_prices)
+
+        if eval_results["evaluated"] > 0:
+            print(f"    {dim('Evaluated:')} {eval_results['correct']}/{eval_results['evaluated']} correct")
+
+        # ═══════════════════════════════════════
+        # STEP 12: CEO Post-Cycle Review
+        # ═══════════════════════════════════════
+        section("CEO — Post-Cycle Review")
+
+        team_stats = tracker.get_team_stats()
+        perf_summary_after = tracker.get_summary()
+
+        t0 = time.monotonic()
+        ceo_feedback = ceo.review(
+            directive, all_coin_signals, aggregated,
+            len(final_orders), summary, team_stats, perf_summary_after,
+        )
+        review_elapsed = time.monotonic() - t0
+
+        from hivemind.display import ceo_review_card
+        ceo_review_card(ceo_feedback, review_elapsed)
+
+        # Apply CEO team weight decisions for next cycle
+        ceo_team_actions = ceo_feedback.get("team_actions", [])
+        if ceo_team_actions:
+            team_weights.apply_ceo_decisions(ceo_team_actions)
+
+        # Collect trade outcomes as feedback
+        trade_feedback = trade_monitor.get_feedback_summary()
+
+        # Persist CEO memory with trade outcomes included
+        ceo_memory.record_cycle(
+            directive={
+                "regime": directive.regime.value,
+                "risk_multiplier": directive.risk_multiplier,
+                "sector_weights": directive.sector_weights,
+                "focus_strategy": directive.focus_strategy,
+            },
+            results={
+                "coins_analyzed": len(selected_coins),
+                "signals_generated": len(all_coin_signals),
+                "orders_executed": len(final_orders),
+                "portfolio_return": summary["return_pct"],
+                "drawdown": summary["drawdown_pct"],
+                "fear_greed": intel.get("fear_greed", {}).get("current_value", 0),
+                "btc_price": coin_prices.get("BTCUSDT", 0),
+                "btc_change_24h": float(btc_stats.get("price_change_pct", 0)),
+                "btc_dominance": intel.get("global_market", {}).get("btc_dominance", 0),
+                "trade_outcomes": trade_feedback,  # Feed trade results into CEO memory
+                "ledger_stats": trade_ledger.get_stats(),
+            },
+            feedback=ceo_feedback,
+        )
+
+        # Timing
+        elapsed_total = time.monotonic() - cycle_start
+        n_signals = len(all_coin_signals)
+        n_coins = len(selected_coins)
+        n_hot = len(hot_additions) if hot_additions else 0
+        n_coo = n_coins - n_hot
+        # CEO pre + CEO post + COO + CRO + (12 sub-agents + 5 managers) per coin
+        n_llm_calls = 4 + (17 * n_coins)
+        hot_str = f" + {n_hot} hot" if n_hot else ""
+        print(f"\n  {dim(f'Completed in {elapsed_total:.1f}s · {n_coo} COO{hot_str} = {n_coins} coins · {n_signals} signals · {n_llm_calls} LLM calls')}")
+
+        # ═══════════════════════════════════════
+        # FINAL: Trade Ledger Summary
+        # ═══════════════════════════════════════
+        section("Trade Ledger — Lifetime Performance")
+        ledger_summary = trade_ledger.format_summary()
+        for line in ledger_summary.split("\n"):
+            print(f"    {dim(line)}")
+
+    finally:
+        binance.close()
+
+    footer()
+
+
+def main() -> None:
+    """Entry point."""
+    try:
+        settings.get_active_llm_key()
+    except ValueError as e:
+        print(f"\n  {c('Error:', C.B_RED)} {e}")
+        print(f"  Copy .env.example to .env and add your API key.\n")
+        sys.exit(1)
+
+    run_pipeline()
+
+
+if __name__ == "__main__":
+    main()

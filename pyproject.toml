@@ -1,0 +1,73 @@
+[tool.poetry]
+name = "hivemind"
+version = "0.1.0"
+description = "Distributed AI Hedge Fund — self-managing AI agents that trade crypto"
+authors = ["Hivemind Team"]
+readme = "README.md"
+packages = [{include = "hivemind"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+# LLM providers
+anthropic = "^0.52.0"
+openai = "^1.30.0"
+
+# HTTP & WebSocket
+httpx = "^0.28.0"
+websockets = "^15.0"
+
+# Data & analysis
+pandas = "^2.2.0"
+numpy = "^2.0.0"
+ta = "^0.11.0"
+
+# Data validation
+pydantic = "^2.10.0"
+pydantic-settings = "^2.7.0"
+
+# API backend
+fastapi = "^0.115.0"
+uvicorn = {extras = ["standard"], version = "^0.34.0"}
+
+# Database
+sqlalchemy = {extras = ["asyncio"], version = "^2.0.0"}
+asyncpg = "^0.30.0"
+alembic = "^1.14.0"
+
+# Cache & queue
+redis = "^5.0.0"
+
+# Environment
+python-dotenv = "^1.0.0"
+
+# Utilities
+structlog = "^24.4.0"
+tenacity = "^9.0.0"
+uuid7 = "^0.1.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+pytest-asyncio = "^0.24.0"
+pytest-cov = "^6.0.0"
+ruff = "^0.8.0"
+mypy = "^1.13.0"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
