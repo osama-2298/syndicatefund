@@ -12,14 +12,18 @@ Architecture flow:
   8. Portfolio Managers approve/filter by segment
   9. Execute orders via paper trader
  10. Performance Agent reviews and fires/promotes
+
+TODO(Fix 12): Add backtesting — multi-day historical replay with LLM caching.
+TODO(Fix 14): Add static knowledge injection — requires curator pipeline or RAG system.
 """
 
 from __future__ import annotations
 
 import logging
+import signal
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import structlog
 
@@ -278,6 +282,7 @@ def _analyze_coin(
 def run_pipeline(
     interval: str = "4h",
     candle_count: int = 200,
+    binance: BinanceClient | None = None,
 ) -> None:
     """Run the full multi-coin pipeline with real data from all sources."""
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -288,18 +293,26 @@ def run_pipeline(
     max_coins = settings.max_coins_per_cycle
     cycle_start = time.monotonic()
 
-    binance = BinanceClient()
-    paper_trader = PaperTrader(initial_cash=100_000.0)
-    tracker = PerformanceTracker(storage_path=settings.performance_history_path)
+    _binance = binance or BinanceClient()
+    _owns_binance = binance is None
+    paper_trader = PaperTrader.load(settings.portfolio_state_path)
+    tracker = PerformanceTracker(storage_path=settings.perf_history_path)
 
     # CEO memory — persists across cycles
     from hivemind.executive.ceo_memory import CEOMemory
-    ceo_memory = CEOMemory(storage_path="data/ceo_memory.json")
-    trade_monitor = TradeMonitor(storage_path="data/open_trades.json")
-    trade_ledger = TradeLedger(storage_path="data/trade_ledger.json")
+    ceo_memory = CEOMemory(storage_path=settings.ceo_memory_path)
+    trade_monitor = TradeMonitor(storage_path=settings.open_trades_path)
+    trade_ledger = TradeLedger(storage_path=settings.trade_ledger_path)
 
     from hivemind.executive.team_weights import TeamWeightManager
-    team_weights = TeamWeightManager(storage_path="data/team_weights.json")
+    team_weights = TeamWeightManager(storage_path=settings.team_weights_path)
+
+    # Diagnostic: detect orphan trades (trade monitor has trade but portfolio has no position)
+    if trade_monitor.open_trades:
+        for sym in trade_monitor.open_trades:
+            if paper_trader.portfolio.get_position(sym) is None:
+                logger.warning("orphan_trade", symbol=sym,
+                              msg="Trade monitor has open trade but portfolio has no position")
 
     try:
         # ═══════════════════════════════════════
@@ -307,7 +320,7 @@ def run_pipeline(
         # ═══════════════════════════════════════
         if trade_monitor.open_trades:
             section("Trade Monitor — Checking Open Positions")
-            outcomes = trade_monitor.check_all(binance, paper_trader=paper_trader, interval="1h")
+            outcomes = trade_monitor.check_all(_binance, paper_trader=paper_trader, interval="1h")
             # Record outcomes in the ledger
             for o in outcomes:
                 trade_ledger.record_outcome(o)
@@ -344,8 +357,8 @@ def run_pipeline(
         from hivemind.data.polymarket import PolymarketClient
 
         # BTC data for CEO (quick, 2 calls)
-        btc_candles = binance.get_klines(symbol="BTCUSDT", interval="4h", limit=200)
-        btc_stats = binance.get_24h_stats(symbol="BTCUSDT")
+        btc_candles = _binance.get_klines(symbol="BTCUSDT", interval="4h", limit=200)
+        btc_stats = _binance.get_24h_stats(symbol="BTCUSDT")
         btc_indicators = compute_indicators(btc_candles, "BTCUSDT")
 
         intel: dict = {}
@@ -468,7 +481,7 @@ def run_pipeline(
         section("COO — Coin Selection")
 
         t0 = time.monotonic()
-        all_stats = binance.get_all_24h_stats(
+        all_stats = _binance.get_all_24h_stats(
             quote_asset="USDT",
             min_volume=settings.min_volume_24h,
         )
@@ -610,13 +623,26 @@ def run_pipeline(
         all_agent_profiles: dict[str, AgentProfile] = {}
         coin_prices: dict[str, float] = {}
 
-        for symbol in selected_coins:
-            signals, profiles, price = _analyze_coin(
-                symbol, snapshot, api_key, provider,
-            )
-            all_coin_signals.extend(signals)
-            all_agent_profiles.update(profiles)
-            coin_prices[symbol] = price
+        from concurrent.futures import ThreadPoolExecutor as _CoinPool, as_completed
+
+        def _analyze_and_collect(sym):
+            return sym, _analyze_coin(sym, snapshot, api_key, provider)
+
+        with _CoinPool(max_workers=2) as coin_pool:
+            futs = {coin_pool.submit(_analyze_and_collect, s): s for s in selected_coins}
+            for fut in as_completed(futs):
+                sym, (signals, profiles, price) = fut.result()
+                all_coin_signals.extend(signals)
+                all_agent_profiles.update(profiles)
+                coin_prices[sym] = price
+
+        # Hydrate agent profiles with historical track record
+        agent_historical = tracker.get_agent_stats()
+        for agent_id, profile in all_agent_profiles.items():
+            hist = agent_historical.get(agent_id)
+            if hist and hist["total"] > 0:
+                profile.total_signals = hist["total"]
+                profile.correct_signals = hist["correct"]
 
         # ═══════════════════════════════════════
         # STEP 6: Aggregate per coin
@@ -710,6 +736,7 @@ def run_pipeline(
                         quantity=result.quantity,
                         params=order.params,
                     )
+                    agg = agg_by_symbol.get(result.symbol)
                     trade_ledger.record_entry(
                         symbol=result.symbol,
                         side=result.side.value,
@@ -719,8 +746,13 @@ def run_pipeline(
                         risk_amount=order.params.risk_amount_usd,
                         stop_loss=order.params.stop_loss_price,
                         take_profit_1=order.params.take_profit_1,
+                        conviction=int(agg.aggregated_confidence * 10) if agg else 0,
+                        confidence=agg.aggregated_confidence if agg else 0.0,
+                        direction=agg.recommended_action.value if agg else "",
+                        regime=directive.regime.value,
                     )
             paper_trader.update_prices(coin_prices)
+            paper_trader.save(settings.portfolio_state_path)
 
         summary = paper_trader.get_summary()
         portfolio_card(summary, paper_trader.portfolio.positions or None)
@@ -819,13 +851,41 @@ def run_pipeline(
             print(f"    {dim(f'  {rec}')}")
 
     finally:
-        binance.close()
+        paper_trader.save(settings.portfolio_state_path)
+        if _owns_binance:
+            _binance.close()
 
     footer()
 
 
+CYCLE_INTERVAL_HOURS = 4
+
+
+def _next_4h_boundary() -> datetime:
+    """Return the next 4H candle boundary (00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC)."""
+    now = datetime.now(timezone.utc)
+    # Which 4H slot are we in? (0, 4, 8, 12, 16, 20)
+    current_slot = (now.hour // CYCLE_INTERVAL_HOURS) * CYCLE_INTERVAL_HOURS
+    next_slot = current_slot + CYCLE_INTERVAL_HOURS
+    boundary = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(hours=next_slot)
+    # If next_slot >= 24, it rolls to tomorrow (timedelta handles this)
+    return boundary
+
+
+def _seconds_until(target: datetime) -> float:
+    return max(0, (target - datetime.now(timezone.utc)).total_seconds())
+
+
+def _format_duration(seconds: float) -> str:
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    if h > 0:
+        return f"{h}h {m}m"
+    return f"{m}m"
+
+
 def main() -> None:
-    """Entry point."""
+    """Entry point — runs a single cycle."""
     try:
         settings.get_active_llm_key()
     except ValueError as e:
@@ -833,8 +893,91 @@ def main() -> None:
         print(f"  Copy .env.example to .env and add your API key.\n")
         sys.exit(1)
 
-    run_pipeline()
+    binance = BinanceClient()
+    try:
+        run_pipeline(binance=binance)
+    finally:
+        binance.close()
+
+
+def run_loop() -> None:
+    """
+    Continuous cycle loop — runs the pipeline every 4 hours, aligned to candle boundaries.
+
+    Aligns to UTC 4H boundaries: 00:00, 04:00, 08:00, 12:00, 16:00, 20:00.
+    Runs immediately on start, then sleeps until the next boundary.
+    Survives cycle errors — logs and waits for next interval.
+    Clean shutdown on Ctrl+C / SIGTERM.
+    """
+    try:
+        settings.get_active_llm_key()
+    except ValueError as e:
+        print(f"\n  {c('Error:', C.B_RED)} {e}")
+        print(f"  Copy .env.example to .env and add your API key.\n")
+        sys.exit(1)
+
+    shutdown_requested = False
+
+    def _handle_signal(signum, frame):
+        nonlocal shutdown_requested
+        shutdown_requested = True
+        sig_name = signal.Signals(signum).name
+        print(f"\n  {c(f'{sig_name} received — finishing current cycle then shutting down.', C.B_YELLOW)}")
+
+    signal.signal(signal.SIGINT, _handle_signal)
+    signal.signal(signal.SIGTERM, _handle_signal)
+
+    binance = BinanceClient()
+    cycle_count = 0
+
+    print(f"\n  {c('HIVEMIND CONTINUOUS MODE', C.B_WHITE)}")
+    print(f"  {dim(f'Cycle interval: {CYCLE_INTERVAL_HOURS}H · Aligned to UTC candle boundaries')}")
+    print(f"  {dim('Press Ctrl+C to stop gracefully')}\n")
+
+    try:
+        while not shutdown_requested:
+            cycle_count += 1
+            now = datetime.now(timezone.utc)
+            ts = now.strftime("%Y-%m-%d %H:%M UTC")
+            print(f"  {dim(f'[Cycle {cycle_count}] Starting at {ts}')}")
+
+            try:
+                run_pipeline(binance=binance)
+            except Exception as e:
+                logger.error("cycle_failed", cycle=cycle_count, error=str(e))
+                print(f"\n  {c('Cycle failed:', C.B_RED)} {e}")
+                print(f"  {dim('Will retry at next interval.')}")
+
+            if shutdown_requested:
+                break
+
+            # Sleep until next 4H boundary
+            next_run = _next_4h_boundary()
+            wait_secs = _seconds_until(next_run)
+
+            if wait_secs < 30:
+                # We're right at a boundary — skip to the next one
+                next_run += timedelta(hours=CYCLE_INTERVAL_HOURS)
+                wait_secs = _seconds_until(next_run)
+
+            next_ts = next_run.strftime("%Y-%m-%d %H:%M UTC")
+            wait_str = _format_duration(wait_secs)
+            print(f"\n  {dim(f'Next cycle: {next_ts} (in {wait_str})')}")
+            print(f"  {dim('Sleeping... (Ctrl+C to stop)')}\n")
+
+            # Sleep in 30s chunks so we can respond to shutdown signals
+            sleep_end = time.monotonic() + wait_secs
+            while time.monotonic() < sleep_end and not shutdown_requested:
+                remaining = sleep_end - time.monotonic()
+                time.sleep(min(remaining, 30))
+
+    finally:
+        binance.close()
+        print(f"\n  {dim(f'Shutdown complete. Ran {cycle_count} cycle(s).')}\n")
 
 
 if __name__ == "__main__":
-    main()
+    if "--loop" in sys.argv:
+        run_loop()
+    else:
+        main()

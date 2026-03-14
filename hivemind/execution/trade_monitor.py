@@ -256,10 +256,13 @@ class TradeMonitor:
                 else:
                     stop_price = trade.entry_price - half_r
 
-            # Determine if both SL and TP could be hit in same candle
+            # Determine if both SL and TP could be hit in same candle.
             # Use candle direction to infer which was hit first:
             # Bullish candle (close > open) → TP likely hit first
             # Bearish candle → SL likely hit first
+            # NOTE: This heuristic is reasonable for 1h candles. Tick-level data
+            # would be needed for exact fill order, but is unavailable on free tier.
+            # TODO(Fix 15): Consider using sub-minute candles if available.
             sl_hit = (is_long and low <= stop_price) or (not is_long and high >= stop_price)
             tp1_could_hit = (
                 not trade.tp1_hit and params.take_profit_1 > 0 and

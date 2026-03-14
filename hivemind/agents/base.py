@@ -15,17 +15,40 @@ Evidently AI binary classification research.
 from __future__ import annotations
 
 import json
+import threading
 from abc import ABC, abstractmethod
 from typing import Any
 
 import anthropic
 import openai
 import structlog
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 
 from hivemind.config import LLMProvider
 from hivemind.data.models import AgentProfile, Signal, SignalAction, TeamType
 
 logger = structlog.get_logger()
+
+# Max 10 concurrent Anthropic/OpenAI calls across all agents
+_LLM_SEMAPHORE = threading.Semaphore(10)
+
+
+def _is_retryable_error(exc: BaseException) -> bool:
+    # Anthropic errors
+    if isinstance(exc, anthropic.RateLimitError):
+        return True
+    if isinstance(exc, anthropic.APIStatusError) and exc.status_code >= 500:
+        return True
+    if isinstance(exc, (anthropic.APIConnectionError, anthropic.APITimeoutError)):
+        return True
+    # OpenAI errors
+    if isinstance(exc, openai.RateLimitError):
+        return True
+    if isinstance(exc, openai.APIStatusError) and exc.status_code >= 500:
+        return True
+    if isinstance(exc, (openai.APIConnectionError, openai.APITimeoutError)):
+        return True
+    return False
 
 # The tool schema forces agents to pick a DIRECTION.
 # There is NO HOLD option. The system maps conviction to trade/no-trade.
@@ -115,22 +138,33 @@ class BaseLLMCaller:
             return self._call_openai(system_prompt, user_prompt, tool)
         raise ValueError(f"Unsupported provider: {self._provider}")
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=2, max=30),
+        retry=retry_if_exception(_is_retryable_error),
+    )
     def _call_anthropic(
         self, system_prompt: str, user_prompt: str, tool: dict[str, Any]
     ) -> dict[str, Any]:
-        response = self._anthropic.messages.create(
-            model=self._model,
-            max_tokens=1024,
-            system=system_prompt,
-            tools=[tool],
-            tool_choice={"type": "tool", "name": tool["name"]},
-            messages=[{"role": "user", "content": user_prompt}],
-        )
+        with _LLM_SEMAPHORE:
+            response = self._anthropic.messages.create(
+                model=self._model,
+                max_tokens=1024,
+                system=system_prompt,
+                tools=[tool],
+                tool_choice={"type": "tool", "name": tool["name"]},
+                messages=[{"role": "user", "content": user_prompt}],
+            )
         for block in response.content:
             if block.type == "tool_use" and block.name == tool["name"]:
                 return block.input
         raise ValueError(f"LLM response did not contain a {tool['name']} tool call")
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=2, max=30),
+        retry=retry_if_exception(_is_retryable_error),
+    )
     def _call_openai(
         self, system_prompt: str, user_prompt: str, tool: dict[str, Any]
     ) -> dict[str, Any]:
@@ -142,16 +176,17 @@ class BaseLLMCaller:
                 "parameters": tool["input_schema"],
             },
         }
-        response = self._openai.chat.completions.create(
-            model=self._model,
-            max_tokens=1024,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            tools=[openai_tool],
-            tool_choice={"type": "function", "function": {"name": tool["name"]}},
-        )
+        with _LLM_SEMAPHORE:
+            response = self._openai.chat.completions.create(
+                model=self._model,
+                max_tokens=1024,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                tools=[openai_tool],
+                tool_choice={"type": "function", "function": {"name": tool["name"]}},
+            )
         message = response.choices[0].message
         if message.tool_calls:
             args_str = message.tool_calls[0].function.arguments

@@ -149,9 +149,18 @@ class MarketSnapshot:
             if taker:
                 smart_money["taker_buy_sell_ratio"] = taker.get("buy_sell_ratio", 1.0)
                 smart_money["taker_signal"] = taker.get("signal", "UNKNOWN")
+        # Per-coin Reddit sentiment (more specific than global)
+        reddit_coin_sentiment = None
+        if self.reddit_sentiment:
+            base = symbol.replace("USDT", "")
+            cs = self.reddit_sentiment.get("coin_sentiment", {})
+            if base in cs:
+                reddit_coin_sentiment = cs[base]
+
         return {
             "fear_greed": self.fear_greed,
             "reddit_sentiment": self.reddit_sentiment,
+            "reddit_coin_sentiment": reddit_coin_sentiment,
             "trending": self.trending_coins,
             "coingecko_coin": coin.coingecko,
             "smart_money": smart_money,

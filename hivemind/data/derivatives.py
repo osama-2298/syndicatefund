@@ -277,16 +277,16 @@ class DerivativesClient:
             divergence_magnitude = round(abs(top_ratio - global_ratio), 3)
             result["divergence_magnitude"] = divergence_magnitude
 
-            # EXTREME divergence only (old thresholds 1.2/0.8 fired 70% of the time)
-            if top_ratio > 1.8 and global_ratio < 0.6:
+            # STRONG divergence (actionable — relaxed from 1.8/0.6 to catch more real divergences)
+            if top_ratio > 1.6 and global_ratio < 0.7:
                 result["smart_money_divergence"] = "WHALES_LONG_RETAIL_SHORT — Potential squeeze up"
-            elif top_ratio < 0.6 and global_ratio > 1.8:
+            elif top_ratio < 0.7 and global_ratio > 1.6:
                 result["smart_money_divergence"] = "WHALES_SHORT_RETAIL_LONG — Potential dump"
-            # MILD divergence (informational, not actionable)
-            elif top_ratio > 1.4 and global_ratio < 0.7:
-                result["smart_money_divergence"] = "MILD_DIVERGENCE_BULLISH"
-            elif top_ratio < 0.7 and global_ratio > 1.4:
-                result["smart_money_divergence"] = "MILD_DIVERGENCE_BEARISH"
+            # MODERATE divergence (informational, not actionable)
+            elif top_ratio > 1.3 and global_ratio < 0.8:
+                result["smart_money_divergence"] = "MODERATE_DIVERGENCE_BULLISH"
+            elif top_ratio < 0.8 and global_ratio > 1.3:
+                result["smart_money_divergence"] = "MODERATE_DIVERGENCE_BEARISH"
             else:
                 result["smart_money_divergence"] = "ALIGNED"
         else:

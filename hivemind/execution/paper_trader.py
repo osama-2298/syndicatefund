@@ -7,7 +7,9 @@ records all trades, and tracks P&L. This is the execution engine for Phase 1-2.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
+from pathlib import Path
 
 import structlog
 
@@ -31,8 +33,35 @@ class PaperTrader:
     """
 
     def __init__(self, initial_cash: float = 100_000.0) -> None:
+        self._initial_cash = initial_cash
         self.portfolio = PortfolioState(cash=initial_cash, peak_value=initial_cash)
         self.trade_history: list[TradeResult] = []
+
+    @classmethod
+    def load(cls, path: str, initial_cash: float = 100_000.0) -> "PaperTrader":
+        """Load portfolio from disk. Fresh portfolio if file missing."""
+        p = Path(path)
+        trader = cls(initial_cash=initial_cash)
+        if p.exists():
+            try:
+                data = json.loads(p.read_text())
+                trader.portfolio = PortfolioState.model_validate(data)
+                logger.info("portfolio_loaded",
+                           cash=round(trader.portfolio.cash, 2),
+                           positions=len(trader.portfolio.positions),
+                           total_value=round(trader.portfolio.total_value, 2))
+            except Exception as e:
+                logger.error("portfolio_load_failed", error=str(e))
+        return trader
+
+    def save(self, path: str) -> None:
+        """Persist portfolio state to disk. Uses atomic write-to-temp-then-rename."""
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        data = self.portfolio.model_dump(mode="json")
+        tmp = p.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, indent=2, default=str))
+        tmp.rename(p)  # atomic on POSIX
 
     def execute(self, order: TradeOrder) -> TradeResult | None:
         """
@@ -92,7 +121,7 @@ class PaperTrader:
             "unrealized_pnl": round(p.total_unrealized_pnl, 2),
             "realized_pnl": round(p.total_realized_pnl, 2),
             "total_pnl": round(p.total_realized_pnl + p.total_unrealized_pnl, 2),
-            "return_pct": round(((p.total_value / 100_000) - 1) * 100, 2),
+            "return_pct": round(((p.total_value / self._initial_cash) - 1) * 100, 2),
             "drawdown_pct": round(p.drawdown_pct * 100, 2),
             "open_positions": len(p.positions),
             "total_trades": len(self.trade_history),

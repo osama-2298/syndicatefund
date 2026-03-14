@@ -40,6 +40,10 @@ class LedgerEntry:
         risk_amount: float = 0,
         stop_loss: float = 0,
         take_profit_1: float = 0,
+        conviction: int = 0,
+        confidence: float = 0.0,
+        direction: str = "",
+        regime: str = "",
     ) -> None:
         self.symbol = symbol
         self.side = side
@@ -56,6 +60,10 @@ class LedgerEntry:
         self.risk_amount = risk_amount
         self.stop_loss = stop_loss
         self.take_profit_1 = take_profit_1
+        self.conviction = conviction
+        self.confidence = confidence
+        self.direction = direction
+        self.regime = regime
 
     def to_dict(self) -> dict:
         return self.__dict__
@@ -85,6 +93,10 @@ class TradeLedger:
         risk_amount: float = 0,
         stop_loss: float = 0,
         take_profit_1: float = 0,
+        conviction: int = 0,
+        confidence: float = 0.0,
+        direction: str = "",
+        regime: str = "",
     ) -> None:
         """Record a trade entry (no exit yet — will be updated when closed)."""
         self.entries.append(LedgerEntry(
@@ -103,6 +115,10 @@ class TradeLedger:
             risk_amount=risk_amount,
             stop_loss=stop_loss,
             take_profit_1=take_profit_1,
+            conviction=conviction,
+            confidence=confidence,
+            direction=direction,
+            regime=regime,
         ))
         self._save()
 
@@ -340,27 +356,27 @@ class TradeLedger:
         if len(closed) < 10:
             return {"by_conviction": {}, "calibration_gap": 0, "recommendation": "Insufficient data (<10 closed trades)"}
 
-        # Group by conviction level (rounded to nearest integer)
+        # Group by conviction level
         by_conv: dict[int, dict] = {}
         for e in closed:
-            # Infer conviction from confidence (confidence = conviction / 10)
-            conv = max(1, min(10, round(e.pnl_pct * 10 + 5)))  # rough proxy
-            # Better: use the stop_loss to estimate original conviction
-            # For now, use a simple proxy from the entry data
-            if e.stop_loss > 0 and e.entry_price > 0:
-                # Risk amount relative to position = original confidence proxy
-                stop_dist_pct = abs(e.entry_price - e.stop_loss) / e.entry_price
-                # Map back: wider stop = lower tier = lower conviction (rough)
-                if stop_dist_pct < 0.05:
-                    conv = 8
-                elif stop_dist_pct < 0.10:
-                    conv = 7
-                elif stop_dist_pct < 0.15:
-                    conv = 6
-                elif stop_dist_pct < 0.25:
-                    conv = 5
+            # Use stored conviction if available (new entries), fall back to heuristic (old entries)
+            conv = getattr(e, 'conviction', 0)
+            if conv <= 0:
+                # Fallback for old entries without stored conviction
+                if e.stop_loss > 0 and e.entry_price > 0:
+                    stop_dist_pct = abs(e.entry_price - e.stop_loss) / e.entry_price
+                    if stop_dist_pct < 0.05:
+                        conv = 8
+                    elif stop_dist_pct < 0.10:
+                        conv = 7
+                    elif stop_dist_pct < 0.15:
+                        conv = 6
+                    elif stop_dist_pct < 0.25:
+                        conv = 5
+                    else:
+                        conv = 4
                 else:
-                    conv = 4
+                    conv = max(1, min(10, round(e.pnl_pct * 10 + 5)))
 
             if conv not in by_conv:
                 by_conv[conv] = {"count": 0, "wins": 0}

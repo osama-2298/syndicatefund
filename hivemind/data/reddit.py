@@ -236,6 +236,7 @@ def get_crypto_reddit_sentiment(limit_per_sub: int = 10) -> dict:
     bullish_count = 0
     bearish_count = 0
     coin_mentions: dict[str, int] = {}
+    coin_sentiment: dict[str, dict] = {}
 
     for post in all_posts:
         is_bull, is_bear, mentions = _classify_post(post["title"], post.get("selftext", ""))
@@ -245,6 +246,20 @@ def get_crypto_reddit_sentiment(limit_per_sub: int = 10) -> dict:
             bearish_count += 1
         for coin in mentions:
             coin_mentions[coin] = coin_mentions.get(coin, 0) + 1
+            # Per-coin sentiment tracking
+            if coin not in coin_sentiment:
+                coin_sentiment[coin] = {"bullish": 0, "bearish": 0, "total": 0, "posts": []}
+            coin_sentiment[coin]["total"] += 1
+            if is_bull:
+                coin_sentiment[coin]["bullish"] += 1
+            if is_bear:
+                coin_sentiment[coin]["bearish"] += 1
+            coin_sentiment[coin]["posts"].append(post["title"][:80])
+
+    # Compute per-coin sentiment ratios
+    for stats in coin_sentiment.values():
+        classified = stats["bullish"] + stats["bearish"]
+        stats["sentiment_ratio"] = stats["bullish"] / max(classified, 1)
 
     total_classified = bullish_count + bearish_count
     sentiment_ratio = bullish_count / max(total_classified, 1)
@@ -285,6 +300,7 @@ def get_crypto_reddit_sentiment(limit_per_sub: int = 10) -> dict:
         "bearish_keywords": bearish_count,
         "sentiment_ratio": round(sentiment_ratio, 3),
         "coin_mentions": coin_mentions_sorted,
+        "coin_sentiment": coin_sentiment,
         "top_posts": top_posts,
         "engagement_level": engagement,
         "sub_stats": sub_stats,

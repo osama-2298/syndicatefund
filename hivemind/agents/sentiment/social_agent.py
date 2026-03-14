@@ -35,6 +35,7 @@ class SocialSentimentAgent(BaseAgent):
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:
         reddit = market_data.get("reddit_sentiment", {})
         trending = market_data.get("trending", [])
+        coin_sentiment = market_data.get("reddit_coin_sentiment")
 
         prompt = f"What is the crowd saying about {self.profile.symbol}?\n\n"
 
@@ -64,6 +65,19 @@ class SocialSentimentAgent(BaseAgent):
                     prompt += f"  [{p['score']} pts, r/{sub}] \"{p['title']}\"\n"
         else:
             prompt += "No Reddit data available.\n"
+
+        if coin_sentiment and coin_sentiment.get("total", 0) >= 2:
+            ratio = coin_sentiment["sentiment_ratio"]
+            total = coin_sentiment["total"]
+            base = self.profile.symbol.replace("USDT", "")
+            prompt += f"\nPER-COIN SENTIMENT for {base}:\n"
+            prompt += f"  {ratio:.0%} bullish across {total} posts mentioning {base}\n"
+            prompt += f"  ({coin_sentiment['bullish']} bullish, {coin_sentiment['bearish']} bearish)\n"
+            sample_posts = coin_sentiment.get("posts", [])[:3]
+            if sample_posts:
+                prompt += f"  Sample posts mentioning {base}:\n"
+                for p in sample_posts:
+                    prompt += f"    - \"{p}\"\n"
 
         if trending:
             prompt += f"\nCOINGECKO TRENDING:\n"

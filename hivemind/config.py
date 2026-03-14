@@ -56,10 +56,46 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     max_coins_per_cycle: int = 10
     min_volume_24h: float = 1_000_000
-    performance_history_path: str = "data/performance_history.json"
+    performance_history_path: str = ""
 
     # ── Paths ──
     project_root: Path = Field(default_factory=lambda: Path(__file__).parent.parent)
+
+    @property
+    def data_dir(self) -> Path:
+        d = self.project_root / "data"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    @property
+    def portfolio_state_path(self) -> str:
+        return str(self.data_dir / "portfolio_state.json")
+
+    @property
+    def open_trades_path(self) -> str:
+        return str(self.data_dir / "open_trades.json")
+
+    @property
+    def trade_ledger_path(self) -> str:
+        return str(self.data_dir / "trade_ledger.json")
+
+    @property
+    def ceo_memory_path(self) -> str:
+        return str(self.data_dir / "ceo_memory.json")
+
+    @property
+    def team_weights_path(self) -> str:
+        return str(self.data_dir / "team_weights.json")
+
+    @property
+    def whale_history_path(self) -> str:
+        return str(self.data_dir / "whale_history.json")
+
+    @property
+    def perf_history_path(self) -> str:
+        if self.performance_history_path:
+            return self.performance_history_path
+        return str(self.data_dir / "performance_history.json")
 
     @field_validator("log_level")
     @classmethod

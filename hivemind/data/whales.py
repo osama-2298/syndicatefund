@@ -31,8 +31,9 @@ SATOSHI = 100_000_000
 class WhaleTracker:
     """Tracks BTC whale wallets for flow signals."""
 
-    def __init__(self) -> None:
+    def __init__(self, history_path: str | None = None) -> None:
         self._client = httpx.Client(timeout=15.0)
+        self._history_path = history_path
 
     def close(self) -> None:
         self._client.close()
@@ -146,11 +147,17 @@ class WhaleTracker:
             "assessment": assessment,
         }
 
+    def _get_history_path(self):
+        from pathlib import Path
+        if self._history_path:
+            return Path(self._history_path)
+        from hivemind.config import settings
+        return Path(settings.whale_history_path)
+
     def _load_history(self) -> list[dict]:
         """Load whale balance history from JSON file."""
         import json
-        from pathlib import Path
-        path = Path("data/whale_history.json")
+        path = self._get_history_path()
         if not path.exists():
             return []
         try:
@@ -161,7 +168,6 @@ class WhaleTracker:
     def _save_history(self, history: list[dict]) -> None:
         """Save whale balance history to JSON file."""
         import json
-        from pathlib import Path
-        path = Path("data/whale_history.json")
+        path = self._get_history_path()
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(history, indent=2, default=str))

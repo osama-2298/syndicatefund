@@ -24,6 +24,7 @@ def compute_sentiment_scores(
     coingecko_coin: dict | None = None,
     trending: list[dict] | None = None,
     reddit_sentiment: dict | None = None,
+    reddit_coin_sentiment: dict | None = None,
 ) -> dict[str, Any]:
     """
     Pre-compute sentiment analysis scores BEFORE sending to LLM.
@@ -40,6 +41,7 @@ def compute_sentiment_scores(
     # ── 1. FEAR/GREED SCORE (-1 to +1) ──
     # -1 = extreme fear, +1 = extreme greed
     fg_signals = []
+    _reddit_fg_index: int | None = None  # Track where global Reddit signal sits in fg_signals
 
     if indicators.rsi_14 is not None:
         rsi = indicators.rsi_14
@@ -91,7 +93,11 @@ def compute_sentiment_scores(
 
         # Normalize 0-100 to -1 to +1 (50 = neutral)
         fg_normalized = (fg_value - 50) / 50
-        fg_signals.append(fg_normalized * 1.5)  # Weight real F&G heavily
+        fg_weight = 1.0
+        if fear_greed.get("is_stale", False):
+            fg_weight = 0.5
+            scores["fg_stale_warning"] = True
+        fg_signals.append(fg_normalized * fg_weight)
 
         # Historical trend matters
         history = fear_greed.get("history", [])
@@ -132,12 +138,26 @@ def compute_sentiment_scores(
 
         # Normalize ratio (0.5 = neutral) to -1 to +1
         reddit_signal = (r_ratio - 0.5) * 2
+        _reddit_fg_index = len(fg_signals)
         fg_signals.append(reddit_signal)
 
         # Top posts for LLM context
         top_posts = reddit_sentiment.get("top_posts", [])
         if top_posts:
             scores["reddit_top_posts"] = top_posts
+
+    # Per-coin Reddit override (more specific than global)
+    if reddit_coin_sentiment and reddit_coin_sentiment.get("total", 0) >= 2:
+        coin_ratio = reddit_coin_sentiment["sentiment_ratio"]
+        scores["reddit_coin_ratio"] = round(coin_ratio, 3)
+        scores["reddit_coin_posts"] = reddit_coin_sentiment["total"]
+        coin_signal = (coin_ratio - 0.5) * 2
+        if _reddit_fg_index is not None:
+            # Replace global Reddit signal at its exact position
+            fg_signals[_reddit_fg_index] = coin_signal
+        else:
+            # Global Reddit had no posts but coin-specific does — add as new signal
+            fg_signals.append(coin_signal)
 
     # ── Trending status ──
     if trending:
@@ -423,10 +443,12 @@ class SentimentAgent(BaseAgent):
         coingecko_coin: dict | None = market_data.get("coingecko_coin")
         trending: list[dict] | None = market_data.get("trending")
         reddit_sentiment: dict | None = market_data.get("reddit_sentiment")
+        reddit_coin_sentiment: dict | None = market_data.get("reddit_coin_sentiment")
 
         # Phase 1: Pre-compute everything in Python
         scores = compute_sentiment_scores(
-            indicators, stats_24h, fear_greed, coingecko_coin, trending, reddit_sentiment
+            indicators, stats_24h, fear_greed, coingecko_coin, trending, reddit_sentiment,
+            reddit_coin_sentiment=reddit_coin_sentiment,
         )
 
         current_price = scores["current_price"]
@@ -469,6 +491,8 @@ class SentimentAgent(BaseAgent):
                 prompt += "   Hot on Reddit:\n"
                 for p in top_posts[:3]:
                     prompt += f"     - \"{p['title']}\" ({p['score']}pts, r/{p.get('subreddit', '?')})\n"
+        if "reddit_coin_ratio" in scores:
+            prompt += f"   PER-COIN Reddit: {scores['reddit_coin_ratio']:.0%} bullish ({scores['reddit_coin_posts']} posts mentioning this coin)\n"
         if "rsi" in scores:
             prompt += f"   RSI(14): {scores['rsi']:.1f} — Emotion: {scores.get('rsi_emotion', 'N/A')}\n"
         if "price_emotion_strength" in scores:

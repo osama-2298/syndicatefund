@@ -136,6 +136,24 @@ class PerformanceTracker:
 
         return dict(stats)
 
+    def get_agent_stats(self) -> dict[str, dict]:
+        """Get accuracy stats grouped by agent_id."""
+        from collections import defaultdict
+        stats: dict[str, dict] = defaultdict(
+            lambda: {"total": 0, "correct": 0, "incorrect": 0}
+        )
+        for r in self._records:
+            aid = r.agent_id
+            stats[aid]["total"] += 1
+            if r.outcome == "CORRECT":
+                stats[aid]["correct"] += 1
+            elif r.outcome == "INCORRECT":
+                stats[aid]["incorrect"] += 1
+        for s in stats.values():
+            decided = s["correct"] + s["incorrect"]
+            s["accuracy"] = s["correct"] / decided if decided > 0 else 0
+        return dict(stats)
+
     def get_summary(self) -> dict:
         """Get overall summary stats."""
         total = len(self._records)

@@ -59,10 +59,47 @@ SYMBOL_TO_GECKO_ID: dict[str, str] = {
 }
 
 
+import threading
+
+_dynamic_gecko_cache: dict[str, str | None] = {}
+_gecko_cache_lock = threading.Lock()
+
+
+def _search_gecko_id(symbol: str) -> str | None:
+    """One-time CoinGecko search API call per unknown symbol."""
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.get(f"{BASE_URL}/search", params={"query": symbol.lower()})
+            if resp.status_code == 429:
+                return None
+            resp.raise_for_status()
+            for coin in resp.json().get("coins", []):
+                if coin.get("symbol", "").upper() == symbol.upper():
+                    return coin["id"]
+    except Exception:
+        pass
+    return None
+
+
 def _symbol_to_id(symbol: str) -> str | None:
-    """Convert Binance symbol (e.g., BTCUSDT) to CoinGecko ID."""
+    """Convert Binance symbol (e.g., BTCUSDT) to CoinGecko ID.
+    Falls back to search API for unmapped coins, with session cache."""
     base = symbol.replace("USDT", "").replace("BUSD", "")
-    return SYMBOL_TO_GECKO_ID.get(base)
+    # Check static map first
+    gid = SYMBOL_TO_GECKO_ID.get(base)
+    if gid:
+        return gid
+    # Check dynamic cache (thread-safe)
+    with _gecko_cache_lock:
+        if base in _dynamic_gecko_cache:
+            return _dynamic_gecko_cache[base]
+    # Search API fallback (outside lock — network I/O)
+    gid = _search_gecko_id(base)
+    with _gecko_cache_lock:
+        _dynamic_gecko_cache[base] = gid
+    if gid:
+        logger.info("coingecko_dynamic_id_resolved", symbol=base, gecko_id=gid)
+    return gid
 
 
 class CoinGeckoClient:
