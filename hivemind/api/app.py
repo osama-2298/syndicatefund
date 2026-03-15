@@ -31,10 +31,16 @@ async def _load_registry():
 
 async def _background_cycle_loop(shutdown_event: asyncio.Event):
     """Background task that runs the analysis pipeline every 4 hours."""
-    from hivemind.data.binance_client import BinanceClient
+    import sys
+    print("[CYCLE] Background cycle loop starting...", flush=True)
 
-    logger.info("cycle_loop_starting")
-    binance = BinanceClient()
+    try:
+        from hivemind.data.binance_client import BinanceClient
+        binance = BinanceClient()
+        print(f"[CYCLE] BinanceClient created with {binance._base_url}", flush=True)
+    except Exception as e:
+        print(f"[CYCLE] FATAL: Failed to create BinanceClient: {e}", flush=True)
+        return
 
     try:
         while not shutdown_event.is_set():
@@ -47,11 +53,13 @@ async def _background_cycle_loop(shutdown_event: asyncio.Event):
 
             # Run pipeline in a thread (it's synchronous)
             try:
+                print(f"[CYCLE] Starting pipeline run (registry={'loaded' if registry else 'none'})...", flush=True)
                 from hivemind.main import run_pipeline
                 loop = asyncio.get_event_loop()
                 await loop.run_in_executor(
                     None, lambda: run_pipeline(binance=binance, registry=registry)
                 )
+                print("[CYCLE] Pipeline completed successfully", flush=True)
             except Exception as e:
                 import traceback
                 logger.error("cycle_failed", error=str(e), traceback=traceback.format_exc())
