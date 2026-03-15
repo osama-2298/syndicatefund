@@ -508,7 +508,7 @@
 **How to Monitor**:
 - **CryptoQuant**: Miner flows, MPI, miner-to-exchange flows.
 - **Glassnode**: Hash Ribbon indicator, miner net position change.
-- **MacroMicro**: Hash rate and mining difficulty charts.
+- **MacroMicro**: Network power and mining difficulty charts.
 - **Public miner 8-K filings**: Monthly production and sales reports from MARA, RIOT, CLSK, etc.
 - **Key threshold**: Glassnode 30-day miner net position change below -500 BTC = sustained selling pressure.
 
@@ -516,7 +516,7 @@
 - Hash Ribbon buy signal (after capitulation period): One of the highest-conviction BTC buy signals in on-chain analysis. 77% win rate for positive 180-day returns.
 - MPI >2: Miners dumping aggressively. Short-term bearish pressure, but often marks the end of selling -- a capitulation bottom.
 - MPI near 0 or negative: Miners are holding. Reduced structural sell pressure. Bullish.
-- Mining difficulty ATH + hash rate declining: Weaker miners being forced out. The remaining miners are more efficient. Structural bottom-building.
+- Mining difficulty ATH + network power declining: Weaker miners being forced out. The remaining miners are more efficient. Structural bottom-building.
 
 ---
 

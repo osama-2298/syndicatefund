@@ -68,7 +68,7 @@ CEO (Post-Cycle) ← Trade Ledger (lifetime P&L, win rate, streaks)
 | Fear & Greed | Index 0-100, 7-day history | Sentiment team |
 | CoinGecko | Market cap, supply, ATH, trending, global data | Fundamental + Macro |
 | CoinPaprika | Beta values, 15m/30m changes | Fundamental team |
-| Blockchain.com | BTC hash rate, tx count, mempool | On-Chain team |
+| Blockchain.com | BTC network power, tx count, mempool | On-Chain team |
 | DeFiLlama | TVL per chain, protocol trends | On-Chain team |
 | Polymarket | 105 prediction markets (Fed, recession, crypto) | Macro team |
 | Whale Tracker | Exchange BTC wallet balances | On-Chain team |
@@ -139,7 +139,7 @@ hivemind/
 │   │   ├── macro_manager.py       # Synthesizes crypto + external
 │   │   └── manager_knowledge.md   # Fed transmission, rotation
 │   └── onchain/
-│       ├── network_agent.py       # Hash rate, tx, mempool
+│       ├── network_agent.py       # Network power, tx, mempool
 │       ├── capital_flow_agent.py  # Whale flows, TVL trends
 │       ├── onchain_manager.py     # Synthesizes health + flows
 │       └── manager_knowledge.md   # TVL significance, flow rules

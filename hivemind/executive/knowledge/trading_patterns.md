@@ -207,11 +207,11 @@
 
 ### Pattern BTC-20: Miner Capitulation Post-Halving
 
-- **Description:** After halving, inefficient miners are forced to sell BTC holdings or shut down rigs as revenue drops 50%. This creates 4-8 weeks of elevated selling pressure from miner wallets, observable on-chain. The Hash Ribbon indicator captures this: when the 30-day MA of hash rate crosses below the 60-day MA, it signals miner capitulation. Historically, the end of miner capitulation marks a local bottom.
+- **Description:** After halving, inefficient miners are forced to sell BTC holdings or shut down rigs as revenue drops 50%. This creates 4-8 weeks of elevated selling pressure from miner wallets, observable on-chain. The Hash Ribbon indicator captures this: when the 30-day MA of network power crosses below the 60-day MA, it signals miner capitulation. Historically, the end of miner capitulation marks a local bottom.
 - **Historical Win Rate:** Periods of negative 90-day hashrate growth have delivered positive 180-day bitcoin returns 77% of the time.
 - **Specific Examples:**
   - Post-2024 halving: BTC hashrate dropped 15% from October high, with miner capitulation dragging into ~60 days. Mining difficulty saw the seventh negative adjustment in eight periods.
-  - Post-2020 halving: Hash rate dropped ~25%, then recovered, with the recovery coinciding with the beginning of the bull run.
+  - Post-2020 halving: Network power dropped ~25%, then recovered, with the recovery coinciding with the beginning of the bull run.
 - **When It Fails:** When miners have sufficient cash reserves or hedging strategies to avoid forced selling. Miners pivoting to AI/HPC operations (like Riot Platforms in 2025) can sell Bitcoin for strategic reasons unrelated to mining economics, creating false capitulation signals.
 
 ## 1.7 On-Chain and Derivatives Signals

@@ -82,23 +82,23 @@
 
 ---
 
-## 4. Hash Rate as Long-Term Confidence Indicator
+## 4. Network Power as Long-Term Confidence Indicator
 
-### Bitcoin Hash Rate Rules
-- **Hash rate at all-time highs**: Miners are investing heavily in infrastructure. They expect future prices to justify capital expenditure. Long-term bullish.
-- **Hash rate declining >10% outside of a halving window**: Miners are unplugging. Either prices are too low to cover costs or energy costs have spiked. Bearish for the medium term.
-- **Post-halving hash rate decline**: Expected and normal. Unprofitable miners leave. This is NOT bearish — it is the market functioning correctly. Hash rate recovers within 3-6 months as difficulty adjusts.
+### Bitcoin Network Power Rules
+- **Network power at all-time highs**: Miners are investing heavily in infrastructure. They expect future prices to justify capital expenditure. Long-term bullish.
+- **Network power declining >10% outside of a halving window**: Miners are unplugging. Either prices are too low to cover costs or energy costs have spiked. Bearish for the medium term.
+- **Post-halving network power decline**: Expected and normal. Unprofitable miners leave. This is NOT bearish — it is the market functioning correctly. Network power recovers within 3-6 months as difficulty adjusts.
 
-### Hash Rate as a Lagging Indicator
-- **Do not use hash rate for short-term trading**. It responds to price with a 1-3 month lag (time to deploy/retire mining hardware).
-- Hash rate is a structural indicator: it tells you about the health and commitment of the mining ecosystem, not about next week's price.
+### Network Power as a Lagging Indicator
+- **Do not use network power for short-term trading**. It responds to price with a 1-3 month lag (time to deploy/retire mining hardware).
+- Network power is a structural indicator: it tells you about the health and commitment of the mining ecosystem, not about next week's price.
 
 ### Miner Revenue and Capitulation
 - **Miner revenue per TH declining to near cost of production**: Miners will begin selling treasury holdings to fund operations. This creates sell pressure. Watch for miner wallet outflows.
-- **Hash ribbons signal (short-term hash rate MA crosses below long-term)**: Historically marks bottoming zones. But the bottom can persist for weeks. Do not use for timing — use for accumulation zone identification.
+- **Hash ribbons signal (short-term network power MA crosses below long-term)**: Historically marks bottoming zones. But the bottom can persist for weeks. Do not use for timing — use for accumulation zone identification.
 
 ### Non-BTC Proof-of-Work
-- For non-BTC PoW chains, hash rate is less meaningful because mining is less competitive and more concentrated.
+- For non-BTC PoW chains, network power is less meaningful because mining is less competitive and more concentrated.
 - For PoS chains, use staking rate instead: >50% staked = high network confidence; declining staking rate = declining confidence.
 
 ---
@@ -215,8 +215,8 @@ When producing the final on-chain signal:
 | Healthy network + capital inflows | +45% |
 | Healthy network + capital outflows | -20% (thesis intact, timing wrong) |
 | Unhealthy network + capital inflows | -40% (speculative, fragile) |
-| Hash rate at ATH (BTC) | +15% (long-term only) |
-| Hash rate declining >10% outside halving | -25% |
+| Network power at ATH (BTC) | +15% (long-term only) |
+| Network power declining >10% outside halving | -25% |
 | On-chain data during extreme volatility | -35% (reactive, not predictive) |
 | Low-cap token (<1000 active wallets) | -50% (insufficient sample) |
 | Incentive program active on protocol | -30% (artificial activity) |

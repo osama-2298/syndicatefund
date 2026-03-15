@@ -14,7 +14,7 @@ Each profile covers: identity, supply dynamics, price drivers, trading personali
 - **Price drivers**: (1) Fed rate policy / global liquidity (2) ETF inflows/outflows — BlackRock IBIT is the largest holder (3) Halving supply shock narrative (4) BTC dominance cycle (5) Risk-on/risk-off macro
 - **Personality**: THE market leader. Moves first in every cycle. When BTC dumps, everything dumps harder. When BTC consolidates, alts can run. BTC dominance rises in fear, falls in greed.
 - **Key risks**: Regulatory (US classification), quantum computing FUD (long-term), miner centralization, ETF outflow cascades
-- **CEO notes**: BTC is always position #1. In extreme fear (F&G <15), historically the best buy signal in crypto. Never short BTC in a halving year. BTC above its 200 SMA with rising hash rate = bull market confirmed.
+- **CEO notes**: BTC is always position #1. In extreme fear (F&G <15), historically the best buy signal in crypto. Never short BTC in a halving year. BTC above its 200 SMA with rising network power = bull market confirmed.
 
 ### ETH — Ethereum
 - **Sector**: Smart Contract Platform / L1 | **Launched**: 2015
