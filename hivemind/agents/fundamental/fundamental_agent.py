@@ -29,7 +29,7 @@ COIN_PROFILES: dict[str, dict[str, str]] = {
         "market_cap_tier": "Mega-cap (#1)",
         "sector": "Store of Value / Digital Gold",
         "supply_dynamics": "Hard cap 21M. ~19.6M circulating. Next halving ~2028. Deflationary pressure from lost coins.",
-        "key_fundamentals": "Network hash rate at ATH. Institutional adoption (ETFs). Lightning Network growth. Regulatory clarity improving.",
+        "key_fundamentals": "Network network power at ATH. Institutional adoption (ETFs). Lightning Network growth. Regulatory clarity improving.",
     },
     "ETH": {
         "description": "Ethereum — Smart contract platform, DeFi/NFT backbone",

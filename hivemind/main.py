@@ -713,7 +713,7 @@ def run_pipeline(
         chain_data = sum(1 for c in snapshot.coins.values() if c.chain_tvl)
         if snapshot.btc_onchain:
             bc = snapshot.btc_onchain
-            print(f"    {dim('BTC On-Chain')}    hash {bc.get('hash_rate_eh', 0)} EH/s · {bc.get('n_transactions_24h', 0):,} tx · mempool {bc.get('mempool_count', '?')}")
+            print(f"    {dim('BTC On-Chain')}    hash {bc.get('network_power_eh', 0)} EH/s · {bc.get('n_transactions_24h', 0):,} tx · mempool {bc.get('mempool_count', '?')}")
         # Show derivatives snapshot for BTC
         btc_coin = snapshot.coins.get("BTCUSDT")
         if btc_coin and btc_coin.derivatives:

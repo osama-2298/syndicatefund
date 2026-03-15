@@ -2,7 +2,7 @@
 Blockchain.com API client — free, no auth.
 
 Provides real Bitcoin on-chain data:
-- Hash rate, difficulty, mining stats
+- Network power, difficulty, network stats
 - Transaction count, mempool size
 - Estimated transaction volume
 - Miner revenue
@@ -26,7 +26,7 @@ def get_btc_onchain_stats() -> dict:
     """
     Fetch comprehensive BTC on-chain statistics.
 
-    Returns real network data: hash rate, difficulty, tx count,
+    Returns real network data: network power, difficulty, tx count,
     miner revenue, mempool, and more.
     """
     with httpx.Client(timeout=15.0) as client:
@@ -43,7 +43,7 @@ def get_btc_onchain_stats() -> dict:
         except Exception:
             mempool_count = None
 
-    hash_rate = data.get("hash_rate", 0)
+    network_power = data.get("network_power", 0)
     difficulty = data.get("difficulty", 0)
     n_tx = data.get("n_tx", 0)
     n_blocks = data.get("n_blocks_mined", 0)
@@ -52,18 +52,18 @@ def get_btc_onchain_stats() -> dict:
     miners_revenue = data.get("miners_revenue_usd", 0)
     total_fees = data.get("total_fees_btc", 0) / 1e8 if data.get("total_fees_btc") else 0
 
-    # Hash rate: blockchain.info returns GH/s. Convert to EH/s: 1 EH/s = 1e9 GH/s
-    hash_rate_eh = hash_rate / 1e9
+    # Network power: blockchain.info returns GH/s. Convert to EH/s: 1 EH/s = 1e9 GH/s
+    network_power_eh = network_power / 1e9
 
-    # Hash rate health assessment (in EH/s)
-    if hash_rate_eh > 700:
-        hash_health = "ALL_TIME_HIGH — Network security at peak"
-    elif hash_rate_eh > 400:
-        hash_health = "STRONG — Very healthy network"
-    elif hash_rate_eh > 200:
-        hash_health = "MODERATE — Normal levels"
+    # Network power health assessment (in EH/s)
+    if network_power_eh > 700:
+        network_health_status = "ALL_TIME_HIGH — Network security at peak"
+    elif network_power_eh > 400:
+        network_health_status = "STRONG — Very healthy network"
+    elif network_power_eh > 200:
+        network_health_status = "MODERATE — Normal levels"
     else:
-        hash_health = "LOW — Potential concern"
+        network_health_status = "LOW — Potential concern"
 
     # Mempool assessment
     if mempool_count is not None:
@@ -80,16 +80,16 @@ def get_btc_onchain_stats() -> dict:
 
     # Block time assessment
     if minutes_between < 8:
-        block_time_read = "FAST — Blocks coming quickly, hash rate recently increased"
+        block_time_read = "FAST — Blocks coming quickly, network power recently increased"
     elif minutes_between < 12:
         block_time_read = "NORMAL — On target (~10 min)"
     else:
-        block_time_read = "SLOW — Hash rate may have dropped, difficulty adjustment pending"
+        block_time_read = "SLOW — Network power may have dropped, difficulty adjustment pending"
 
     return {
-        "hash_rate": hash_rate,
-        "hash_rate_eh": round(hash_rate_eh, 2),
-        "hash_health": hash_health,
+        "network_power": network_power,
+        "network_power_eh": round(network_power_eh, 2),
+        "network_health_status": network_health_status,
         "difficulty": difficulty,
         "n_transactions_24h": n_tx,
         "n_blocks_mined_24h": n_blocks,

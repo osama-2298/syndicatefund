@@ -122,8 +122,8 @@ def compute_onchain_scores(
 
     # ── 4. BTC NETWORK HEALTH (real Blockchain.com data) ──
     if btc_onchain:
-        scores["btc_hash_rate_eh"] = btc_onchain.get("hash_rate_eh", 0)
-        scores["btc_hash_health"] = btc_onchain.get("hash_health", "UNKNOWN")
+        scores["btc_network_power_eh"] = btc_onchain.get("network_power_eh", 0)
+        scores["btc_network_health_status"] = btc_onchain.get("network_health_status", "UNKNOWN")
         scores["btc_tx_24h"] = btc_onchain.get("n_transactions_24h", 0)
         scores["btc_mempool"] = btc_onchain.get("mempool_count")
         scores["btc_mempool_read"] = btc_onchain.get("mempool_read", "UNKNOWN")
@@ -133,8 +133,8 @@ def compute_onchain_scores(
         scores["btc_miners_revenue"] = btc_onchain.get("miners_revenue_usd", 0)
         scores["btc_fees_btc"] = btc_onchain.get("total_fees_btc", 0)
 
-        # Hash rate signal: growing hash rate = miners confident = bullish
-        hash_eh = btc_onchain.get("hash_rate_eh", 0)
+        # Network power signal: growing network power = miners confident = bullish
+        hash_eh = btc_onchain.get("network_power_eh", 0)
         if hash_eh > 800:
             scores["network_health_signal"] = 0.5
         elif hash_eh > 500:
@@ -189,11 +189,11 @@ class OnChainAgent(BaseAgent):
             "KEY ON-CHAIN CONCEPTS:\n"
             "- Rising TVL = capital entering ecosystem = bullish for chain token.\n"
             "- Falling TVL = capital flight = bearish.\n"
-            "- BTC hash rate at highs = miners confident = network healthy = bullish.\n"
+            "- BTC network power at highs = miners confident = network healthy = bullish.\n"
             "- High exchange reserves = selling pressure available. Declining reserves = accumulation.\n"
             "- Protocol trends: growing protocols = healthy ecosystem.\n\n"
             "DIRECTION RULES:\n"
-            "- BULLISH if: TVL growing, hash rate strong, exchange reserves declining (accumulation), "
+            "- BULLISH if: TVL growing, network power strong, exchange reserves declining (accumulation), "
             "protocols trending positive.\n"
             "- BEARISH if: TVL declining, exchange reserves rising (distribution), "
             "protocols losing capital.\n"
@@ -265,7 +265,7 @@ class OnChainAgent(BaseAgent):
         if scores.get("has_btc_onchain"):
             prompt += (
                 f"4. BTC NETWORK (Real Blockchain.com Data):\n"
-                f"   Hash Rate: {scores.get('btc_hash_rate_eh', 0)} EH/s — {scores.get('btc_hash_health', 'N/A')}\n"
+                f"   Network Power: {scores.get('btc_network_power_eh', 0)} EH/s — {scores.get('btc_network_health_status', 'N/A')}\n"
                 f"   Transactions 24h: {scores.get('btc_tx_24h', 0):,}\n"
                 f"   Block Time: {scores.get('btc_block_time', 0):.1f} min — {scores.get('btc_block_time_read', 'N/A')}\n"
             )

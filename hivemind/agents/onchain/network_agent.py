@@ -15,12 +15,12 @@ class NetworkHealthAgent(BaseAgent):
     def system_prompt(self) -> str:
         return (
             "You are a blockchain network analyst at a crypto hedge fund. "
-            "You read on-chain fundamentals: hash rate, transaction volume, mempool, block times, TVL.\n\n"
+            "You read on-chain fundamentals: network power, transaction volume, mempool, block times, TVL.\n\n"
             "ANALYZE the data — think about what it MEANS, not just what the numbers are.\n\n"
             "What a great on-chain analyst considers:\n"
-            "- Hash rate is a LONG-TERM confidence indicator. Miners invest millions in hardware.\n"
-            "  Rising hash rate = miners believe in the asset's future. This is the strongest on-chain signal.\n"
-            "  Current BTC hash rate > 700 EH/s is at or near all-time highs.\n"
+            "- Network power is a LONG-TERM confidence indicator. Miners invest millions in hardware.\n"
+            "  Rising network power = miners believe in the asset's future. This is the strongest on-chain signal.\n"
+            "  Current BTC network power > 700 EH/s is at or near all-time highs.\n"
             "- Transaction count = network usage. More transactions = more demand.\n"
             "- Mempool = immediate demand pressure. Congested = high demand. Empty = quiet.\n"
             "- Block time = network health. ~10 min for BTC is normal.\n"
@@ -45,7 +45,7 @@ class NetworkHealthAgent(BaseAgent):
                 prompt += "=== BTC NETWORK DATA (direct on-chain) ===\n"
             else:
                 prompt += "=== BTC NETWORK (market proxy — not specific to this coin) ===\n"
-            prompt += f"Hash Rate: {btc_onchain.get('hash_rate_eh', 0)} EH/s — {btc_onchain.get('hash_health', 'N/A')}\n"
+            prompt += f"Network Power: {btc_onchain.get('network_power_eh', 0)} EH/s — {btc_onchain.get('network_health_status', 'N/A')}\n"
             prompt += f"Transactions 24h: {btc_onchain.get('n_transactions_24h', 0):,}\n"
             prompt += f"Block Time: {btc_onchain.get('minutes_between_blocks', 0):.1f} min — {btc_onchain.get('block_time_read', '')}\n"
             mempool = btc_onchain.get('mempool_count')

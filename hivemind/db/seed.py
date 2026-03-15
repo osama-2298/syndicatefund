@@ -67,7 +67,7 @@ SYSTEM_TEAMS = [
     },
     {
         "name": "onchain",
-        "discipline": "BTC network health (hash rate, transactions), DeFi TVL, whale exchange flows, protocol analysis. On-chain data driven insights.",
+        "discipline": "BTC network health (network power, transactions), DeFi TVL, whale exchange flows, protocol analysis. On-chain data driven insights.",
         "data_keys": [
             "btc_onchain", "chain_tvl", "defi_summary",
             "top_protocols", "whale_flows",
