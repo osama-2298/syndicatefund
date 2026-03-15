@@ -78,6 +78,11 @@ class Settings(BaseSettings):
     min_volume_24h: float = 1_000_000
     performance_history_path: str = ""
 
+    # ── Decision Mode ──
+    # "every_cycle": make trading decisions every 4h cycle (original behavior)
+    # "daily": collect data every 4h, but only execute trades at 00:00 UTC cycle
+    decision_mode: str = "daily"
+
     # ── Paths ──
     project_root: Path = Field(default_factory=lambda: Path(__file__).parent.parent)
 
@@ -116,6 +121,14 @@ class Settings(BaseSettings):
         if self.performance_history_path:
             return self.performance_history_path
         return str(self.data_dir / "performance_history.json")
+
+    @field_validator("decision_mode")
+    @classmethod
+    def validate_decision_mode(cls, v: str) -> str:
+        allowed = {"every_cycle", "daily"}
+        if v not in allowed:
+            raise ValueError(f"decision_mode must be one of {allowed}, got '{v}'")
+        return v
 
     @field_validator("log_level")
     @classmethod

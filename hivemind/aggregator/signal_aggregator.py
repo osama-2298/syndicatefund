@@ -94,9 +94,14 @@ class SignalAggregator:
         self,
         team_weight_overrides: dict[str, float] | None = None,
         regime: str = "ranging",
+        calibration_data: dict[int, dict[str, float]] | None = None,
     ) -> None:
         self._team_weights = team_weight_overrides or {}
         self._regime = regime.lower()
+        # calibration_data maps conviction level (int) to
+        # {"actual_win_rate": float, "expected_win_rate": float}
+        # from the trade ledger.  Used by _apply_calibration().
+        self._calibration_data = calibration_data
 
     def aggregate(
         self,
@@ -147,6 +152,9 @@ class SignalAggregator:
 
         if not weighted_signals:
             return self._empty(symbol, signals)
+
+        # ── Step 1b: Apply conviction calibration ──
+        weighted_signals = self._apply_calibration(weighted_signals)
 
         # ── Step 2: Separate by direction ──
         # CRITICAL: Conviction < 4 signals are NOISE, not data.
@@ -244,6 +252,7 @@ class SignalAggregator:
 
         # ── Step 7: Apply modifiers ──
         confidence = raw_confidence
+        pre_modifier_confidence = raw_confidence  # Save for penalty floor
 
         # 7a: Polarization penalty (high polarization = reduce size)
         polarization_penalty = 1.0 - (polarization * 0.4)
@@ -272,11 +281,16 @@ class SignalAggregator:
             or (consensus < 0.5 and polarization > 0.5)
         )
         if close_call:
-            confidence *= 0.75  # Reduce to 75% on close calls
+            confidence *= 0.85  # Reduce to 85% on close calls (was 0.75 — too aggressive)
             alerts.append(AggregationAlert(
                 "CLOSE_CALL", "MEDIUM",
                 f"Close call — directional strength {directional_strength:.2f}, consensus {consensus:.0%}.",
             ))
+
+        # ── Step 8b: Penalty floor — no signal loses >50% from modifier stack ──
+        # Prevents multiplicative penalties (polarization × macro × tech × close-call)
+        # from crushing otherwise valid signals.
+        confidence = max(confidence, pre_modifier_confidence * 0.50)
 
         # ── Step 9: Decision quality rating ──
         if directional_strength > 0.5 and consensus >= 0.7 and polarization < 0.3:
@@ -330,6 +344,49 @@ class SignalAggregator:
             consensus_ratio=consensus,
             weighted_scores=scores,
         )
+
+    # ─────────────────────────────────────────────
+    #  CONVICTION CALIBRATION
+    # ─────────────────────────────────────────────
+
+    def _apply_calibration(self, signals: list[tuple[Signal, float]]) -> list[tuple[Signal, float]]:
+        """Adjust conviction based on historical calibration data.
+
+        If conviction 7 only wins 45% of the time (expected ~70%),
+        scale the conviction down by the ratio 45/70 ≈ 0.64.
+
+        This prevents overconfident signals from dominating the aggregate
+        when their track record doesn't support the stated conviction.
+
+        Mutates the ``conviction`` field inside each signal's metadata and
+        recomputes the signal's ``confidence`` (conviction / 10).
+        """
+        if not self._calibration_data:
+            return signals
+
+        calibrated: list[tuple[Signal, float]] = []
+        for sig, w in signals:
+            conv = sig.metadata.get("conviction", int(sig.confidence * 10))
+            cal = self._calibration_data.get(conv)
+            if cal is not None:
+                actual = cal.get("actual_win_rate", 0)
+                expected = cal.get("expected_win_rate", 0)
+                if expected > 0:
+                    ratio = _clamp(actual / expected, 0.3, 1.5)
+                    adjusted_conv = _clamp(conv * ratio, 0, 10)
+                    # Update metadata with calibrated conviction
+                    sig.metadata["conviction_raw"] = conv
+                    sig.metadata["conviction"] = round(adjusted_conv)
+                    sig.confidence = round(adjusted_conv) / 10.0
+                    logger.debug(
+                        "conviction_calibrated",
+                        agent_id=sig.agent_id,
+                        raw_conviction=conv,
+                        adjusted_conviction=round(adjusted_conv),
+                        ratio=round(ratio, 3),
+                    )
+            calibrated.append((sig, w))
+        return calibrated
 
     # ─────────────────────────────────────────────
     #  QUALITY WEIGHTING

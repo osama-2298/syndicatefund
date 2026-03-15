@@ -52,6 +52,12 @@ python-dotenv = "^1.0.0"
 # FastAPI extras
 python-multipart = "^0.0.20"
 
+# ML & Statistics
+hmmlearn = "^0.3.0"
+scikit-learn = "^1.5.0"
+xgboost = {version = "^2.1.0", optional = true}
+scipy = "^1.14.0"
+
 # Utilities
 structlog = "^24.4.0"
 tenacity = "^9.0.0"

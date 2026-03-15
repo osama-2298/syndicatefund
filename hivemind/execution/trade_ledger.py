@@ -44,6 +44,7 @@ class LedgerEntry:
         confidence: float = 0.0,
         direction: str = "",
         regime: str = "",
+        source_signal_id: str = "",
     ) -> None:
         self.symbol = symbol
         self.side = side
@@ -64,6 +65,7 @@ class LedgerEntry:
         self.confidence = confidence
         self.direction = direction
         self.regime = regime
+        self.source_signal_id = source_signal_id
 
     def to_dict(self) -> dict:
         return self.__dict__
@@ -97,6 +99,7 @@ class TradeLedger:
         confidence: float = 0.0,
         direction: str = "",
         regime: str = "",
+        source_signal_id: str = "",
     ) -> None:
         """Record a trade entry (no exit yet — will be updated when closed)."""
         self.entries.append(LedgerEntry(
@@ -119,6 +122,7 @@ class TradeLedger:
             confidence=confidence,
             direction=direction,
             regime=regime,
+            source_signal_id=source_signal_id,
         ))
         self._save()
 
@@ -131,6 +135,7 @@ class TradeLedger:
         pnl_usd: float,
         holding_hours: float,
         quantity: float = 0,
+        source_signal_id: str = "",
     ) -> None:
         """
         Record a trade exit. For partial exits (TP1, TP2), each partial is a
@@ -153,6 +158,9 @@ class TradeLedger:
             source_entry.holding_hours = holding_hours
             if quantity > 0:
                 source_entry.quantity = quantity
+            # Preserve source_signal_id from the original entry if not provided
+            if source_signal_id:
+                source_entry.source_signal_id = source_signal_id
             self._save()
         else:
             # Partial exit from an already-closed position (TP2, trailing after TP1)
@@ -179,6 +187,7 @@ class TradeLedger:
                 risk_amount=ref.risk_amount if ref else 0,
                 stop_loss=ref.stop_loss if ref else 0,
                 take_profit_1=ref.take_profit_1 if ref else 0,
+                source_signal_id=source_signal_id or (ref.source_signal_id if ref else ""),
             ))
             self._save()
 
@@ -192,6 +201,7 @@ class TradeLedger:
             pnl_usd=outcome.pnl_usd,
             holding_hours=outcome.holding_hours,
             quantity=outcome.quantity_exited,
+            source_signal_id=getattr(outcome, "source_signal_id", ""),
         )
 
     def get_stats(self) -> dict[str, Any]:

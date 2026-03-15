@@ -52,6 +52,7 @@ class TradeOutcome:
         quantity_exited: float,
         quantity_remaining: float,
         asset_tier: str,
+        source_signal_id: str = "",
     ) -> None:
         self.symbol = symbol
         self.side = side
@@ -64,6 +65,7 @@ class TradeOutcome:
         self.quantity_exited = quantity_exited
         self.quantity_remaining = quantity_remaining
         self.asset_tier = asset_tier
+        self.source_signal_id = source_signal_id
         self.timestamp = datetime.now(timezone.utc)
 
     def to_dict(self) -> dict:
@@ -79,6 +81,7 @@ class TradeOutcome:
             "quantity_exited": self.quantity_exited,
             "quantity_remaining": self.quantity_remaining,
             "asset_tier": self.asset_tier,
+            "source_signal_id": self.source_signal_id,
             "timestamp": self.timestamp.isoformat(),
         }
 
@@ -104,6 +107,7 @@ class OpenTrade:
         quantity: float,
         params: TradeParameters,
         entry_time: datetime | None = None,
+        source_signal_id: str = "",
     ) -> None:
         self.symbol = symbol
         self.side = side
@@ -112,6 +116,7 @@ class OpenTrade:
         self.original_quantity = quantity
         self.params = params
         self.entry_time = entry_time or datetime.now(timezone.utc)
+        self.source_signal_id = source_signal_id
 
         # Trailing stop state
         self.highest_since_entry = entry_price  # For longs
@@ -140,6 +145,7 @@ class OpenTrade:
             "tp1_hit": self.tp1_hit,
             "tp2_hit": self.tp2_hit,
             "stop_moved_to_breakeven": self.stop_moved_to_breakeven,
+            "source_signal_id": self.source_signal_id,
         }
 
 
@@ -156,11 +162,13 @@ class TradeMonitor:
         self._load()
 
     def register_trade(self, symbol: str, side: OrderSide, entry_price: float,
-                       quantity: float, params: TradeParameters) -> None:
+                       quantity: float, params: TradeParameters,
+                       source_signal_id: str = "") -> None:
         """Register a new trade for monitoring."""
         self.open_trades[symbol] = OpenTrade(
             symbol=symbol, side=side, entry_price=entry_price,
             quantity=quantity, params=params,
+            source_signal_id=source_signal_id,
         )
         self._save()
         logger.info("trade_registered", symbol=symbol, entry=entry_price,
@@ -382,6 +390,7 @@ class TradeMonitor:
             quantity_exited=quantity,
             quantity_remaining=trade.quantity - quantity,
             asset_tier=trade.params.asset_tier,
+            source_signal_id=trade.source_signal_id,
         )
 
     def get_feedback_summary(self) -> list[str]:
@@ -412,6 +421,7 @@ class TradeMonitor:
                 trade.tp1_hit = item.get("tp1_hit", False)
                 trade.tp2_hit = item.get("tp2_hit", False)
                 trade.stop_moved_to_breakeven = item.get("stop_moved_to_breakeven", False)
+                trade.source_signal_id = item.get("source_signal_id", "")
                 self.open_trades[item["symbol"]] = trade
         except Exception as e:
             logger.error("trade_monitor_load_failed", error=str(e))

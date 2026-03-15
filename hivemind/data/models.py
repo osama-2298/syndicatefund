@@ -592,6 +592,7 @@ class SignalRecord(BaseModel):
     price_at_signal: float
     timestamp: datetime
     outcome: str = "PENDING"  # CORRECT / INCORRECT / PENDING
+    evaluation_source: str = ""  # "trade" (from actual trade P&L) or "price_movement" (from 24h/0.5% rule)
     price_at_evaluation: float | None = None
     pnl_pct: float | None = None
 

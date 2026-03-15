@@ -54,6 +54,7 @@ from hivemind.data.models import (
     AgentProfile,
     AggregatedSignal,
     Signal,
+    SignalAction,
     TeamType,
 )
 from hivemind.data.technical_indicators import compute_indicators
@@ -446,8 +447,14 @@ def run_pipeline(
     dynamic team/agent discovery. Otherwise falls back to the hardcoded
     founding agents — no database required.
     """
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    now_utc = datetime.now(timezone.utc)
+    now = now_utc.strftime("%Y-%m-%d %H:%M UTC")
     banner("Multi-Coin Cycle", now)
+
+    # Check if this is a decision cycle
+    is_decision_cycle = True
+    if settings.decision_mode == "daily":
+        is_decision_cycle = now_utc.hour < 4  # Only first cycle of the day (00:00 UTC)
 
     api_key = settings.get_active_llm_key()
     provider = settings.default_llm_provider
@@ -818,9 +825,23 @@ def run_pipeline(
         # ═══════════════════════════════════════
         # STEP 6: Aggregate per coin
         # ═══════════════════════════════════════
+        # Build calibration data from trade ledger for conviction adjustment
+        calibration_raw = trade_ledger.get_calibration().get("by_conviction", {})
+        calibration_data = None
+        if calibration_raw:
+            calibration_data = {}
+            for conv_str, data in calibration_raw.items():
+                conv = int(conv_str) if isinstance(conv_str, str) else conv_str
+                if data.get("count", 0) >= 3:  # Only calibrate with sufficient data
+                    calibration_data[conv] = {
+                        "actual_win_rate": data.get("win_rate", 0) / 100.0,
+                        "expected_win_rate": conv * 10 / 100.0,
+                    }
+
         aggregator = SignalAggregator(
             team_weight_overrides=team_weights.weights,
             regime=directive.regime.value,
+            calibration_data=calibration_data,
         )
         aggregated = aggregator.aggregate(all_coin_signals, all_agent_profiles)
 
@@ -839,10 +860,33 @@ def run_pipeline(
                         print(f"    {c('*', C.B_GREEN)} {base}: {dim(alert_str)}")
 
         # ═══════════════════════════════════════
-        # STEP 7: Risk Manager (enforces CRO rules)
+        # STEP 7: Risk Manager (enforces CRO rules) + Signal Funnel Tracking
         # ═══════════════════════════════════════
+        # Track signal funnel — how many signals are killed at each stage
+        funnel = {
+            "signals_generated": len(aggregated),
+            "after_hold_filter": 0,
+            "after_confidence_filter": 0,
+            "after_consensus_filter": 0,
+            "after_drawdown_check": 0,
+            "after_position_limit": 0,
+            "after_risk_manager": 0,
+            "after_portfolio_manager": 0,
+        }
+
+        # Count signals surviving each filter stage
+        non_hold = [a for a in aggregated if a.recommended_action != SignalAction.HOLD]
+        funnel["after_hold_filter"] = len(non_hold)
+
+        above_confidence = [a for a in non_hold if a.aggregated_confidence >= risk_limits.min_signal_confidence]
+        funnel["after_confidence_filter"] = len(above_confidence)
+
+        above_consensus = [a for a in above_confidence if a.consensus_ratio >= risk_limits.min_consensus_ratio]
+        funnel["after_consensus_filter"] = len(above_consensus)
+
         risk_manager = RiskManager(limits=risk_limits, regime=directive.regime)
         risk_orders = risk_manager.evaluate(aggregated, paper_trader.portfolio)
+        funnel["after_risk_manager"] = len(risk_orders)
 
         # ═══════════════════════════════════════
         # STEP 8: Portfolio Managers (segment allocation)
@@ -852,8 +896,40 @@ def run_pipeline(
         orders_before_pm = len(risk_orders)
         final_orders = pm_group.review(risk_orders, paper_trader.portfolio)
         orders_after_pm = len(final_orders)
+        funnel["after_portfolio_manager"] = orders_after_pm
         segment_exposure = pm_group.get_segment_exposure(paper_trader.portfolio)
         pm_summary(segment_exposure, orders_before_pm, orders_after_pm)
+
+        # ── Signal Funnel Display ──
+        section("Signal Funnel")
+        fg = funnel["signals_generated"]
+        killed_hold = fg - funnel["after_hold_filter"]
+        killed_conf = funnel["after_hold_filter"] - funnel["after_confidence_filter"]
+        killed_cons = funnel["after_confidence_filter"] - funnel["after_consensus_filter"]
+        killed_risk = funnel["after_consensus_filter"] - funnel["after_risk_manager"]
+        killed_pm = funnel["after_risk_manager"] - funnel["after_portfolio_manager"]
+        print(f"    Signals generated:      {fg}")
+        print(f"    {dim('→')} After HOLD filter:     {funnel['after_hold_filter']:<4} ({killed_hold} killed, HOLD)")
+        print(f"    {dim('→')} After confidence:      {funnel['after_confidence_filter']:<4} ({killed_conf} killed, < {risk_limits.min_signal_confidence:.0%})")
+        print(f"    {dim('→')} After consensus:       {funnel['after_consensus_filter']:<4} ({killed_cons} killed, < {risk_limits.min_consensus_ratio:.0%})")
+        print(f"    {dim('→')} After risk manager:    {funnel['after_risk_manager']:<4} ({killed_risk} killed, position/drawdown)")
+        print(f"    {dim('→')} After PM filter:       {funnel['after_portfolio_manager']:<4} ({killed_pm} killed, segment limits)")
+        conversion = (funnel["after_portfolio_manager"] / max(fg, 1)) * 100
+        print(f"    {dim(f'Conversion rate: {conversion:.1f}%')}")
+
+        # Minimum-trade warning
+        if funnel["after_portfolio_manager"] < 2:
+            logger.warning(
+                "low_trade_count",
+                orders_produced=funnel["after_portfolio_manager"],
+                signals_generated=fg,
+                conversion_pct=round(conversion, 1),
+                funnel=funnel,
+            )
+            print(f"    {c('WARNING', C.B_YELLOW)}: Only {funnel['after_portfolio_manager']} orders produced from {fg} signals ({conversion:.1f}% conversion)")
+
+        # Store funnel for CEO post-cycle review context
+        _cycle_funnel = funnel
 
         # ═══════════════════════════════════════
         # STEP 9: Verdicts
@@ -983,6 +1059,7 @@ def run_pipeline(
                 "btc_dominance": intel.get("global_market", {}).get("btc_dominance", 0),
                 "trade_outcomes": trade_feedback,  # Feed trade results into CEO memory
                 "ledger_stats": trade_ledger.get_stats(),
+                "signal_funnel": _cycle_funnel,  # Signal conversion funnel
             },
             feedback=ceo_feedback,
         )

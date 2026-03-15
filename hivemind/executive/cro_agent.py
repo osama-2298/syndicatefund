@@ -235,7 +235,59 @@ class CROAgent(BaseLLMCaller):
             min_signal_confidence=float(raw["min_signal_confidence"]),
             min_consensus_ratio=float(raw["min_consensus_ratio"]),
         )
+
+        # Hard caps — clamp LLM outputs to research-backed maximums.
+        # The LLM consistently outputs overly conservative thresholds despite
+        # prompt guidance. These mechanical caps cannot be overridden.
+        regime = directive.regime if hasattr(directive, 'regime') else MarketRegime.RANGING
+        limits = self._apply_hard_caps(limits, regime)
+
         return limits, raw["reasoning"]
+
+    @staticmethod
+    def _apply_hard_caps(limits: RiskLimits, regime: MarketRegime) -> RiskLimits:
+        """
+        Apply hard caps AFTER the LLM returns its values.
+
+        Research-backed maximums per regime — the LLM cannot exceed these.
+        This fixes the core problem: LLM consistently sets thresholds too high,
+        killing 98.5% of signals before they reach execution.
+        """
+        caps = {
+            MarketRegime.BULL:    {"min_signal_confidence": 0.55, "min_consensus_ratio": 0.55},
+            MarketRegime.RANGING: {"min_signal_confidence": 0.55, "min_consensus_ratio": 0.60},
+            MarketRegime.BEAR:    {"min_signal_confidence": 0.55, "min_consensus_ratio": 0.60},
+            MarketRegime.CRISIS:  {"min_signal_confidence": 0.60, "min_consensus_ratio": 0.65},
+        }
+        regime_caps = caps.get(regime, caps[MarketRegime.RANGING])
+
+        capped = False
+        if limits.min_signal_confidence > regime_caps["min_signal_confidence"]:
+            logger.warning(
+                "cro_cap_applied",
+                field="min_signal_confidence",
+                llm_value=limits.min_signal_confidence,
+                capped_to=regime_caps["min_signal_confidence"],
+                regime=regime.value,
+            )
+            limits.min_signal_confidence = regime_caps["min_signal_confidence"]
+            capped = True
+
+        if limits.min_consensus_ratio > regime_caps["min_consensus_ratio"]:
+            logger.warning(
+                "cro_cap_applied",
+                field="min_consensus_ratio",
+                llm_value=limits.min_consensus_ratio,
+                capped_to=regime_caps["min_consensus_ratio"],
+                regime=regime.value,
+            )
+            limits.min_consensus_ratio = regime_caps["min_consensus_ratio"]
+            capped = True
+
+        if capped:
+            logger.info("cro_hard_caps_enforced", regime=regime.value)
+
+        return limits
 
     def _fallback_rules(self, directive: StrategicDirective | RegimeClassification) -> RiskLimits:
         """Deterministic fallback rules when LLM fails."""

@@ -14,6 +14,7 @@ Weights are multipliers on top of each agent's base weight:
 from __future__ import annotations
 
 import json
+import random
 from pathlib import Path
 
 import structlog
@@ -82,3 +83,85 @@ class TeamWeightManager:
     def _save(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._path.write_text(json.dumps(self.weights, indent=2))
+
+
+class AdaptiveTeamWeights:
+    """Discounted Thompson Sampling for adaptive team weighting.
+
+    Beta distribution parameters per team (alpha=wins, beta=losses).
+    Discount factor forgets ~50% after 23 cycles (0.97^23 ≈ 0.50).
+    CEO decisions still override via TeamWeightManager, but base weights
+    adapt automatically.
+    """
+
+    def __init__(
+        self,
+        teams: list[str] | None = None,
+        discount: float = 0.97,
+        storage_path: str = "data/adaptive_weights.json",
+    ) -> None:
+        self.teams = teams or ["technical", "sentiment", "fundamental", "macro", "onchain"]
+        self.posteriors: dict[str, dict[str, float]] = {
+            team: {"alpha": 1.0, "beta": 1.0} for team in self.teams
+        }
+        self.discount = discount
+        self._path = Path(storage_path)
+        self._load()
+
+    def update(self, team: str, outcome: bool) -> None:
+        """Update team posterior with new trade outcome.
+
+        Args:
+            team: Team name (e.g. "technical").
+            outcome: True if trade was profitable, False if loss.
+        """
+        if team not in self.posteriors:
+            self.posteriors[team] = {"alpha": 1.0, "beta": 1.0}
+        # Discount existing observations (recent matters more)
+        self.posteriors[team]["alpha"] *= self.discount
+        self.posteriors[team]["beta"] *= self.discount
+        # Add new observation
+        if outcome:
+            self.posteriors[team]["alpha"] += 1
+        else:
+            self.posteriors[team]["beta"] += 1
+        self._save()
+
+    def sample_weights(self) -> dict[str, float]:
+        """Thompson sampling: sample from each team's posterior."""
+        weights = {}
+        for team, params in self.posteriors.items():
+            weights[team] = random.betavariate(
+                max(params["alpha"], 0.01),
+                max(params["beta"], 0.01),
+            )
+        return weights
+
+    def get_expected_weights(self) -> dict[str, float]:
+        """Deterministic expected value (alpha / (alpha + beta)) for display."""
+        weights = {}
+        for team, params in self.posteriors.items():
+            total = params["alpha"] + params["beta"]
+            weights[team] = params["alpha"] / max(total, 0.01)
+        return weights
+
+    def _load(self) -> None:
+        """Load posteriors from JSON file."""
+        if not self._path.exists():
+            return
+        try:
+            data = json.loads(self._path.read_text())
+            if isinstance(data, dict):
+                for team, params in data.items():
+                    if isinstance(params, dict) and "alpha" in params and "beta" in params:
+                        self.posteriors[team] = {
+                            "alpha": float(params["alpha"]),
+                            "beta": float(params["beta"]),
+                        }
+        except Exception as e:
+            logger.error("adaptive_weights_load_failed", error=str(e))
+
+    def _save(self) -> None:
+        """Save posteriors to JSON file."""
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._path.write_text(json.dumps(self.posteriors, indent=2))

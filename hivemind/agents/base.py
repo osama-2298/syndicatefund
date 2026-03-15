@@ -178,6 +178,7 @@ class BaseLLMCaller:
             response = self._anthropic.messages.create(
                 model=self._model,
                 max_tokens=max_tokens,
+                temperature=0,
                 system=system_prompt,
                 tools=[tool],
                 tool_choice={"type": "tool", "name": tool["name"]},
@@ -210,6 +211,7 @@ class BaseLLMCaller:
             response = self._openai.chat.completions.create(
                 model=self._model,
                 max_tokens=max_tokens,
+                temperature=0,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
@@ -269,6 +271,7 @@ class BaseLLMCaller:
                 ],
                 tools=[gemini_tool],
                 tool_config={"function_calling_config": {"mode": "ANY"}},
+                generation_config=genai.types.GenerationConfig(temperature=0),
             )
 
         # Extract function call from response

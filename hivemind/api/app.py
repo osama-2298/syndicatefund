@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 import structlog
 from fastapi import FastAPI
 
-from hivemind.api.routes import agents, contributors, cycles, portfolio, teams
+from hivemind.api.routes import agents, backtest, contributors, cycles, portfolio, signals, teams
 from hivemind.config import settings
 
 logger = structlog.get_logger()
@@ -137,6 +137,8 @@ app.include_router(agents.router, prefix="/api/v1")
 app.include_router(teams.router, prefix="/api/v1")
 app.include_router(cycles.router, prefix="/api/v1")
 app.include_router(portfolio.router, prefix="/api/v1")
+app.include_router(backtest.router, prefix="/api/v1")
+app.include_router(signals.router, prefix="/api/v1")
 
 
 @app.get("/health")

@@ -20,6 +20,8 @@ export default function Dashboard() {
   const [agents, setAgents] = useState<AgentData[]>([]);
   const [teams, setTeams] = useState<TeamData[]>([]);
   const [trades, setTrades] = useState<TradeEntry[]>([]);
+  const [livePrices, setLivePrices] = useState<Record<string, number>>({});
+  const [priceFlash, setPriceFlash] = useState<Record<string, 'up' | 'down' | ''>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,6 +39,39 @@ export default function Dashboard() {
       setTrades(Array.isArray(tr) ? tr : []);
     }).finally(() => setLoading(false));
   }, []);
+
+  // Poll live prices from Binance every 10 seconds
+  useEffect(() => {
+    const symbols = (portfolio?.positions ?? []).map((p: Position) => p.symbol);
+    if (symbols.length === 0) return;
+
+    const fetchPrices = async () => {
+      try {
+        const params = symbols.map((s: string) => `"${s}"`).join(',');
+        const res = await fetch(`https://data-api.binance.vision/api/v3/ticker/price?symbols=[${params}]`);
+        const data = await res.json();
+        const newPrices: Record<string, number> = {};
+        const flashes: Record<string, 'up' | 'down' | ''> = {};
+        for (const item of data) {
+          const price = parseFloat(item.price);
+          newPrices[item.symbol] = price;
+          const prev = livePrices[item.symbol];
+          if (prev && price !== prev) {
+            flashes[item.symbol] = price > prev ? 'up' : 'down';
+          }
+        }
+        setLivePrices(newPrices);
+        if (Object.keys(flashes).length > 0) {
+          setPriceFlash(flashes);
+          setTimeout(() => setPriceFlash({}), 1000);
+        }
+      } catch {}
+    };
+
+    fetchPrices();
+    const interval = setInterval(fetchPrices, 10000);
+    return () => clearInterval(interval);
+  }, [portfolio]);
 
   const positions: Position[] = portfolio?.positions ?? [];
   const cash = portfolio?.cash ?? 100000;
@@ -186,7 +221,7 @@ export default function Dashboard() {
                   <th className="text-left px-4 py-2.5">Side</th>
                   <th className="text-right px-4 py-2.5">Size</th>
                   <th className="text-right px-4 py-2.5">Entry</th>
-                  <th className="text-right px-4 py-2.5">Current</th>
+                  <th className="text-right px-4 py-2.5">Live Price</th>
                   <th className="text-right px-4 py-2.5">SL</th>
                   <th className="text-right px-4 py-2.5">TP</th>
                   <th className="text-right px-4 py-2.5">P&L</th>
@@ -194,18 +229,20 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {positions.map((pos, i) => {
-                  const size = pos.quantity * (pos.current_price || pos.entry_price);
+                  const live = livePrices[pos.symbol] || pos.current_price;
+                  const size = pos.quantity * live;
                   const pnlUsd = pos.side === 'BUY'
-                    ? (pos.current_price - pos.entry_price) * pos.quantity
-                    : (pos.entry_price - pos.current_price) * pos.quantity;
+                    ? (live - pos.entry_price) * pos.quantity
+                    : (pos.entry_price - live) * pos.quantity;
                   const pnlPct = pos.entry_price > 0
-                    ? ((pos.current_price - pos.entry_price) / pos.entry_price * 100) * (pos.side === 'BUY' ? 1 : -1)
+                    ? ((live - pos.entry_price) / pos.entry_price * 100) * (pos.side === 'BUY' ? 1 : -1)
                     : 0;
                   const trade = openTradesBySymbol[pos.symbol];
                   const sl = trade?.stop_loss ?? 0;
                   const tp = trade?.take_profit_1 ?? 0;
                   const conviction = trade?.conviction;
                   const riskAmt = trade?.risk_amount ?? 0;
+                  const flash = priceFlash[pos.symbol];
                   return (
                     <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
                       <td className="px-4 py-3">
@@ -221,8 +258,14 @@ export default function Dashboard() {
                         }`}>{pos.side}</span>
                       </td>
                       <td className="px-4 py-3 text-right text-sm">${size.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                      <td className="px-4 py-3 text-right text-sm">${pos.entry_price.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-right text-sm">${pos.current_price.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right text-sm text-hive-muted">${pos.entry_price.toLocaleString()}</td>
+                      <td className={`px-4 py-3 text-right text-sm font-mono tabular-nums transition-colors duration-300 ${
+                        flash === 'up' ? 'text-emerald-400 bg-emerald-400/5' :
+                        flash === 'down' ? 'text-red-400 bg-red-400/5' : 'text-hive-text'
+                      }`}>
+                        ${live.toLocaleString()}
+                        <span className="ml-1 text-[9px] text-hive-muted/50">LIVE</span>
+                      </td>
                       <td className="px-4 py-3 text-right text-sm text-red-400/70">
                         {sl > 0 ? `$${sl.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '\u2014'}
                         {riskAmt > 0 && <span className="block text-[10px] text-hive-muted">-${riskAmt.toFixed(0)} risk</span>}
