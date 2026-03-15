@@ -12,3 +12,30 @@ body {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-amber-400 to-orange-500;
   }
 }
+
+@layer components {
+  .glass-card {
+    @apply bg-white/[0.03] border border-white/[0.06] rounded-xl backdrop-blur-sm;
+  }
+  .glass-card-hover {
+    @apply glass-card transition-all hover:bg-white/[0.05] hover:border-white/[0.10];
+  }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.slide-up {
+  animation: slideUp 0.4s ease-out;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
