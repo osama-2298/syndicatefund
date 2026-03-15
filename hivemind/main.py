@@ -453,6 +453,7 @@ def run_pipeline(
     provider = settings.default_llm_provider
     max_coins = settings.max_coins_per_cycle
     cycle_start = time.monotonic()
+    cycle_start_wall = time.time()  # Wall-clock for DB record
 
     _binance = binance or BinanceClient()
     _owns_binance = binance is None
@@ -1024,6 +1025,38 @@ def run_pipeline(
                     print(f"    {dim(f'  Conv {conv}: {actual:.0f}% actual vs {expected}% expected ({gap_str}, n={cnt})')}")
             rec = calibration["recommendation"]
             print(f"    {dim(f'  {rec}')}")
+
+        # ═══════════════════════════════════════
+        # Record cycle to database (if DB available)
+        # ═══════════════════════════════════════
+        try:
+            import asyncio
+            from hivemind.core.orchestrator import record_cycle_to_db
+            from hivemind.db.session import async_session_factory
+
+            async def _record():
+                async with async_session_factory() as session:
+                    await record_cycle_to_db(
+                        db_session=session,
+                        started_at=datetime.fromtimestamp(cycle_start_wall, tz=timezone.utc),
+                        completed_at=datetime.now(timezone.utc),
+                        duration_secs=elapsed_total,
+                        regime=directive.regime.value,
+                        coins_analyzed=n_coins,
+                        signals_produced=n_signals,
+                        orders_executed=len(final_orders),
+                        portfolio_value=summary.get("total_value", 100000),
+                    )
+                    await session.commit()
+
+            # Run async from sync context
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(_record())
+            except RuntimeError:
+                asyncio.run(_record())
+        except Exception as e:
+            logger.warning("cycle_db_record_failed", error=str(e))
 
     finally:
         paper_trader.save(settings.portfolio_state_path)
