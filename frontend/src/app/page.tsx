@@ -1,5 +1,4 @@
-import StatCard from '@/components/StatCard';
-import { api, Portfolio, CycleSummary } from '@/lib/api';
+import { api, Portfolio, CycleSummary, AgentSummary, TeamSummary } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,13 +9,17 @@ export default async function Dashboard() {
   let cycles: CycleSummary[] = [];
   let currentCycle: any = null;
   let trades: any = null;
+  let agents: AgentSummary[] = [];
+  let teams: TeamSummary[] = [];
 
   try {
-    [portfolio, cycles, currentCycle, trades] = await Promise.all([
+    [portfolio, cycles, currentCycle, trades, agents, teams] = await Promise.all([
       api.getPortfolio(),
       api.getCycles(5),
       api.getCurrentCycle(),
       fetch(`${API_BASE}/api/v1/portfolio/trades`, { next: { revalidate: 30 } }).then(r => r.json()).catch(() => null),
+      api.getAgents(),
+      api.getTeams(),
     ]);
   } catch (e) {}
 
@@ -25,46 +28,104 @@ export default async function Dashboard() {
   const invested = positions.reduce((sum, p) => sum + p.quantity * (p.current_price || p.entry_price), 0);
   const totalValue = cash + invested;
   const returnPct = ((totalValue - 100000) / 100000) * 100;
-  const regime = currentCycle?.regime ?? 'N/A';
+  const regime = currentCycle?.regime ?? cycles?.[0]?.regime ?? null;
   const closedTrades = trades?.trades ?? [];
 
+  const activeAgents = agents.filter(a => ['founding', 'active', 'assigned'].includes(a.status));
+  const totalSignals = agents.reduce((sum, a) => sum + a.total_signals, 0);
+  const avgAccuracy = agents.filter(a => a.total_signals >= 5).reduce((sum, a, _, arr) => sum + a.accuracy / arr.length, 0);
+  const lastCycle = cycles?.[0];
+
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold mb-1">Dashboard</h1>
-        <p className="text-hive-muted">Multi-agent crypto analysis platform</p>
+    <div className="space-y-6">
+      {/* Header with system status */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold mb-1">Dashboard</h1>
+          <p className="text-hive-muted">Multi-agent crypto analysis platform</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-hive-card border border-hive-border rounded-lg px-3 py-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-hive-green opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-hive-green"></span>
+            </span>
+            <span className="text-sm text-hive-text">System Active</span>
+          </div>
+          {lastCycle && (
+            <div className="bg-hive-card border border-hive-border rounded-lg px-3 py-2 text-sm text-hive-muted">
+              Last cycle: {new Date(lastCycle.started_at).toLocaleTimeString()}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatCard
-          title="Portfolio Value"
-          value={`$${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          subtitle="Paper trading"
-          trend={returnPct > 0 ? 'up' : returnPct < 0 ? 'down' : 'neutral'}
-        />
-        <StatCard
-          title="Total Return"
-          value={`${returnPct >= 0 ? '+' : ''}${returnPct.toFixed(2)}%`}
-          subtitle={`${returnPct >= 0 ? '+' : ''}$${(totalValue - 100000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          trend={returnPct > 0 ? 'up' : returnPct < 0 ? 'down' : 'neutral'}
-        />
-        <StatCard
-          title="Invested"
-          value={`$${invested.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
-          subtitle={`$${cash.toLocaleString(undefined, { maximumFractionDigits: 0 })} cash`}
-        />
-        <StatCard
-          title="Open Positions"
-          value={`${positions.length}`}
-          subtitle={positions.length > 0 ? positions.map(p => p.symbol.replace('USDT', '')).join(', ') : 'No positions'}
-        />
-        <StatCard
-          title="Market Regime"
-          value={regime.toUpperCase()}
-          subtitle={currentCycle?.status === 'running' ? 'Cycle in progress' : 'Waiting for next cycle'}
-          trend={regime === 'bull' ? 'up' : regime === 'bear' || regime === 'crisis' ? 'down' : 'neutral'}
-        />
+      {/* Primary Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        <div className="bg-hive-card border border-hive-border rounded-xl p-4">
+          <p className="text-xs text-hive-muted mb-1">Portfolio Value</p>
+          <p className={`text-xl font-bold ${returnPct > 0 ? 'text-hive-green' : returnPct < 0 ? 'text-hive-red' : 'text-hive-text'}`}>
+            ${totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          </p>
+          <p className="text-xs text-hive-muted mt-1">Paper trading</p>
+        </div>
+
+        <div className="bg-hive-card border border-hive-border rounded-xl p-4">
+          <p className="text-xs text-hive-muted mb-1">Total Return</p>
+          <p className={`text-xl font-bold ${returnPct > 0 ? 'text-hive-green' : returnPct < 0 ? 'text-hive-red' : 'text-hive-text'}`}>
+            {returnPct >= 0 ? '+' : ''}{returnPct.toFixed(2)}%
+          </p>
+          <p className="text-xs text-hive-muted mt-1">{returnPct >= 0 ? '+' : ''}${(totalValue - 100000).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+        </div>
+
+        <div className="bg-hive-card border border-hive-border rounded-xl p-4">
+          <p className="text-xs text-hive-muted mb-1">Invested</p>
+          <p className="text-xl font-bold text-hive-text">${invested.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+          <p className="text-xs text-hive-muted mt-1">${cash.toLocaleString(undefined, { maximumFractionDigits: 0 })} cash</p>
+        </div>
+
+        <div className="bg-hive-card border border-hive-border rounded-xl p-4">
+          <p className="text-xs text-hive-muted mb-1">Active Agents</p>
+          <p className="text-xl font-bold text-hive-text">{activeAgents.length}</p>
+          <p className="text-xs text-hive-muted mt-1">{teams.length} teams</p>
+        </div>
+
+        <div className="bg-hive-card border border-hive-border rounded-xl p-4">
+          <p className="text-xs text-hive-muted mb-1">Total Signals</p>
+          <p className="text-xl font-bold text-hive-text">{totalSignals.toLocaleString()}</p>
+          <p className="text-xs text-hive-muted mt-1">{avgAccuracy > 0 ? `${(avgAccuracy * 100).toFixed(0)}% accuracy` : 'Calibrating...'}</p>
+        </div>
+
+        <div className="bg-hive-card border border-hive-border rounded-xl p-4">
+          <p className="text-xs text-hive-muted mb-1">Market Regime</p>
+          <p className={`text-xl font-bold ${
+            regime === 'bull' ? 'text-hive-green' : regime === 'bear' || regime === 'crisis' ? 'text-hive-red' : 'text-hive-text'
+          }`}>
+            {regime ? regime.toUpperCase() : 'N/A'}
+          </p>
+          <p className="text-xs text-hive-muted mt-1">{positions.length} open position{positions.length !== 1 ? 's' : ''}</p>
+        </div>
+      </div>
+
+      {/* Teams Overview - compact horizontal bar */}
+      <div className="bg-hive-card border border-hive-border rounded-xl p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-hive-muted uppercase tracking-wide">Team Status</h2>
+          <a href="/org" className="text-xs text-hive-accent hover:underline">View org chart</a>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          {teams.map((team) => (
+            <div key={team.id} className="flex items-center gap-2 p-2 rounded-lg bg-hive-bg">
+              <span className="relative flex h-2 w-2 flex-shrink-0">
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${team.active_agent_count > 0 ? 'bg-hive-green' : 'bg-gray-500'}`}></span>
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-medium capitalize truncate">{team.name}</p>
+                <p className="text-xs text-hive-muted">{team.active_agent_count} agents · {team.weight.toFixed(1)}x</p>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Open Positions */}
@@ -176,7 +237,7 @@ export default async function Dashboard() {
                     </td>
                     <td className="px-5 py-3 text-sm text-hive-muted">{trade.exit_reason ?? ''}</td>
                     <td className="px-5 py-3 text-right text-hive-muted text-sm">
-                      {trade.holding_hours ? `${Math.round(trade.holding_hours)}h` : '—'}
+                      {trade.holding_hours ? `${Math.round(trade.holding_hours)}h` : '\u2014'}
                     </td>
                   </tr>
                 );
@@ -188,8 +249,9 @@ export default async function Dashboard() {
 
       {/* Recent Cycles */}
       <div className="bg-hive-card border border-hive-border rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-hive-border">
+        <div className="px-5 py-4 border-b border-hive-border flex items-center justify-between">
           <h2 className="text-lg font-semibold">Recent Cycles</h2>
+          <a href="/cycles" className="text-xs text-hive-accent hover:underline">View all</a>
         </div>
         {cycles.length === 0 ? (
           <div className="px-5 py-8 text-center text-hive-muted">
@@ -212,9 +274,7 @@ export default async function Dashboard() {
               {cycles.map((cycle) => (
                 <tr key={cycle.id} className="border-b border-hive-border/50 hover:bg-hive-border/20">
                   <td className="px-5 py-3 text-hive-muted">{cycle.id}</td>
-                  <td className="px-5 py-3 text-sm">
-                    {new Date(cycle.started_at).toLocaleString()}
-                  </td>
+                  <td className="px-5 py-3 text-sm">{new Date(cycle.started_at).toLocaleString()}</td>
                   <td className="px-5 py-3">
                     <span className={`text-xs px-2 py-0.5 rounded ${
                       cycle.regime === 'bull' ? 'bg-hive-green/20 text-hive-green' :
