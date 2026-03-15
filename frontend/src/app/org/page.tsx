@@ -36,13 +36,13 @@ function StatusDot({ status }: { status: string }) {
     probation: 'bg-orange-400',
     fired: 'bg-hive-red',
   };
-  return <span className={`inline-block w-2.5 h-2.5 rounded-full ${colors[status] || 'bg-gray-400'} flex-shrink-0`} />;
+  return <span className={`inline-block w-2 h-2 rounded-full ${colors[status] || 'bg-gray-400'} flex-shrink-0`} />;
 }
 
 function Chevron({ open }: { open: boolean }) {
   return (
     <svg
-      className={`w-4 h-4 text-hive-muted transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
+      className={`w-3.5 h-3.5 text-hive-muted transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
       fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
     >
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -50,56 +50,54 @@ function Chevron({ open }: { open: boolean }) {
   );
 }
 
-function TreeNode({
+function Node({
   label,
   subtitle,
   badge,
   badgeColor,
-  icon,
   children,
   defaultOpen = false,
-  depth = 0,
+  leaf = false,
+  right,
 }: {
   label: string;
   subtitle?: string;
   badge?: string;
   badgeColor?: string;
-  icon?: string;
   children?: React.ReactNode;
   defaultOpen?: boolean;
-  depth?: number;
+  leaf?: boolean;
+  right?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
-  const hasChildren = !!children;
+  const hasChildren = !!children && !leaf;
 
   return (
-    <div className={depth > 0 ? 'ml-6 border-l border-hive-border/40 pl-4' : ''}>
+    <div className="relative">
       <button
         onClick={() => hasChildren && setOpen(!open)}
-        className={`w-full flex items-center gap-3 py-2.5 px-3 rounded-lg transition-colors text-left group
-          ${hasChildren ? 'hover:bg-hive-border/20 cursor-pointer' : 'cursor-default'}
-          ${depth === 0 ? 'bg-hive-card border border-hive-border' : ''}`}
+        className={`w-full flex items-center gap-2 py-1.5 px-2 rounded transition-colors text-left
+          ${hasChildren ? 'hover:bg-hive-border/20 cursor-pointer' : 'cursor-default'}`}
       >
-        {hasChildren && <Chevron open={open} />}
-        {!hasChildren && <span className="w-4" />}
+        <span className="w-4 flex-shrink-0 flex items-center justify-center">
+          {hasChildren ? <Chevron open={open} /> : <span className="w-1.5 h-1.5 rounded-full bg-hive-border" />}
+        </span>
 
-        {icon && <span className="text-lg">{icon}</span>}
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className={`font-medium ${depth === 0 ? 'text-base' : 'text-sm'}`}>{label}</span>
-            {badge && (
-              <span className={`text-xs px-1.5 py-0.5 rounded ${badgeColor || 'bg-hive-border text-hive-muted'}`}>
-                {badge}
-              </span>
-            )}
-          </div>
-          {subtitle && <p className="text-xs text-hive-muted mt-0.5 truncate">{subtitle}</p>}
+        <div className="flex-1 min-w-0 flex items-center gap-2">
+          <span className="text-sm font-medium">{label}</span>
+          {badge && (
+            <span className={`text-[10px] px-1.5 py-0.5 rounded ${badgeColor || 'bg-hive-border text-hive-muted'}`}>
+              {badge}
+            </span>
+          )}
+          {subtitle && <span className="text-xs text-hive-muted truncate hidden md:inline">{subtitle}</span>}
         </div>
+
+        {right && <div className="flex-shrink-0">{right}</div>}
       </button>
 
       {open && hasChildren && (
-        <div className="mt-1 space-y-0.5">
+        <div className="ml-4 pl-4 border-l border-hive-border/30">
           {children}
         </div>
       )}
@@ -107,31 +105,27 @@ function TreeNode({
   );
 }
 
-function AgentNode({ agent }: { agent: Agent }) {
-  const accuracy = agent.total_signals > 0 ? `${Math.round(agent.accuracy * 100)}%` : '—';
+function Leaf({
+  label,
+  sublabel,
+  status,
+  right,
+}: {
+  label: string;
+  sublabel?: string;
+  status?: string;
+  right?: React.ReactNode;
+}) {
   return (
-    <div className="ml-6 border-l border-hive-border/40 pl-4">
-      <div className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-hive-border/10">
-        <span className="w-4" />
-        <StatusDot status={agent.status} />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium">{agent.agent_class || agent.role}</p>
-          <p className="text-xs text-hive-muted">{agent.model} · {agent.provider}</p>
-        </div>
-        <div className="text-right flex-shrink-0">
-          <span className={`text-xs px-1.5 py-0.5 rounded ${
-            agent.status === 'founding' ? 'bg-amber-500/20 text-amber-400' :
-            agent.status === 'active' ? 'bg-hive-green/20 text-hive-green' :
-            agent.status === 'registered' ? 'bg-gray-500/20 text-gray-400' :
-            'bg-hive-border text-hive-muted'
-          }`}>
-            {agent.status}
-          </span>
-          {agent.total_signals > 0 && (
-            <p className="text-xs text-hive-muted mt-0.5">{accuracy} · {agent.total_signals} sigs</p>
-          )}
-        </div>
+    <div className="flex items-center gap-2 py-1.5 px-2">
+      <span className="w-4 flex-shrink-0 flex items-center justify-center">
+        {status ? <StatusDot status={status} /> : <span className="w-1.5 h-1.5 rounded-full bg-hive-border" />}
+      </span>
+      <div className="flex-1 min-w-0">
+        <span className="text-sm">{label}</span>
+        {sublabel && <span className="text-xs text-hive-muted ml-2">{sublabel}</span>}
       </div>
+      {right && <div className="flex-shrink-0 text-xs text-hive-muted">{right}</div>}
     </div>
   );
 }
@@ -163,138 +157,108 @@ export default function OrgPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-hive-muted">Loading organization...</p>
-      </div>
-    );
+    return <div className="flex items-center justify-center py-20"><p className="text-hive-muted">Loading...</p></div>;
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-2 py-4">
+    <div className="max-w-3xl mx-auto py-4">
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-1">Organization</h1>
-        <p className="text-hive-muted">
-          Click any node to expand. {teams.length} teams · {agents.length} agents
+        <p className="text-hive-muted text-sm">
+          {teams.length} teams, {agents.length} agents. Click to expand.
         </p>
       </div>
 
-      {/* CEO — Top of the tree */}
-      <TreeNode
-        label="CEO"
-        subtitle="Market regime classification, strategic directives, team weight allocation, post-cycle review"
-        badge="EXECUTIVE"
-        badgeColor="bg-hive-accent/20 text-hive-accent"
-        icon="👑"
-        defaultOpen={false}
-        depth={0}
-      >
-        {/* COO */}
-        <TreeNode label="COO" subtitle="Coin selection — picks which assets to analyze each cycle" icon="🎯" depth={1} />
+      <div className="bg-hive-card border border-hive-border rounded-xl p-3">
+        <Node label="CEO" subtitle="Strategic leadership" badge="EXECUTIVE" badgeColor="bg-hive-accent/20 text-hive-accent" defaultOpen={true}>
 
-        {/* CRO */}
-        <TreeNode label="CRO" subtitle="Risk rules — sets position limits, drawdown thresholds, confidence minimums" icon="🛡" depth={1} />
+          <Node label="COO" subtitle="Coin selection">
+            <Leaf label="Selects which coins to analyze each cycle based on volume, momentum, and CEO strategy" />
+          </Node>
 
-        {/* Board of Directors */}
-        <TreeNode
-          label="Board of Directors"
-          subtitle="Manages organizational structure, agent assignment, and performance"
-          badge="META-AGENTS"
-          badgeColor="bg-purple-500/20 text-purple-400"
-          icon="🏛"
-          depth={1}
-        >
-          <TreeNode label="CSO — Chief Strategy Officer" subtitle="Team creation & dissolution, coverage gap analysis" depth={2} />
-          <TreeNode label="CTO — Chief Talent Officer" subtitle="Agent assignment, system prompt writing, guardrails" depth={2} />
-          <TreeNode label="CPO — Chief Performance Officer" subtitle="Probation & firing pipeline, accuracy monitoring" depth={2} />
-        </TreeNode>
+          <Node label="CRO" subtitle="Risk management">
+            <Leaf label="Sets position limits, drawdown thresholds, and confidence minimums per cycle" />
+            <Node label="Risk Manager" subtitle="Enforces CRO rules on all trades">
+              <Leaf label="Position sizing (quarter-Kelly)" />
+              <Leaf label="Drawdown halt" />
+              <Leaf label="Confidence gates" />
+            </Node>
+          </Node>
 
-        {/* Analysis Teams */}
-        {teams.map((team) => {
-          const teamAgents = agentsByTeam[team.name] || [];
-          return (
-            <TreeNode
-              key={team.id}
-              label={`${team.name.charAt(0).toUpperCase() + team.name.slice(1)} Team`}
-              subtitle={team.discipline.slice(0, 80)}
-              badge={team.is_system ? 'SYSTEM' : 'DYNAMIC'}
-              badgeColor={team.is_system ? 'bg-amber-500/20 text-amber-400' : 'bg-hive-blue/20 text-hive-blue'}
-              icon={
-                team.name === 'technical' ? '📊' :
-                team.name === 'sentiment' ? '💬' :
-                team.name === 'fundamental' ? '📈' :
-                team.name === 'macro' ? '🌐' :
-                team.name === 'onchain' ? '⛓' : '📋'
-              }
-              depth={1}
-            >
-              {/* Team Manager */}
-              <div className="ml-6 border-l border-hive-border/40 pl-4">
-                <div className="flex items-center gap-3 py-2 px-3 rounded-lg bg-hive-border/10">
-                  <span className="w-4" />
-                  <span className="text-sm">🧠</span>
-                  <div>
-                    <p className="text-sm font-medium capitalize">{team.name} Manager</p>
-                    <p className="text-xs text-hive-muted">Synthesizes agent signals → team signal · {team.weight.toFixed(1)}x weight</p>
-                  </div>
-                </div>
-              </div>
+          <Node label="Board of Directors" subtitle="Organizational governance" badge="META" badgeColor="bg-purple-500/20 text-purple-400">
+            <Leaf label="CSO — Chief Strategy Officer" sublabel="Team creation and dissolution" />
+            <Leaf label="CTO — Chief Talent Officer" sublabel="Agent assignment and prompt writing" />
+            <Leaf label="CPO — Chief Performance Officer" sublabel="Probation and firing pipeline" />
+          </Node>
 
-              {/* Agents */}
-              {teamAgents.map((agent) => (
-                <AgentNode key={agent.id} agent={agent} />
+          <Node label="Analysis Division" subtitle={`${teams.length} teams, ${agents.filter(a => a.team_name).length} assigned agents`} defaultOpen={true}>
+            {teams.map((team) => {
+              const ta = agentsByTeam[team.name] || [];
+              return (
+                <Node
+                  key={team.id}
+                  label={`${team.name.charAt(0).toUpperCase() + team.name.slice(1)} Team`}
+                  badge={team.is_system ? 'SYSTEM' : 'DYNAMIC'}
+                  badgeColor={team.is_system ? 'bg-amber-500/20 text-amber-400' : 'bg-hive-blue/20 text-hive-blue'}
+                  right={<span className="text-xs text-hive-muted">{team.weight.toFixed(1)}x</span>}
+                >
+                  <Leaf label={`${team.name.charAt(0).toUpperCase() + team.name.slice(1)} Manager`} sublabel="Synthesizes agent signals" />
+                  {ta.map((agent) => (
+                    <Leaf
+                      key={agent.id}
+                      label={agent.agent_class || agent.role}
+                      sublabel={`${agent.model} / ${agent.provider}`}
+                      status={agent.status}
+                      right={
+                        agent.total_signals > 0
+                          ? <>{Math.round(agent.accuracy * 100)}% ({agent.total_signals})</>
+                          : undefined
+                      }
+                    />
+                  ))}
+                  {ta.length === 0 && <Leaf label="No agents assigned" />}
+                </Node>
+              );
+            })}
+          </Node>
+
+          <Node label="Portfolio Managers" subtitle="Segment allocation">
+            <Leaf label="L1s segment" />
+            <Leaf label="DeFi segment" />
+            <Leaf label="L2s segment" />
+            <Leaf label="Memes segment" />
+            <Leaf label="AI segment" />
+            <Leaf label="Infrastructure segment" />
+          </Node>
+
+          <Node label="Execution" subtitle="Trade lifecycle">
+            <Leaf label="Paper Trader" sublabel="Executes orders" />
+            <Leaf label="Trade Monitor" sublabel="SL / TP / trailing stops" />
+            <Leaf label="Trade Ledger" sublabel="P&L tracking and calibration" />
+          </Node>
+
+          <Node label="Signal Aggregator" subtitle="Deterministic, no LLM">
+            <Leaf label="Bayesian log-odds combination" />
+            <Leaf label="Macro gate / Technical gate" />
+            <Leaf label="Polarization detection" />
+            <Leaf label="Close-call detection" />
+          </Node>
+
+          {unassigned.length > 0 && (
+            <Node label={`Unassigned (${unassigned.length})`} subtitle="Awaiting Board assignment" badge="PENDING" badgeColor="bg-gray-500/20 text-gray-400" defaultOpen={true}>
+              {unassigned.map((agent) => (
+                <Leaf
+                  key={agent.id}
+                  label={agent.role}
+                  sublabel={`${agent.model} / ${agent.provider}`}
+                  status={agent.status}
+                />
               ))}
+            </Node>
+          )}
 
-              {teamAgents.length === 0 && (
-                <div className="ml-6 border-l border-hive-border/40 pl-4">
-                  <p className="py-2 px-3 text-sm text-hive-muted">No agents assigned</p>
-                </div>
-              )}
-            </TreeNode>
-          );
-        })}
-
-        {/* Portfolio Managers */}
-        <TreeNode
-          label="Portfolio Managers"
-          subtitle="Segment-based allocation (L1s, DeFi, L2s, Memes, AI, Infra)"
-          icon="💼"
-          depth={1}
-        />
-
-        {/* Risk Manager */}
-        <TreeNode
-          label="Risk Manager"
-          subtitle="Enforces CRO rules — position sizing, drawdown limits, confidence gates"
-          icon="⚠️"
-          depth={1}
-        />
-
-        {/* Execution */}
-        <TreeNode
-          label="Execution Engine"
-          subtitle="Paper trader, trade monitor (SL/TP/trailing stops), trade ledger"
-          icon="⚡"
-          depth={1}
-        />
-      </TreeNode>
-
-      {/* Unassigned Agents */}
-      {unassigned.length > 0 && (
-        <TreeNode
-          label={`Unassigned Agents (${unassigned.length})`}
-          subtitle="Waiting for Board of Directors to assign to teams"
-          badge="PENDING"
-          badgeColor="bg-gray-500/20 text-gray-400"
-          icon="⏳"
-          defaultOpen={true}
-          depth={0}
-        >
-          {unassigned.map((agent) => (
-            <AgentNode key={agent.id} agent={agent} />
-          ))}
-        </TreeNode>
-      )}
+        </Node>
+      </div>
     </div>
   );
 }
