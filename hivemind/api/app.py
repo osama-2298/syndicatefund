@@ -53,7 +53,8 @@ async def _background_cycle_loop(shutdown_event: asyncio.Event):
                     None, lambda: run_pipeline(binance=binance, registry=registry)
                 )
             except Exception as e:
-                logger.error("cycle_failed", error=str(e))
+                import traceback
+                logger.error("cycle_failed", error=str(e), traceback=traceback.format_exc())
 
             # Sleep until next 4H boundary
             now = datetime.now(timezone.utc)
