@@ -1192,15 +1192,17 @@ def run_server() -> None:
 
     from hivemind.api.app import app
 
+    # Railway sets PORT env var — use it if available, else fall back to serve_port
+    port = settings.port if settings.port > 0 else settings.serve_port
+
     print(f"\n  {c('HIVEMIND API SERVER', C.B_WHITE)}")
-    print(f"  {dim(f'Starting on {settings.serve_host}:{settings.serve_port}')}")
-    print(f"  {dim('API docs: http://localhost:' + str(settings.serve_port) + '/docs')}")
+    print(f"  {dim(f'Starting on {settings.serve_host}:{port}')}")
     print(f"  {dim('Cycle loop runs in background every 4H')}\n")
 
     uvicorn.run(
         app,
         host=settings.serve_host,
-        port=settings.serve_port,
+        port=port,
         log_level="info",
     )
 

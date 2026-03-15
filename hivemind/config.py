@@ -45,6 +45,16 @@ class Settings(BaseSettings):
     # ── Database ──
     database_url: str = "postgresql+asyncpg://hivemind:hivemind@localhost:5432/hivemind"
 
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def fix_database_url(cls, v: str) -> str:
+        """Railway provides postgresql:// — we need postgresql+asyncpg://"""
+        if v and v.startswith("postgresql://"):
+            return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        if v and v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql+asyncpg://", 1)
+        return v
+
     # ── Redis ──
     redis_url: str = "redis://localhost:6379/0"
 
@@ -59,6 +69,7 @@ class Settings(BaseSettings):
     # ── Server ──
     serve_host: str = "0.0.0.0"
     serve_port: int = 8000
+    port: int = 0  # Railway sets PORT env var — takes precedence over serve_port
 
     # ── Platform ──
     paper_trading: bool = True
