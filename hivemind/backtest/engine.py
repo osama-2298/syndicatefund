@@ -12,7 +12,14 @@ from typing import Any
 import structlog
 
 from hivemind.backtest.metrics import compute_backtest_metrics
+from hivemind.backtest.position_sizing import (
+    PositionSizer,
+    SizingMode,
+    atr_to_annual_vol,
+)
+from hivemind.backtest.pairs import PairsTrader
 from hivemind.data.data_layer import CoinData, MarketSnapshot
+from hivemind.data.funding_rates import FundingRateStore
 from hivemind.data.historical import HistoricalDataStore
 from hivemind.data.historical_data_layer import HistoricalDataLayer
 from hivemind.data.models import (
@@ -38,6 +45,16 @@ class BacktestConfig:
     regime: MarketRegime | None = None  # Fixed regime, or None for auto-detect
     step_hours: int = 24  # Daily steps by default
     storage_dir: str = "data/historical"
+    strategy_params: dict = field(default_factory=lambda: {
+        "signal_threshold": 1.0,    # Score threshold for BUY signal
+        "exit_threshold": -0.5,     # Score threshold for SELL/exit signal
+        "atr_stop_mult": 3.0,      # ATR multiplier for stop loss
+        "atr_tp_mult": 6.0,        # ATR multiplier for take profit (2R)
+    })
+    strategies: list[str] = field(default_factory=lambda: ["trend_following"])
+    # Options: "trend_following" (current), "funding_carry", "pairs_btc_eth", "combined"
+    funding_rates_dir: str = "data/funding_rates"
+    sizing_mode: str = "fixed"  # "fixed", "kelly", "vol_target", "adaptive"
 
 
 @dataclass
@@ -55,6 +72,108 @@ class MultiRunResult:
     runs: list[BacktestResult]
     avg_metrics: dict
     std_metrics: dict
+
+
+# ---------------------------------------------------------------------------
+# Donchian Channel Ensemble (Zarattini 2025 — Sharpe 1.57)
+# ---------------------------------------------------------------------------
+
+class DonchianEnsemble:
+    """Multi-period Donchian channel ensemble for trend detection.
+
+    Aggregates breakout signals across 9 lookback windows (5-360 days).
+    Each window votes +1 (above upper channel) or -1 (below lower channel).
+    The average vote produces a continuous trend strength signal (-1 to +1).
+
+    Source: "Catching Crypto Trends" (Zarattini, Barbon 2025, SSRN)
+    """
+
+    LOOKBACKS = [5, 10, 20, 30, 60, 90, 150, 250, 360]
+
+    def __init__(self) -> None:
+        self._price_history: dict[str, list[float]] = {}
+
+    def update(self, symbol: str, price: float) -> None:
+        if symbol not in self._price_history:
+            self._price_history[symbol] = []
+        self._price_history[symbol].append(price)
+        if len(self._price_history[symbol]) > 400:
+            self._price_history[symbol] = self._price_history[symbol][-400:]
+
+    def signal(self, symbol: str) -> dict:
+        prices = self._price_history.get(symbol, [])
+        if len(prices) < 20:
+            return {"trend_strength": 0, "channels_bullish": 0,
+                    "channels_bearish": 0, "has_data": False}
+
+        current_price = prices[-1]
+        votes = 0
+        n_channels = 0
+
+        for lookback in self.LOOKBACKS:
+            if len(prices) < lookback + 1:
+                continue
+            window = prices[-(lookback + 1):-1]
+            upper = max(window)
+            lower = min(window)
+            if current_price > upper:
+                votes += 1
+            elif current_price < lower:
+                votes -= 1
+            n_channels += 1
+
+        if n_channels == 0:
+            return {"trend_strength": 0, "channels_bullish": 0,
+                    "channels_bearish": 0, "has_data": False}
+
+        trend_strength = votes / n_channels
+        return {
+            "trend_strength": round(trend_strength, 3),
+            "channels_bullish": max(0, votes),
+            "channels_bearish": abs(min(0, votes)),
+            "has_data": True,
+        }
+
+
+# ---------------------------------------------------------------------------
+# Cross-Sectional Momentum (rank coins, overweight strongest)
+# ---------------------------------------------------------------------------
+
+class MomentumRanker:
+    """Rank coins by recent return. Top performers get boosted signals.
+
+    Research: Top quintile 1-week momentum = 11.22% avg weekly return.
+    7-day lookback outperforms longer windows.
+    """
+
+    def __init__(self, lookback: int = 7) -> None:
+        self.lookback = lookback
+        self._price_history: dict[str, list[float]] = {}
+
+    def update(self, symbol: str, price: float) -> None:
+        if symbol not in self._price_history:
+            self._price_history[symbol] = []
+        self._price_history[symbol].append(price)
+        if len(self._price_history[symbol]) > 60:
+            self._price_history[symbol] = self._price_history[symbol][-60:]
+
+    def rank(self) -> dict[str, float]:
+        """Return momentum percentile rank (0=worst, 1=best) per symbol."""
+        returns: dict[str, float] = {}
+        for symbol, prices in self._price_history.items():
+            if len(prices) < self.lookback + 1:
+                returns[symbol] = 0.0
+                continue
+            old_price = prices[-(self.lookback + 1)]
+            new_price = prices[-1]
+            returns[symbol] = (new_price - old_price) / old_price if old_price > 0 else 0.0
+
+        if not returns:
+            return {}
+
+        sorted_symbols = sorted(returns.keys(), key=lambda s: returns[s])
+        n = len(sorted_symbols)
+        return {sym: i / max(n - 1, 1) for i, sym in enumerate(sorted_symbols)}
 
 
 # ---------------------------------------------------------------------------
@@ -108,6 +227,9 @@ def _generate_deterministic_signals(
     snapshot: MarketSnapshot,
     symbols: list[str],
     noise_rng: random.Random | None = None,
+    strategy_params: dict | None = None,
+    donchian: DonchianEnsemble | None = None,
+    momentum_scores: dict[str, float] | None = None,
 ) -> list[AggregatedSignal]:
     """Research-backed signal generation. No LLM.
 
@@ -122,6 +244,11 @@ def _generate_deterministic_signals(
 
     Sources: PMC/NIH RSI study, QuantifiedStrategies, Zarattini 2025
     """
+    # Extract tuneable thresholds (fall back to defaults)
+    _sp = strategy_params or {}
+    signal_threshold = _sp.get("signal_threshold", 1.0)
+    exit_threshold = _sp.get("exit_threshold", -0.5)
+
     results: list[AggregatedSignal] = []
 
     for symbol in symbols:
@@ -264,13 +391,52 @@ def _generate_deterministic_signals(
                 score *= 1.2  # 20% boost for daily confirmation
                 reasons.append(f"Daily confirms ({daily_confirms} indicators)")
 
-        # ── REGIME SCALING ──
-        # Trending market: full signal strength
-        # Ranging market: reduce signal strength (mean reversion only)
+        # ── DONCHIAN CHANNEL ENSEMBLE (Zarattini 2025) ──
+        # Used as trend confirmation, not primary signal.
+        # Only add weight when multiple channels agree (strong trend).
+        if donchian is not None:
+            dc = donchian.signal(symbol)
+            if dc["has_data"]:
+                ts = dc["trend_strength"]  # -1 to +1
+                # Only act on strong consensus (>50% of channels agree)
+                if ts > 0.5:
+                    score += 1.0
+                    reasons.append(f"Donchian confirms bull ({dc['channels_bullish']} ch)")
+                elif ts < -0.5:
+                    score -= 1.0
+                    reasons.append(f"Donchian confirms bear ({dc['channels_bearish']} ch)")
+
+        # ── CROSS-SECTIONAL MOMENTUM (overweight strongest coins) ──
+        # Only meaningful with 5+ coins. Boost top performers, penalize laggards.
+        if momentum_scores is not None and symbol in momentum_scores and len(momentum_scores) >= 4:
+            mom_rank = momentum_scores[symbol]
+            if mom_rank >= 0.9:
+                score += 0.5
+                reasons.append(f"Momentum leader ({mom_rank:.0%})")
+            elif mom_rank <= 0.1:
+                score -= 0.5
+                reasons.append(f"Momentum laggard ({mom_rank:.0%})")
+
+        # ── REGIME-ADAPTIVE STRATEGY ──
         if is_ranging:
-            score *= 0.6  # Reduce confidence in ranging markets
+            # Ranging markets: switch to mean reversion (BB + RSI 30/70 works here)
+            mr_score = 0.0
+            if ind.bb_lower is not None and ind.bb_upper is not None and coin.current_price > 0:
+                if coin.current_price < ind.bb_lower:
+                    mr_score += 1.5
+                elif coin.current_price > ind.bb_upper:
+                    mr_score -= 1.5
+            if ind.rsi_14 is not None:
+                if ind.rsi_14 < 30:
+                    mr_score += 1.0
+                elif ind.rsi_14 > 70:
+                    mr_score -= 1.0
+            # Blend: 40% trend + 60% mean reversion
+            score = score * 0.4 + mr_score * 0.6
+            if mr_score != 0:
+                reasons.append(f"Ranging regime — mean reversion (mr={mr_score:+.1f})")
         elif is_strong_trend:
-            score *= 1.15  # Boost in strong trends
+            score *= 1.15
 
         # ── Noise for multi-run variation ──
         if noise_rng is not None:
@@ -289,14 +455,14 @@ def _generate_deterministic_signals(
         # ── Convert to action + confidence ──
         # Long-only trend following (research-optimal for daily crypto)
         # BUY when bullish, SELL only to close existing longs (signal-flip exit)
-        if score >= 1.0:
+        if score >= signal_threshold:
             action = SignalAction.BUY
-            confidence = min(0.50 + (score - 1.0) * 0.08, 0.90)
-        elif score <= -0.5:
+            confidence = min(0.50 + (score - signal_threshold) * 0.08, 0.90)
+        elif score <= exit_threshold:
             # Bearish — this triggers exit of existing longs (via position management)
             # We still emit SELL so the exit logic can detect signal flips
             action = SignalAction.SELL
-            confidence = min(0.50 + (abs(score) - 0.5) * 0.06, 0.85)
+            confidence = min(0.50 + (abs(score) - abs(exit_threshold)) * 0.06, 0.85)
         else:
             action = SignalAction.HOLD
             confidence = 0.3
@@ -328,6 +494,248 @@ def _generate_deterministic_signals(
         results.append(agg)
 
     return results
+
+
+# ---------------------------------------------------------------------------
+# Funding rate carry signal modifier
+# ---------------------------------------------------------------------------
+
+def _apply_funding_carry_modifier(
+    signals: list[AggregatedSignal],
+    funding_store: FundingRateStore,
+    current_date: datetime,
+    min_rate: float = 0.0003,  # 0.03% per 8h = ~13.7% annualized
+) -> list[AggregatedSignal]:
+    """Modify existing signals using funding rate data as a carry overlay.
+
+    Funding rate carry logic:
+    - NEGATIVE funding (shorts paying longs): +1.0 to score (bullish -- short squeeze setup)
+    - Funding > 0.05% per 8h: -1.0 to score (bearish -- market overleveraged long)
+    - Funding between 0 and min_rate: neutral (normal market conditions)
+
+    This modifies the signals in place and returns them.
+    """
+    for sig in signals:
+        rate = funding_store.get_latest_rate(sig.symbol, as_of=current_date)
+        if rate is None:
+            continue
+
+        # Get the existing score from the signal
+        old_score = sig.weighted_scores.get("score", 0.0)
+        funding_adj = 0.0
+        funding_reason = ""
+
+        if rate < 0:
+            # Negative funding: shorts paying longs = short squeeze setup = bullish
+            funding_adj = 1.0
+            funding_reason = f"Funding {rate:.6f} negative (short squeeze setup, +1.0)"
+        elif rate > 0.0005:
+            # Very high funding: market overleveraged long = bearish
+            funding_adj = -1.0
+            funding_reason = f"Funding {rate:.6f} very high (overleveraged long, -1.0)"
+        elif rate > min_rate:
+            # Moderately high funding: slightly bearish
+            funding_adj = -0.5
+            funding_reason = f"Funding {rate:.6f} elevated (mild overleveraged, -0.5)"
+        else:
+            # Normal range: no adjustment
+            continue
+
+        new_score = old_score + funding_adj
+
+        # Re-derive action and confidence from modified score
+        if new_score >= 1.0:
+            action = SignalAction.BUY
+            confidence = min(0.50 + (new_score - 1.0) * 0.08, 0.90)
+        elif new_score <= -0.5:
+            action = SignalAction.SELL
+            confidence = min(0.50 + (abs(new_score) - 0.5) * 0.06, 0.85)
+        else:
+            action = SignalAction.HOLD
+            confidence = 0.3
+
+        # Update signal
+        sig.recommended_action = action
+        sig.aggregated_confidence = confidence
+        sig.weighted_scores["score"] = new_score
+        sig.weighted_scores["funding_rate"] = rate
+        sig.weighted_scores["funding_adj"] = funding_adj
+
+        # Add funding reason to contributing signal reasoning
+        if sig.contributing_signals:
+            old_reasoning = sig.contributing_signals[0].reasoning
+            sig.contributing_signals[0].reasoning = (
+                f"{old_reasoning}; {funding_reason}"
+            )
+
+    return signals
+
+
+# ---------------------------------------------------------------------------
+# Pairs trading signal generation
+# ---------------------------------------------------------------------------
+
+def _generate_pairs_signals(
+    pairs_trader: PairsTrader,
+    snapshot: MarketSnapshot,
+    symbol_a: str = "BTCUSDT",
+    symbol_b: str = "ETHUSDT",
+) -> list[AggregatedSignal]:
+    """Generate signals from the BTC-ETH pairs trading strategy.
+
+    Maps pairs signals to the long-only backtester:
+    - LONG_A_SHORT_B -> BUY symbol_a (spread too low, expect A to outperform)
+    - SHORT_A_LONG_B -> BUY symbol_b (spread too high, expect B to outperform)
+    - EXIT -> SELL both (take profit or stop loss)
+    - HOLD -> HOLD
+
+    Returns a list of AggregatedSignals for the affected symbols.
+    """
+    coin_a = snapshot.coins.get(symbol_a)
+    coin_b = snapshot.coins.get(symbol_b)
+
+    if coin_a is None or coin_b is None:
+        return []
+    if coin_a.current_price <= 0 or coin_b.current_price <= 0:
+        return []
+
+    result = pairs_trader.update_and_signal(coin_a.current_price, coin_b.current_price)
+    z_score = result["z_score"]
+    pair_signal = result["signal"]
+
+    signals: list[AggregatedSignal] = []
+
+    if pair_signal == "LONG_A_SHORT_B":
+        # Spread too low: buy A (BTC), in long-only we only emit BUY for A
+        confidence = min(0.50 + abs(z_score) * 0.10, 0.85)
+        sig_a = Signal(
+            agent_id="pairs_btc_eth",
+            team="pairs",
+            symbol=symbol_a,
+            action=SignalAction.BUY,
+            confidence=confidence,
+            reasoning=(
+                f"Pairs: spread z={z_score:.2f} < -{pairs_trader.entry_z:.1f}, "
+                f"expect {symbol_a} to outperform {symbol_b}"
+            ),
+            metadata=result,
+        )
+        signals.append(AggregatedSignal(
+            symbol=symbol_a,
+            recommended_action=SignalAction.BUY,
+            aggregated_confidence=confidence,
+            contributing_signals=[sig_a],
+            consensus_ratio=1.0,
+            weighted_scores={"score": abs(z_score), "pairs_signal": pair_signal},
+        ))
+
+    elif pair_signal == "SHORT_A_LONG_B":
+        # Spread too high: buy B (ETH), in long-only we only emit BUY for B
+        confidence = min(0.50 + abs(z_score) * 0.10, 0.85)
+        sig_b = Signal(
+            agent_id="pairs_btc_eth",
+            team="pairs",
+            symbol=symbol_b,
+            action=SignalAction.BUY,
+            confidence=confidence,
+            reasoning=(
+                f"Pairs: spread z={z_score:.2f} > {pairs_trader.entry_z:.1f}, "
+                f"expect {symbol_b} to outperform {symbol_a}"
+            ),
+            metadata=result,
+        )
+        signals.append(AggregatedSignal(
+            symbol=symbol_b,
+            recommended_action=SignalAction.BUY,
+            aggregated_confidence=confidence,
+            contributing_signals=[sig_b],
+            consensus_ratio=1.0,
+            weighted_scores={"score": abs(z_score), "pairs_signal": pair_signal},
+        ))
+
+    elif pair_signal == "EXIT":
+        # Exit both positions (mean reversion complete or stop loss)
+        for sym in [symbol_a, symbol_b]:
+            sig = Signal(
+                agent_id="pairs_btc_eth",
+                team="pairs",
+                symbol=sym,
+                action=SignalAction.SELL,
+                confidence=0.70,
+                reasoning=(
+                    f"Pairs EXIT: z={z_score:.2f}, "
+                    f"{'take profit (spread reverted)' if abs(z_score) < pairs_trader.exit_z else 'stop loss (spread diverged)'}"
+                ),
+                metadata=result,
+            )
+            signals.append(AggregatedSignal(
+                symbol=sym,
+                recommended_action=SignalAction.SELL,
+                aggregated_confidence=0.70,
+                contributing_signals=[sig],
+                consensus_ratio=1.0,
+                weighted_scores={"score": -1.0, "pairs_signal": pair_signal},
+            ))
+
+    return signals
+
+
+def _merge_signal_lists(
+    *signal_lists: list[AggregatedSignal],
+) -> list[AggregatedSignal]:
+    """Merge multiple signal lists, averaging scores for shared symbols.
+
+    When the same symbol appears in multiple lists, the scores are averaged
+    and the action/confidence are re-derived from the averaged score.
+    """
+    by_symbol: dict[str, list[AggregatedSignal]] = {}
+    for sigs in signal_lists:
+        for sig in sigs:
+            by_symbol.setdefault(sig.symbol, []).append(sig)
+
+    merged: list[AggregatedSignal] = []
+    for symbol, sigs in by_symbol.items():
+        if len(sigs) == 1:
+            merged.append(sigs[0])
+            continue
+
+        # Average the scores from all strategies
+        scores = [s.weighted_scores.get("score", 0.0) for s in sigs]
+        avg_score = sum(scores) / len(scores)
+
+        # Re-derive action/confidence from averaged score
+        if avg_score >= 1.0:
+            action = SignalAction.BUY
+            confidence = min(0.50 + (avg_score - 1.0) * 0.08, 0.90)
+        elif avg_score <= -0.5:
+            action = SignalAction.SELL
+            confidence = min(0.50 + (abs(avg_score) - 0.5) * 0.06, 0.85)
+        else:
+            action = SignalAction.HOLD
+            confidence = 0.3
+
+        # Collect all contributing signals
+        all_contributing = []
+        for s in sigs:
+            all_contributing.extend(s.contributing_signals)
+
+        # Merge weighted_scores metadata
+        merged_scores: dict[str, Any] = {"score": avg_score, "strategy_scores": scores}
+        for s in sigs:
+            for k, v in s.weighted_scores.items():
+                if k != "score":
+                    merged_scores[k] = v
+
+        merged.append(AggregatedSignal(
+            symbol=symbol,
+            recommended_action=action,
+            aggregated_confidence=confidence,
+            contributing_signals=all_contributing,
+            consensus_ratio=sum(s.consensus_ratio for s in sigs) / len(sigs),
+            weighted_scores=merged_scores,
+        ))
+
+    return merged
 
 
 # ---------------------------------------------------------------------------
@@ -390,16 +798,55 @@ class BacktestEngine:
         n_symbols = len(config.symbols)
         step_count = 0
 
+        # ── Adaptive position sizer ──
+        # Initialise once per run; it accumulates trade history across steps.
+        sizing_mode = SizingMode(config.sizing_mode)
+        position_sizer = PositionSizer(mode=sizing_mode)
+
+        # ── Resolve active strategies ──
+        active_strategies = list(config.strategies)
+        if "combined" in active_strategies:
+            active_strategies = ["trend_following", "funding_carry", "pairs_btc_eth"]
+
+        use_funding = "funding_carry" in active_strategies
+        use_pairs = "pairs_btc_eth" in active_strategies
+        use_trend = "trend_following" in active_strategies
+
+        funding_store: FundingRateStore | None = None
+        if use_funding:
+            funding_store = FundingRateStore(storage_dir=config.funding_rates_dir)
+
+        _pairs_trader: PairsTrader | None = None
+        if use_pairs:
+            _pairs_trader = PairsTrader(
+                lookback=60, entry_z=2.0, exit_z=0.5, stop_z=3.5,
+            )
+
+        # ── Donchian ensemble + cross-sectional momentum ──
+        donchian = DonchianEnsemble()
+        momentum_ranker = MomentumRanker(lookback=7)
+        # Pre-fill with historical prices (Donchian needs up to 360 days warm-up)
+        for sym in config.symbols:
+            candles = store.load(sym, "1d", end=start_dt)
+            for c in candles[-400:]:
+                donchian.update(sym, c.close)
+                momentum_ranker.update(sym, c.close)
+
         while current_date <= end_dt:
             step_count += 1
             # 1. Build snapshot
             snapshot = data_layer.build_snapshot(config.symbols, current_date)
 
-            # Collect benchmark prices
+            # Collect benchmark prices + update Donchian/Momentum each step
             btc_coin = snapshot.coins.get("BTCUSDT")
             eth_coin = snapshot.coins.get("ETHUSDT")
             benchmark_btc.append(btc_coin.current_price if btc_coin and btc_coin.current_price > 0 else (benchmark_btc[-1] if benchmark_btc else 0))
             benchmark_eth.append(eth_coin.current_price if eth_coin and eth_coin.current_price > 0 else (benchmark_eth[-1] if benchmark_eth else 0))
+
+            for sym, coin in snapshot.coins.items():
+                if coin.current_price > 0:
+                    donchian.update(sym, coin.current_price)
+                    momentum_ranker.update(sym, coin.current_price)
 
             # 2. Detect or use fixed regime
             if config.regime is not None:
@@ -418,13 +865,66 @@ class BacktestEngine:
             }
             trader.update_prices(prices)
 
-            # 4. Generate deterministic signals (with optional noise for multi-run)
+            # 4. Generate signals from active strategies
             noise_rng = random.Random(noise_seed + step_count) if noise_seed is not None else None
-            signals = _generate_deterministic_signals(snapshot, config.symbols, noise_rng=noise_rng)
+
+            signal_lists: list[list[AggregatedSignal]] = []
+
+            # Compute momentum rankings for this step
+            mom_scores = momentum_ranker.rank()
+
+            # 4a. Trend-following signals (default strategy)
+            if use_trend:
+                trend_signals = _generate_deterministic_signals(
+                    snapshot, config.symbols, noise_rng=noise_rng,
+                    strategy_params=config.strategy_params,
+                    donchian=donchian, momentum_scores=mom_scores,
+                )
+                # Apply funding carry modifier on top of trend signals
+                if use_funding and funding_store is not None:
+                    trend_signals = _apply_funding_carry_modifier(
+                        trend_signals, funding_store, current_date,
+                    )
+                signal_lists.append(trend_signals)
+            elif use_funding and funding_store is not None:
+                # Funding carry standalone: generate base trend signals then modify
+                base_signals = _generate_deterministic_signals(
+                    snapshot, config.symbols, noise_rng=noise_rng,
+                    strategy_params=config.strategy_params,
+                    donchian=donchian, momentum_scores=mom_scores,
+                )
+                base_signals = _apply_funding_carry_modifier(
+                    base_signals, funding_store, current_date,
+                )
+                signal_lists.append(base_signals)
+
+            # 4b. Pairs trading signals (BTC-ETH spread)
+            if use_pairs and _pairs_trader is not None:
+                pairs_sigs = _generate_pairs_signals(
+                    _pairs_trader, snapshot,
+                    symbol_a="BTCUSDT", symbol_b="ETHUSDT",
+                )
+                if pairs_sigs:
+                    signal_lists.append(pairs_sigs)
+
+            # 4c. Merge all strategy signal lists
+            if len(signal_lists) == 0:
+                # Fallback: generate basic trend signals if no strategy produced output
+                signals = _generate_deterministic_signals(
+                    snapshot, config.symbols, noise_rng=noise_rng,
+                    strategy_params=config.strategy_params,
+                    donchian=donchian, momentum_scores=mom_scores,
+                )
+            elif len(signal_lists) == 1:
+                signals = signal_lists[0]
+            else:
+                signals = _merge_signal_lists(*signal_lists)
 
             # 5. Position management — check existing positions for exits
             # ATR trailing stop + signal-flip exits
             from hivemind.data.models import OrderSide, TradeOrder
+            _atr_stop_mult = config.strategy_params.get("atr_stop_mult", 3.0)
+            _atr_tp_mult = config.strategy_params.get("atr_tp_mult", 6.0)
             positions_to_close: list[tuple[str, float, str]] = []  # (symbol, price, reason)
 
             for pos in list(trader.portfolio.positions):
@@ -434,9 +934,9 @@ class BacktestEngine:
                 price = sym_coin.current_price
                 sym_ind = sym_coin.indicators_4h
 
-                # ATR-based stop loss (3x ATR — research says <3x too tight for crypto)
+                # ATR-based stop loss (research says <3x too tight for crypto)
                 if sym_ind and sym_ind.atr_14 and sym_ind.atr_14 > 0:
-                    stop_distance = sym_ind.atr_14 * 3.0
+                    stop_distance = sym_ind.atr_14 * _atr_stop_mult
                     if pos.side == OrderSide.BUY:
                         stop_price = pos.entry_price - stop_distance
                         if price <= stop_price:
@@ -448,9 +948,9 @@ class BacktestEngine:
                             positions_to_close.append((pos.symbol, price, "ATR_STOP"))
                             continue
 
-                # Take profit at 2R (2x the risk distance)
+                # Take profit at R-multiple of the risk distance
                 if sym_ind and sym_ind.atr_14 and sym_ind.atr_14 > 0:
-                    tp_distance = sym_ind.atr_14 * 6.0  # 2R when stop is 3x ATR
+                    tp_distance = sym_ind.atr_14 * _atr_tp_mult
                     if pos.side == OrderSide.BUY:
                         if price >= pos.entry_price + tp_distance:
                             positions_to_close.append((pos.symbol, price, "TAKE_PROFIT"))
@@ -502,10 +1002,46 @@ class BacktestEngine:
                         "exit_reason": reason,
                     })
 
-            # 6. Risk management for new entries — only if not already in position
+                    # Feed closed trade into the adaptive position sizer
+                    position_sizer.record_trade(
+                        win=(pnl_pct > 0),
+                        pnl_pct=pnl_pct,
+                    )
+
+            # 6. Risk management for new entries — adaptive position sizing
+            #
+            # Compute the position fraction from the sizer. For "fixed" mode
+            # this is the default 2%; for kelly/vol_target/adaptive it adapts
+            # based on rolling trade history and current volatility.
+            _representative_vol = 0.0
+            _representative_price = 0.0
+            for _sym in config.symbols:
+                _coin = snapshot.coins.get(_sym)
+                if _coin and _coin.indicators_4h and _coin.indicators_4h.atr_14 and _coin.current_price > 0:
+                    _representative_vol = atr_to_annual_vol(
+                        atr=_coin.indicators_4h.atr_14,
+                        price=_coin.current_price,
+                        period_hours=4.0,
+                    )
+                    _representative_price = _coin.current_price
+                    break  # use first available
+
+            adaptive_fraction = position_sizer.compute_position_fraction(
+                portfolio_value=trader.portfolio.total_value,
+                current_vol=_representative_vol,
+                price=_representative_price,
+            )
+
+            # Use adaptive fraction as max_position_pct, but also respect
+            # the original per-symbol cap so we don't over-concentrate.
             per_symbol_pct = min(0.20, 0.80 / max(n_symbols, 1))
+            effective_max_position_pct = (
+                min(per_symbol_pct, adaptive_fraction)
+                if sizing_mode != SizingMode.FIXED
+                else per_symbol_pct
+            )
             risk_limits = RiskLimits(
-                max_position_pct=per_symbol_pct,
+                max_position_pct=effective_max_position_pct,
                 max_daily_drawdown_pct=0.08,
                 min_signal_confidence=0.45,
                 min_consensus_ratio=0.0,
