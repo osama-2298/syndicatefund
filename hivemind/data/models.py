@@ -45,6 +45,8 @@ class TeamType(str, Enum):
     MACRO = "macro"
     ONCHAIN = "onchain"
     EXECUTIVE = "executive"
+    NEWS = "news"
+    INSTITUTIONAL = "institutional"
 
 
 class AgentStatus(str, Enum):
