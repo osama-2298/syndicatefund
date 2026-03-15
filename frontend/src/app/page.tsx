@@ -68,17 +68,22 @@ export default async function Dashboard() {
               <tr className="text-sm text-hive-muted border-b border-hive-border">
                 <th className="text-left px-5 py-3">Symbol</th>
                 <th className="text-left px-5 py-3">Side</th>
+                <th className="text-right px-5 py-3">Size</th>
                 <th className="text-right px-5 py-3">Entry</th>
                 <th className="text-right px-5 py-3">Current</th>
-                <th className="text-right px-5 py-3">Qty</th>
                 <th className="text-right px-5 py-3">P&L</th>
+                <th className="text-right px-5 py-3">P&L %</th>
               </tr>
             </thead>
             <tbody>
               {positions.map((pos, i) => {
+                const size = pos.quantity * pos.current_price;
                 const pnlPct = pos.entry_price > 0
                   ? ((pos.current_price - pos.entry_price) / pos.entry_price * 100) * (pos.side === 'BUY' ? 1 : -1)
                   : 0;
+                const pnlUsd = pos.side === 'BUY'
+                  ? (pos.current_price - pos.entry_price) * pos.quantity
+                  : (pos.entry_price - pos.current_price) * pos.quantity;
                 return (
                   <tr key={i} className="border-b border-hive-border/50 hover:bg-hive-border/20">
                     <td className="px-5 py-3 font-medium">{pos.symbol.replace('USDT', '')}</td>
@@ -87,10 +92,13 @@ export default async function Dashboard() {
                         {pos.side}
                       </span>
                     </td>
+                    <td className="px-5 py-3 text-right">${size.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
                     <td className="px-5 py-3 text-right">${pos.entry_price.toLocaleString()}</td>
                     <td className="px-5 py-3 text-right">${pos.current_price.toLocaleString()}</td>
-                    <td className="px-5 py-3 text-right text-hive-muted">{pos.quantity.toFixed(6)}</td>
-                    <td className={`px-5 py-3 text-right font-medium ${pnlPct >= 0 ? 'text-hive-green' : 'text-hive-red'}`}>
+                    <td className={`px-5 py-3 text-right font-medium ${pnlUsd >= 0 ? 'text-hive-green' : 'text-hive-red'}`}>
+                      {pnlUsd >= 0 ? '+' : ''}${pnlUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </td>
+                    <td className={`px-5 py-3 text-right ${pnlPct >= 0 ? 'text-hive-green' : 'text-hive-red'}`}>
                       {pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%
                     </td>
                   </tr>
