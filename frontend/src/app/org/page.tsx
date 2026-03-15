@@ -145,6 +145,35 @@ export default function OrgPage() {
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
+  // Names for founding agents and managers
+  const agentNames: Record<string, string> = {
+    'TechnicalTrendAgent': 'Lena Karlsson',
+    'TechnicalSignalAgent': 'David Osei',
+    'TechnicalTimingAgent': 'Mika Tanaka',
+    'SocialSentimentAgent': 'Priya Sharma',
+    'MarketSentimentAgent': 'Alexei Volkov',
+    'SmartMoneySentimentAgent': 'Sofia Reyes',
+    'ValuationAgent': 'Henrik Larsen',
+    'CyclePositionAgent': 'Amara Obi',
+    'CryptoMacroAgent': 'Lucas Weber',
+    'ExternalMacroAgent': 'Fatima Al-Rashid',
+    'NetworkHealthAgent': 'Jin Park',
+    'CapitalFlowAgent': 'Camille Dubois',
+  };
+  const managerNames: Record<string, string> = {
+    'technical': 'Oscar Brennan',
+    'sentiment': 'Yara Haddad',
+    'fundamental': 'Isaac Thornton',
+    'macro': 'Zara Kimathi',
+    'onchain': 'Nikolai Petrov',
+  };
+  const getName = (agent: Agent) => {
+    if (agent.agent_class && agentNames[agent.agent_class]) {
+      return `${agentNames[agent.agent_class]} — ${agent.agent_class.replace(/([A-Z])/g, ' $1').trim()}`;
+    }
+    return agent.role;
+  };
+
   const agentsByTeam: Record<string, Agent[]> = {};
   const unassigned: Agent[] = [];
   for (const agent of agents) {
@@ -170,15 +199,15 @@ export default function OrgPage() {
       </div>
 
       <div className="bg-hive-card border border-hive-border rounded-xl p-3">
-        <Node label="CEO" subtitle="Strategic leadership" badge="EXECUTIVE" badgeColor="bg-hive-accent/20 text-hive-accent" defaultOpen={true}>
+        <Node label="Marcus Blackwell — CEO" subtitle="Strategic leadership" badge="EXECUTIVE" badgeColor="bg-hive-accent/20 text-hive-accent" defaultOpen={true}>
 
-          <Node label="COO" subtitle="Coin selection">
+          <Node label="Elena Vasquez — COO" subtitle="Coin selection">
             <Leaf label="Selects which coins to analyze each cycle based on volume, momentum, and CEO strategy" />
           </Node>
 
-          <Node label="CRO" subtitle="Risk management">
+          <Node label="Tobias Richter — CRO" subtitle="Risk management">
             <Leaf label="Sets position limits, drawdown thresholds, and confidence minimums per cycle" />
-            <Node label="Risk Manager" subtitle="Enforces CRO rules on all trades">
+            <Node label="James Hartley — Risk Manager" subtitle="Enforces CRO rules on all trades">
               <Leaf label="Position sizing (quarter-Kelly)" />
               <Leaf label="Drawdown halt" />
               <Leaf label="Confidence gates" />
@@ -186,9 +215,9 @@ export default function OrgPage() {
           </Node>
 
           <Node label="Board of Directors" subtitle="Organizational governance" badge="META" badgeColor="bg-purple-500/20 text-purple-400">
-            <Leaf label="CSO — Chief Strategy Officer" sublabel="Team creation and dissolution" />
-            <Leaf label="CTO — Chief Talent Officer" sublabel="Agent assignment and prompt writing" />
-            <Leaf label="CPO — Chief Performance Officer" sublabel="Probation and firing pipeline" />
+            <Leaf label="Victor Okafor — CSO" sublabel="Team creation and dissolution" />
+            <Leaf label="Nadia Chen — CTO" sublabel="Agent assignment and prompt writing" />
+            <Leaf label="Raphael Moreno — CPO" sublabel="Probation and firing pipeline" />
           </Node>
 
           <Node label="Analysis Division" subtitle={`${teams.length} teams, ${agents.filter(a => a.team_name).length} assigned agents`} defaultOpen={true}>
@@ -202,11 +231,11 @@ export default function OrgPage() {
                   badgeColor={team.is_system ? 'bg-amber-500/20 text-amber-400' : 'bg-hive-blue/20 text-hive-blue'}
                   right={<span className="text-xs text-hive-muted">{team.weight.toFixed(1)}x</span>}
                 >
-                  <Leaf label={`${team.name.charAt(0).toUpperCase() + team.name.slice(1)} Manager`} sublabel="Synthesizes agent signals" />
+                  <Leaf label={`${managerNames[team.name] || 'Manager'} — ${team.name.charAt(0).toUpperCase() + team.name.slice(1)} Manager`} sublabel="Synthesizes agent signals" />
                   {ta.map((agent) => (
                     <Leaf
                       key={agent.id}
-                      label={agent.agent_class || agent.role}
+                      label={getName(agent)}
                       sublabel={`${agent.model} / ${agent.provider}`}
                       status={agent.status}
                       right={
@@ -222,7 +251,7 @@ export default function OrgPage() {
             })}
           </Node>
 
-          <Node label="Portfolio Managers" subtitle="Segment allocation">
+          <Node label="Diana Frost — Head of Portfolio" subtitle="Segment allocation">
             <Leaf label="L1s segment" />
             <Leaf label="DeFi segment" />
             <Leaf label="L2s segment" />
@@ -231,13 +260,13 @@ export default function OrgPage() {
             <Leaf label="Infrastructure segment" />
           </Node>
 
-          <Node label="Execution" subtitle="Trade lifecycle">
+          <Node label="Kai Nakamura — Head of Execution" subtitle="Trade lifecycle">
             <Leaf label="Paper Trader" sublabel="Executes orders" />
             <Leaf label="Trade Monitor" sublabel="SL / TP / trailing stops" />
             <Leaf label="Trade Ledger" sublabel="P&L tracking and calibration" />
           </Node>
 
-          <Node label="Signal Aggregator" subtitle="Deterministic, no LLM">
+          <Node label="Soren Lindqvist — Signal Aggregator" subtitle="Deterministic, no LLM">
             <Leaf label="Bayesian log-odds combination" />
             <Leaf label="Macro gate / Technical gate" />
             <Leaf label="Polarization detection" />
