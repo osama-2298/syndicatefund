@@ -31,8 +31,9 @@ class BinanceClient:
     Uses only public endpoints — no authentication required for market data.
     """
 
-    def __init__(self, base_url: str = "https://api.binance.com") -> None:
-        self._base_url = base_url
+    def __init__(self, base_url: str | None = None) -> None:
+        from hivemind.config import settings
+        self._base_url = base_url or settings.binance_base_url
         self._client = httpx.Client(
             base_url=base_url,
             timeout=30.0,
