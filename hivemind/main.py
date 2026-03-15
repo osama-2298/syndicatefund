@@ -106,6 +106,32 @@ structlog.configure(
 logging.basicConfig(level=logging.WARNING)
 
 
+def _save_latest_signals(signals: list):
+    """Save latest aggregated signals for the API."""
+    import json
+    from pathlib import Path
+    try:
+        data = {
+            "cycle_timestamp": datetime.now(timezone.utc).isoformat(),
+            "signals": [
+                {
+                    "symbol": s.symbol,
+                    "action": s.recommended_action.value,
+                    "confidence": round(s.aggregated_confidence, 3),
+                    "consensus": round(s.consensus_ratio, 3),
+                    "decision_quality": s.weighted_scores.get("_decision_quality", ""),
+                    "alerts": s.weighted_scores.get("_alerts", []),
+                }
+                for s in signals
+            ],
+        }
+        path = Path("data/latest_signals.json")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, indent=2))
+    except Exception:
+        pass  # Non-critical
+
+
 def _run_single_agent(agent_cls, team_type, symbol, data, api_key, provider):
     """Run a single agent. Thread-safe — each call creates its own agent instance."""
     profile = AgentProfile(
@@ -490,9 +516,15 @@ def run_pipeline(
         if trade_monitor.open_trades:
             section("Trade Monitor — Checking Open Positions")
             outcomes = trade_monitor.check_all(_binance, paper_trader=paper_trader, interval="1h")
-            # Record outcomes in the ledger
+            # Record outcomes in the ledger and wire back to signal accuracy
             for o in outcomes:
                 trade_ledger.record_outcome(o)
+                # Task 2.4: update signal accuracy from actual trade P&L
+                if o.source_signal_id:
+                    tracker.evaluate_from_trade_outcome(
+                        signal_id=o.source_signal_id,
+                        profitable=(o.pnl_usd > 0),
+                    )
             if outcomes:
                 for o in outcomes:
                     # Color based on outcome
@@ -614,6 +646,37 @@ def run_pipeline(
 
         intel_elapsed = time.monotonic() - t0
         print(f"    {dim(f'All sources fetched in parallel · {intel_elapsed:.1f}s')}")
+
+        # ═══════════════════════════════════════
+        # DATA-ONLY CYCLE (daily mode)
+        # ═══════════════════════════════════════
+        if not is_decision_cycle:
+            section("Data-Only Cycle")
+            print(f"    {c('Data-only cycle', C.B_YELLOW)} (daily mode — next decision at 00:00 UTC)")
+            print(f"    {dim('Trade monitoring + intelligence gathered. Skipping analysis/execution.')}")
+
+            # Update prices for existing positions
+            position_symbols = []
+            if paper_trader.portfolio.positions:
+                position_symbols = [p.symbol for p in paper_trader.portfolio.positions]
+            if position_symbols:
+                price_updates = {}
+                for sym in position_symbols:
+                    try:
+                        stats = _binance.get_24h_stats(symbol=sym)
+                        price_updates[sym] = float(stats.get("last_price", 0))
+                    except Exception:
+                        pass
+                if price_updates:
+                    paper_trader.update_prices(price_updates)
+                    print(f"    {dim(f'Updated prices for {len(price_updates)} positions')}")
+
+            paper_trader.save(settings.portfolio_state_path)
+
+            elapsed_total = time.monotonic() - cycle_start
+            print(f"\n  {dim(f'Data-only cycle completed in {elapsed_total:.1f}s')}")
+            footer()
+            return
 
         # ═══════════════════════════════════════
         # STEP 2: CEO — Strategic Directive
@@ -845,6 +908,9 @@ def run_pipeline(
         )
         aggregated = aggregator.aggregate(all_coin_signals, all_agent_profiles)
 
+        # Persist latest signals for API
+        _save_latest_signals(aggregated)
+
         # Display aggregation alerts
         for agg in aggregated:
             alerts = agg.weighted_scores.get("_alerts", [])
@@ -982,6 +1048,7 @@ def run_pipeline(
                         entry_price=result.executed_price,
                         quantity=result.quantity,
                         params=order.params,
+                        source_signal_id=order.source_signal_id,
                     )
                     agg = agg_by_symbol.get(result.symbol)
                     trade_ledger.record_entry(
@@ -997,6 +1064,7 @@ def run_pipeline(
                         confidence=agg.aggregated_confidence if agg else 0.0,
                         direction=agg.recommended_action.value if agg else "",
                         regime=directive.regime.value,
+                        source_signal_id=order.source_signal_id,
                     )
             paper_trader.update_prices(coin_prices)
             paper_trader.save(settings.portfolio_state_path)

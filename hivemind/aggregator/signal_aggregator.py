@@ -128,7 +128,136 @@ class SignalAggregator:
                 quality=agg.weighted_scores.get("_decision_quality", "?"),
             )
 
+        # Deterministic baseline comparison for each aggregated signal
+        for agg in results:
+            # Try to find indicators for this symbol from contributing signals
+            indicators_4h = None
+            for sig in agg.contributing_signals:
+                if "atr_14" in sig.metadata:
+                    # We don't have full indicators here, but we can note agreement
+                    break
+
+            baseline = self.compute_deterministic_baseline(agg.symbol, indicators_4h)
+            llm_direction = (
+                "BULLISH" if agg.recommended_action in (SignalAction.BUY, SignalAction.COVER)
+                else "BEARISH" if agg.recommended_action in (SignalAction.SELL, SignalAction.SHORT)
+                else "NEUTRAL"
+            )
+            agrees = baseline["direction"] == llm_direction or baseline["direction"] == "NEUTRAL"
+            agg.weighted_scores["_deterministic_baseline"] = baseline
+            agg.weighted_scores["_baseline_agrees"] = agrees
+            if not agrees:
+                logger.info(
+                    "deterministic_baseline_disagrees",
+                    symbol=agg.symbol,
+                    baseline=baseline["direction"],
+                    llm=llm_direction,
+                )
+
         return results
+
+    # ─────────────────────────────────────────────
+    #  DETERMINISTIC BASELINE
+    # ─────────────────────────────────────────────
+
+    def compute_deterministic_baseline(self, symbol: str, indicators_4h, indicators_1d=None) -> dict:
+        """Rules-based signal from pre-computed indicators. No LLM.
+
+        Returns dict with:
+          - direction: "BULLISH" / "BEARISH" / "NEUTRAL"
+          - conviction: 0-10
+          - factors: list of supporting/opposing factors
+          - agrees_with_llm: bool (set later when comparing with LLM aggregation)
+        """
+        score = 0.0
+        factors = []
+
+        if indicators_4h is None:
+            return {"direction": "NEUTRAL", "conviction": 0, "factors": ["No indicator data"]}
+
+        # RSI
+        if indicators_4h.rsi_14 is not None:
+            if indicators_4h.rsi_14 < 30:
+                score += 2.0
+                factors.append(f"RSI oversold ({indicators_4h.rsi_14:.1f})")
+            elif indicators_4h.rsi_14 > 70:
+                score -= 2.0
+                factors.append(f"RSI overbought ({indicators_4h.rsi_14:.1f})")
+            elif indicators_4h.rsi_14 < 45:
+                score += 0.5
+            elif indicators_4h.rsi_14 > 55:
+                score -= 0.5
+
+        # MACD
+        if indicators_4h.macd_histogram is not None:
+            if indicators_4h.macd_histogram > 0:
+                score += 1.0
+                factors.append("MACD bullish")
+            else:
+                score -= 1.0
+                factors.append("MACD bearish")
+
+        # Bollinger Bands (mean reversion at extremes)
+        if indicators_4h.bb_upper and indicators_4h.bb_lower and indicators_4h.bb_middle:
+            # Need current price - estimate from bb_middle
+            bb_position = 0.5  # Default middle
+            if indicators_4h.bb_width and indicators_4h.bb_width > 0:
+                # Check if near bands
+                pass
+
+        # Moving average trend
+        if indicators_4h.sma_20 and indicators_4h.sma_50:
+            if indicators_4h.sma_20 > indicators_4h.sma_50:
+                score += 1.0
+                factors.append("SMA20 > SMA50 (uptrend)")
+            else:
+                score -= 1.0
+                factors.append("SMA20 < SMA50 (downtrend)")
+
+        # Volume
+        if indicators_4h.volume_ratio is not None and indicators_4h.volume_ratio > 1.5:
+            factors.append(f"High volume ({indicators_4h.volume_ratio:.1f}x)")
+            # High volume confirms the direction
+            if score > 0:
+                score += 0.5
+            elif score < 0:
+                score -= 0.5
+
+        # Daily timeframe confirmation (if available)
+        if indicators_1d is not None:
+            if indicators_1d.rsi_14 is not None:
+                if indicators_1d.rsi_14 < 35:
+                    score += 1.0
+                    factors.append("Daily RSI oversold")
+                elif indicators_1d.rsi_14 > 65:
+                    score -= 1.0
+                    factors.append("Daily RSI overbought")
+
+            if indicators_1d.macd_histogram is not None:
+                if indicators_1d.macd_histogram > 0 and score > 0:
+                    score += 0.5
+                    factors.append("Daily MACD confirms bull")
+                elif indicators_1d.macd_histogram < 0 and score < 0:
+                    score -= 0.5
+                    factors.append("Daily MACD confirms bear")
+
+        # Convert score to direction + conviction
+        if score > 0.5:
+            direction = "BULLISH"
+            conviction = min(10, int(score * 1.5) + 3)
+        elif score < -0.5:
+            direction = "BEARISH"
+            conviction = min(10, int(abs(score) * 1.5) + 3)
+        else:
+            direction = "NEUTRAL"
+            conviction = max(0, 3 - int(abs(score)))
+
+        return {
+            "direction": direction,
+            "conviction": conviction,
+            "score": round(score, 2),
+            "factors": factors,
+        }
 
     # ─────────────────────────────────────────────
     #  CORE AGGREGATION

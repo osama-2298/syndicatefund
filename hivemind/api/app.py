@@ -87,21 +87,153 @@ async def _background_cycle_loop(shutdown_event: asyncio.Event):
         logger.info("cycle_loop_stopped")
 
 
+async def _price_monitor(shutdown_event: asyncio.Event):
+    """Background task that checks live prices against SL/TP every 2 seconds."""
+    import httpx
+
+    print("[MONITOR] Price monitor starting...", flush=True)
+
+    async with httpx.AsyncClient(timeout=10.0) as http:
+        while not shutdown_event.is_set():
+            try:
+                from hivemind.config import settings
+                from hivemind.execution.trade_monitor import TradeMonitor
+                from hivemind.execution.paper_trader import PaperTrader
+                from hivemind.execution.trade_ledger import TradeLedger
+                from hivemind.data.models import OrderSide
+
+                monitor = TradeMonitor(storage_path=settings.open_trades_path)
+                if not monitor.open_trades:
+                    await asyncio.sleep(5)
+                    continue
+
+                # Fetch current prices for all open positions
+                symbols = list(monitor.open_trades.keys())
+                params = ",".join(f'"{s}"' for s in symbols)
+                resp = await http.get(
+                    f"https://data-api.binance.vision/api/v3/ticker/price?symbols=[{params}]"
+                )
+                prices = {item["symbol"]: float(item["price"]) for item in resp.json()}
+
+                triggered = []
+                for symbol, trade in list(monitor.open_trades.items()):
+                    price = prices.get(symbol)
+                    if price is None:
+                        continue
+
+                    params_t = trade.params
+                    is_long = trade.side == OrderSide.BUY
+
+                    # Check stop loss
+                    if params_t.stop_loss_price > 0:
+                        if (is_long and price <= params_t.stop_loss_price) or \
+                           (not is_long and price >= params_t.stop_loss_price):
+                            triggered.append((symbol, price, "STOP_LOSS", trade.quantity))
+                            continue
+
+                    # Check take profit 1
+                    if params_t.take_profit_1 > 0 and not trade.tp1_hit:
+                        if (is_long and price >= params_t.take_profit_1) or \
+                           (not is_long and price <= params_t.take_profit_1):
+                            exit_qty = trade.quantity * 0.33
+                            triggered.append((symbol, price, "TAKE_PROFIT_1", exit_qty))
+                            continue
+
+                    # Check take profit 2
+                    if params_t.take_profit_2 > 0 and trade.tp1_hit and not trade.tp2_hit:
+                        if (is_long and price >= params_t.take_profit_2) or \
+                           (not is_long and price <= params_t.take_profit_2):
+                            exit_qty = trade.quantity * 0.5
+                            triggered.append((symbol, price, "TAKE_PROFIT_2", exit_qty))
+                            continue
+
+                # Execute triggered exits
+                if triggered:
+                    paper_trader = PaperTrader.load(settings.portfolio_state_path)
+                    ledger = TradeLedger(storage_path=settings.trade_ledger_path)
+
+                    for symbol, price, reason, qty in triggered:
+                        try:
+                            paper_trader.partial_close(symbol=symbol, quantity=qty, price=price)
+                            print(f"[MONITOR] {reason} triggered: {symbol} @ ${price:,.2f} (qty={qty:.6f})", flush=True)
+
+                            # Record in ledger
+                            trade = monitor.open_trades.get(symbol)
+                            if trade:
+                                pnl_pct = ((price - trade.entry_price) / trade.entry_price) * \
+                                          (1 if trade.side == OrderSide.BUY else -1)
+                                pnl_usd = (price - trade.entry_price) * qty * \
+                                           (1 if trade.side == OrderSide.BUY else -1)
+                                entry_time = trade.entry_time if hasattr(trade, 'entry_time') else None
+                                holding_hours = 0.0
+                                if entry_time:
+                                    try:
+                                        from datetime import datetime as dt
+                                        if isinstance(entry_time, str):
+                                            entry_dt = dt.fromisoformat(entry_time.replace('Z', '+00:00'))
+                                        else:
+                                            entry_dt = entry_time
+                                        holding_hours = (dt.now(timezone.utc) - entry_dt).total_seconds() / 3600
+                                    except Exception:
+                                        pass
+                                ledger.record_exit(
+                                    symbol=symbol,
+                                    exit_price=price,
+                                    exit_reason=reason,
+                                    pnl_pct=pnl_pct,
+                                    pnl_usd=pnl_usd,
+                                    holding_hours=holding_hours,
+                                    quantity=qty,
+                                )
+
+                                # Update or remove from monitor
+                                trade.quantity -= qty
+                                if reason == "TAKE_PROFIT_1":
+                                    trade.tp1_hit = True
+                                elif reason == "TAKE_PROFIT_2":
+                                    trade.tp2_hit = True
+                                if trade.quantity <= 0.000001 or reason == "STOP_LOSS":
+                                    del monitor.open_trades[symbol]
+                        except Exception as e:
+                            logger.error("monitor_exit_failed", symbol=symbol, error=str(e))
+
+                    paper_trader.save(settings.portfolio_state_path)
+                    monitor._save()
+
+            except Exception as e:
+                logger.error("price_monitor_error", error=str(e))
+
+            # Check every 2 seconds
+            try:
+                await asyncio.wait_for(shutdown_event.wait(), timeout=2)
+                break
+            except asyncio.TimeoutError:
+                pass
+
+    print("[MONITOR] Price monitor stopped.", flush=True)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan — startup and shutdown."""
     shutdown_event = asyncio.Event()
 
-    # Start background cycle loop
+    # Start background tasks
     cycle_task = asyncio.create_task(_background_cycle_loop(shutdown_event))
+    monitor_task = asyncio.create_task(_price_monitor(shutdown_event))
 
     yield
 
     # Shutdown
     shutdown_event.set()
     cycle_task.cancel()
+    monitor_task.cancel()
     try:
         await cycle_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await monitor_task
     except asyncio.CancelledError:
         pass
 

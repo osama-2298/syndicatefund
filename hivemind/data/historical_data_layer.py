@@ -10,7 +10,7 @@ import structlog
 
 from hivemind.data.data_layer import CoinData, MarketSnapshot
 from hivemind.data.historical import HistoricalDataStore
-from hivemind.data.models import Candle, TechnicalIndicators
+from hivemind.data.models import Candle
 from hivemind.data.technical_indicators import compute_indicators, format_price_history
 
 logger = structlog.get_logger()
