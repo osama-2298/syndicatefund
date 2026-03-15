@@ -229,7 +229,7 @@ class RiskManager:
         """Extract ATR from signal metadata. Uses real ATR-14 if available."""
         # First try: real ATR-14 from indicators
         for sig in signal.contributing_signals:
-            if "atr_14" in sig.metadata:
+            if "atr_14" in sig.metadata and sig.metadata["atr_14"] is not None:
                 return float(sig.metadata["atr_14"])
 
         # Fallback: estimate from 24h high-low range

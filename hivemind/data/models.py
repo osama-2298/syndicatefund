@@ -134,6 +134,9 @@ class TechnicalIndicators(BaseModel):
     bb_width: float | None = None
     atr_14: float | None = None
 
+    # Trend strength
+    adx_14: float | None = None  # Average Directional Index (trend strength, 0-100)
+
     # Volume
     volume_sma_20: float | None = None
     current_volume: float | None = None

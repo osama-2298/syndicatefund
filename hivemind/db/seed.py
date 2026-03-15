@@ -163,7 +163,7 @@ async def seed() -> None:
 
 
 def main() -> None:
-    print("\n  Seeding Hivemind database...\n")
+    print("\n  Seeding Syndicate database...\n")
     asyncio.run(seed())
     # Dispose engine to close connections cleanly
     asyncio.run(engine.dispose())

@@ -22,7 +22,7 @@ def _print_metrics(metrics: dict, header: str = "BACKTEST RESULTS") -> None:
     print(f"  Calmar Ratio:      {metrics.get('calmar_ratio', 0):>10.4f}")
     print(f"  Win Rate:          {metrics.get('win_rate', 0):>10.2f}%")
     print(f"  Profit Factor:     {metrics.get('profit_factor', 0):>10.4f}")
-    print(f"  Total Trades:      {metrics.get('total_trades', 0):>10d}")
+    print(f"  Total Trades:      {int(metrics.get('total_trades', 0)):>10d}")
     print(f"  Avg Trade P&L:     {metrics.get('avg_trade_pnl_pct', 0):>10.4f}%")
     print(f"  vs BTC Hold:       {metrics.get('vs_btc_hold', 0):>10.2f}%")
     print(f"  vs ETH Hold:       {metrics.get('vs_eth_hold', 0):>10.2f}%")
@@ -80,12 +80,25 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    # Optionally fetch data first
-    if args.fetch:
-        from hivemind.data.historical import HistoricalDataStore
+    # Fetch historical data — auto-fetch if no data exists for any symbol
+    from hivemind.data.historical import HistoricalDataStore
 
+    store = HistoricalDataStore(storage_dir=args.data_dir)
+    need_fetch = args.fetch
+
+    if not need_fetch:
+        # Check if data exists for all symbols
+        available = store.list_available()
+        for sym in args.symbols:
+            if sym not in available or "4h" not in available[sym]:
+                need_fetch = True
+                print(f"No historical data found for {sym}. Auto-fetching...")
+                break
+
+    if need_fetch:
         print(f"Fetching historical data for {args.symbols} from {args.start} to {args.end}...")
-        store = HistoricalDataStore(storage_dir=args.data_dir)
+        print(f"Intervals: {args.intervals}")
+        print("This may take a few minutes for large date ranges...\n")
         store.fetch_and_store(
             symbols=args.symbols,
             start_date=args.start,

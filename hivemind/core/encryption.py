@@ -18,16 +18,16 @@ def _get_key() -> bytes:
     except Exception:
         pass
     if not hex_key:
-        hex_key = os.environ.get("HIVEMIND_ENCRYPTION_KEY", "")
+        hex_key = os.environ.get("SYNDICATE_ENCRYPTION_KEY", "")
     if not hex_key:
         raise ValueError(
-            "HIVEMIND_ENCRYPTION_KEY is required (set in .env or environment). "
+            "SYNDICATE_ENCRYPTION_KEY is required (set in .env or environment). "
             'Generate with: python -c "import secrets; print(secrets.token_hex(32))"'
         )
     key = bytes.fromhex(hex_key)
     if len(key) != 32:
         raise ValueError(
-            "HIVEMIND_ENCRYPTION_KEY must be exactly 32 bytes (64 hex chars)"
+            "SYNDICATE_ENCRYPTION_KEY must be exactly 32 bytes (64 hex chars)"
         )
     return key
 

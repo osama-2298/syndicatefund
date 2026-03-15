@@ -89,6 +89,11 @@ def compute_indicators(candles: list[Candle], symbol: str) -> TechnicalIndicator
         atr_series = ta.volatility.average_true_range(high, low, close, window=14)
         indicators.atr_14 = _last_valid(atr_series)
 
+    # ── Trend Strength: ADX ──
+    if n >= 20:
+        adx_series = ta.trend.adx(high, low, close, window=14)
+        indicators.adx_14 = _last_valid(adx_series)
+
     # ── Volume ──
     if n >= 20:
         vol_sma = ta.trend.sma_indicator(volume, window=20)

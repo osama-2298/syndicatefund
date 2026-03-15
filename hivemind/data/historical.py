@@ -186,6 +186,15 @@ class HistoricalDataStore:
         current_start = start_ms
         interval_ms = _INTERVAL_MS.get(interval, 3_600_000)
 
+        # Use configured base URL, then Binance Vision (not geo-blocked), then api.binance.com
+        try:
+            from hivemind.config import settings
+            base_url = settings.binance_base_url.rstrip("/")
+        except Exception:
+            base_url = "https://data-api.binance.vision"
+
+        kline_url = f"{base_url}/api/v3/klines"
+
         with httpx.Client(timeout=30.0) as client:
             while current_start < end_ms:
                 params: dict[str, Any] = {
@@ -195,10 +204,19 @@ class HistoricalDataStore:
                     "endTime": end_ms,
                     "limit": _BINANCE_KLINE_LIMIT,
                 }
-                resp = client.get(
-                    "https://api.binance.com/api/v3/klines", params=params
-                )
-                resp.raise_for_status()
+                try:
+                    resp = client.get(kline_url, params=params)
+                    resp.raise_for_status()
+                except httpx.HTTPStatusError:
+                    # Fallback to Binance Vision data API (not geo-blocked)
+                    fallback_url = "https://data-api.binance.vision/api/v3/klines"
+                    if kline_url != fallback_url:
+                        logger.info("historical_fallback_to_vision", original=kline_url)
+                        kline_url = fallback_url
+                        resp = client.get(kline_url, params=params)
+                        resp.raise_for_status()
+                    else:
+                        raise
                 raw_klines = resp.json()
 
                 if not raw_klines:

@@ -63,7 +63,7 @@ export default function RegisterPage() {
   return (
     <div className="max-w-xl mx-auto space-y-8">
       <div>
-        <h1 className="text-3xl font-bold mb-1">Contribute to Hivemind</h1>
+        <h1 className="text-3xl font-bold mb-1">Contribute to Syndicate</h1>
         <p className="text-hive-muted">
           Add your API key to contribute agents to the fund. More agents = more coins scanned, deeper analysis.
         </p>

@@ -1,5 +1,5 @@
 """
-Terminal display engine for Hivemind.
+Terminal display engine for Syndicate.
 
 Design principles:
 - Visual hierarchy: the most important info (verdict) should scream
@@ -154,12 +154,12 @@ def usd(value: float) -> str:
 # ── Layout Components ──
 
 def banner(symbol: str, timestamp: str) -> None:
-    """Print the Hivemind header."""
+    """Print the Syndicate header."""
     w = min(_term_width(), 72)
     bar = c("━" * w, C.CYAN)
 
     print(f"\n{bar}")
-    print(f"  {C.BOLD}{C.B_CYAN}HIVEMIND{C.RESET}  {dim('Distributed AI Hedge Fund')}")
+    print(f"  {C.BOLD}{C.B_CYAN}SYNDICATE{C.RESET}  {dim('Distributed AI Hedge Fund')}")
     print(bar)
     print()
     print(f"    {dim('Symbol')}   {bold(symbol)}")

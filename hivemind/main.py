@@ -1308,7 +1308,7 @@ def run_loop() -> None:
     binance = BinanceClient()
     cycle_count = 0
 
-    print(f"\n  {c('HIVEMIND CONTINUOUS MODE', C.B_WHITE)}")
+    print(f"\n  {c('SYNDICATE CONTINUOUS MODE', C.B_WHITE)}")
     print(f"  {dim(f'Cycle interval: {CYCLE_INTERVAL_HOURS}H · Aligned to UTC candle boundaries')}")
     print(f"  {dim('Press Ctrl+C to stop gracefully')}\n")
 
@@ -1373,7 +1373,7 @@ def run_server() -> None:
     # Railway sets PORT env var — use it if available, else fall back to serve_port
     port = settings.port if settings.port > 0 else settings.serve_port
 
-    print(f"\n  {c('HIVEMIND API SERVER', C.B_WHITE)}")
+    print(f"\n  {c('SYNDICATE API SERVER', C.B_WHITE)}")
     print(f"  {dim(f'Starting on {settings.serve_host}:{port}')}")
     print(f"  {dim('Cycle loop runs in background every 4H')}\n")
 

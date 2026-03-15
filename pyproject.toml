@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "hivemind"
+name = "syndicate"
 version = "0.1.0"
-description = "Distributed AI Hedge Fund — self-managing AI agents that trade crypto"
+description = "AI Crypto Hedge Fund — Syndicate — self-managing AI agents that trade crypto"
 authors = ["Hivemind Team"]
 readme = "README.md"
 packages = [{include = "hivemind"}]

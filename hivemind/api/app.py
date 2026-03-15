@@ -1,4 +1,4 @@
-"""Hivemind FastAPI application."""
+"""Syndicate FastAPI application."""
 
 from __future__ import annotations
 
@@ -242,7 +242,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Hivemind",
+    title="Syndicate",
     description="Scalable Multi-Agent Crypto Analysis Platform",
     version="1.0.0",
     lifespan=lifespan,
@@ -254,8 +254,8 @@ from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://hivemindfund.com",
-        "https://www.hivemindfund.com",
+        "https://syndicatefund.ai",
+        "https://www.syndicatefund.ai",
         "http://localhost:3000",  # Local dev
     ],
     allow_credentials=True,

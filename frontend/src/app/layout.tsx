@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Hivemind — AI Crypto Hedge Fund',
+  title: 'Syndicate — AI Crypto Hedge Fund',
   description: 'Scalable multi-agent crypto analysis platform',
 }
 
@@ -18,8 +18,8 @@ export default function RootLayout({
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
               <a href="/" className="flex items-center gap-2">
-                <span className="text-2xl font-bold text-gradient">HIVEMIND</span>
-                <span className="text-xs text-hive-muted bg-hive-border px-2 py-0.5 rounded">FUND</span>
+                <span className="text-2xl font-bold text-gradient">SYNDICATE</span>
+                <span className="text-xs text-hive-muted bg-hive-border px-2 py-0.5 rounded">.AI</span>
               </a>
               <div className="flex items-center gap-6">
                 <a href="/" className="text-sm text-hive-muted hover:text-hive-text transition-colors">Dashboard</a>

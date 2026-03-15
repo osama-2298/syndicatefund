@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     twilio_whatsapp_from: str = ""
 
     # ── Encryption ──
-    hivemind_encryption_key: str = ""  # 32-byte hex for AES-256-GCM
+    syndicate_encryption_key: str = ""  # 32-byte hex for AES-256-GCM
 
     # ── Server ──
     serve_host: str = "0.0.0.0"
