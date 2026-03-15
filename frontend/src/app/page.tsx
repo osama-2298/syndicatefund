@@ -20,12 +20,12 @@ export default async function Dashboard() {
     ]);
   } catch (e) {}
 
-  const totalValue = portfolio?.total_value ?? portfolio?.cash ?? 100000;
-  const returnPct = ((totalValue - 100000) / 100000) * 100;
   const positions = portfolio?.positions ?? [];
-  const regime = currentCycle?.regime ?? 'N/A';
-  const invested = positions.reduce((sum, p) => sum + p.quantity * (p.current_price || p.entry_price), 0);
   const cash = portfolio?.cash ?? 100000;
+  const invested = positions.reduce((sum, p) => sum + p.quantity * (p.current_price || p.entry_price), 0);
+  const totalValue = cash + invested;
+  const returnPct = ((totalValue - 100000) / 100000) * 100;
+  const regime = currentCycle?.regime ?? 'N/A';
   const closedTrades = trades?.trades ?? [];
 
   return (

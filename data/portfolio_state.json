@@ -1,5 +1,5 @@
 {
-  "cash": 87318.45491148507,
+  "cash": 86940.06592018476,
   "positions": [
     {
       "symbol": "BTCUSDT",
@@ -7,7 +7,7 @@
       "entry_price": 70788.76,
       "quantity": 0.056506145890957836,
       "entry_time": "2026-03-14T22:08:24.197443Z",
-      "current_price": 71719.64
+      "current_price": 71474.2
     },
     {
       "symbol": "SUIUSDT",
@@ -23,7 +23,7 @@
       "entry_price": 0.26,
       "quantity": 9142.551689709102,
       "entry_time": "2026-03-14T22:08:24.197565Z",
-      "current_price": 0.2651
+      "current_price": 0.2636
     },
     {
       "symbol": "TAOUSDT",
@@ -31,7 +31,7 @@
       "entry_price": 245.2,
       "quantity": 1.3991453927683044,
       "entry_time": "2026-03-14T22:20:59.462778Z",
-      "current_price": 265.6
+      "current_price": 278.3
     },
     {
       "symbol": "ETHUSDT",
@@ -39,10 +39,18 @@
       "entry_price": 2116.57,
       "quantity": 0.9266932815280317,
       "entry_time": "2026-03-15T12:26:47.017268Z",
-      "current_price": 2116.57
+      "current_price": 2094.99
+    },
+    {
+      "symbol": "EIGENUSDT",
+      "side": "SELL",
+      "entry_price": 0.21,
+      "quantity": 1801.8523395252855,
+      "entry_time": "2026-03-15T17:11:55.683877Z",
+      "current_price": 0.21
     }
   ],
   "total_realized_pnl": 0.0,
   "peak_value": 100125.35188469682,
-  "timestamp": "2026-03-15T12:26:47.018449Z"
+  "timestamp": "2026-03-15T17:11:55.687712Z"
 }
