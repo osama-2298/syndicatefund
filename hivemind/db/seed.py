@@ -100,8 +100,20 @@ FOUNDING_AGENTS = [
 ]
 
 
+async def create_tables() -> None:
+    """Create all tables if they don't exist (replaces Alembic for initial setup)."""
+    from hivemind.db.models import Base
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print("  Tables created (or already exist).")
+
+
 async def seed() -> None:
     """Insert system teams and founding agents if they don't exist."""
+    # Ensure tables exist first
+    await create_tables()
+
     async with async_session_factory() as session:
         # Check if already seeded
         result = await session.execute(
