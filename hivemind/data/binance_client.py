@@ -35,7 +35,7 @@ class BinanceClient:
         from hivemind.config import settings
         self._base_url = base_url or settings.binance_base_url
         self._client = httpx.Client(
-            base_url=base_url,
+            base_url=self._base_url,
             timeout=30.0,
             headers={"Accept": "application/json"},
         )
