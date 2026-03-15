@@ -303,7 +303,8 @@ def verdict(action: str, confidence: float, consensus: float, blocked: bool = Fa
     section("Verdict")
 
     if blocked:
-        print(f"    {badge('NO TRADE', C.BG_YELLOW, '\033[30m')}  {dim(block_reason)}")
+        _black = "\033[30m"
+        print(f"    {badge('NO TRADE', C.BG_YELLOW, _black)}  {dim(block_reason)}")
         print()
         print(f"    {dim('Signal was')} {action_text(action)} {dim('at')} {conf(confidence)} "
               f"{dim('confidence with')} {consensus:.0%} {dim('consensus')}")
