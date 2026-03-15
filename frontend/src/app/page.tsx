@@ -9,6 +9,7 @@ import {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 interface Position { symbol: string; side: string; entry_price: number; quantity: number; current_price: number; }
+interface TradeEntry { symbol: string; side: string; entry_price: number; stop_loss: number; take_profit_1: number; conviction: number; confidence: number; risk_amount: number; exit_reason: string; asset_tier: string; }
 interface CycleData { id: number; started_at: string; regime: string | null; coins_analyzed: number; signals_produced: number; orders_executed: number; duration_secs: number | null; }
 interface AgentData { id: string; team_name: string | null; role: string; agent_class: string | null; status: string; total_signals: number; accuracy: number; provider: string; }
 interface TeamData { id: string; name: string; active_agent_count: number; agent_count: number; weight: number; }
@@ -18,6 +19,7 @@ export default function Dashboard() {
   const [cycles, setCycles] = useState<CycleData[]>([]);
   const [agents, setAgents] = useState<AgentData[]>([]);
   const [teams, setTeams] = useState<TeamData[]>([]);
+  const [trades, setTrades] = useState<TradeEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,11 +28,13 @@ export default function Dashboard() {
       fetch(`${API_BASE}/api/v1/cycles?limit=5`).then(r => r.json()).catch(() => []),
       fetch(`${API_BASE}/api/v1/agents`).then(r => r.json()).catch(() => []),
       fetch(`${API_BASE}/api/v1/teams`).then(r => r.json()).catch(() => []),
-    ]).then(([p, c, a, t]) => {
+      fetch(`${API_BASE}/api/v1/portfolio/trades`).then(r => r.json()).catch(() => []),
+    ]).then(([p, c, a, t, tr]) => {
       setPortfolio(p);
       setCycles(c);
       setAgents(a);
       setTeams(t);
+      setTrades(Array.isArray(tr) ? tr : []);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -40,6 +44,14 @@ export default function Dashboard() {
   const totalValue = cash + invested;
   const returnPct = ((totalValue - 100000) / 100000) * 100;
   const returnUsd = totalValue - 100000;
+
+  // Build lookup: symbol → trade entry (for SL/TP data)
+  const openTradesBySymbol: Record<string, TradeEntry> = {};
+  for (const t of trades) {
+    if (t.exit_reason === 'OPEN') {
+      openTradesBySymbol[t.symbol] = t;
+    }
+  }
 
   const activeAgents = agents.filter(a => ['founding', 'active', 'assigned'].includes(a.status));
   const totalSignals = agents.reduce((s, a) => s + a.total_signals, 0);
@@ -170,12 +182,14 @@ export default function Dashboard() {
             <table className="w-full">
               <thead>
                 <tr className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted border-b border-white/[0.06]">
-                  <th className="text-left px-5 py-2.5">Symbol</th>
-                  <th className="text-left px-5 py-2.5">Side</th>
-                  <th className="text-right px-5 py-2.5">Size</th>
-                  <th className="text-right px-5 py-2.5">Entry</th>
-                  <th className="text-right px-5 py-2.5">Current</th>
-                  <th className="text-right px-5 py-2.5">P&L</th>
+                  <th className="text-left px-4 py-2.5">Symbol</th>
+                  <th className="text-left px-4 py-2.5">Side</th>
+                  <th className="text-right px-4 py-2.5">Size</th>
+                  <th className="text-right px-4 py-2.5">Entry</th>
+                  <th className="text-right px-4 py-2.5">Current</th>
+                  <th className="text-right px-4 py-2.5">SL</th>
+                  <th className="text-right px-4 py-2.5">TP</th>
+                  <th className="text-right px-4 py-2.5">P&L</th>
                 </tr>
               </thead>
               <tbody>
@@ -187,19 +201,36 @@ export default function Dashboard() {
                   const pnlPct = pos.entry_price > 0
                     ? ((pos.current_price - pos.entry_price) / pos.entry_price * 100) * (pos.side === 'BUY' ? 1 : -1)
                     : 0;
+                  const trade = openTradesBySymbol[pos.symbol];
+                  const sl = trade?.stop_loss ?? 0;
+                  const tp = trade?.take_profit_1 ?? 0;
+                  const conviction = trade?.conviction;
+                  const riskAmt = trade?.risk_amount ?? 0;
                   return (
                     <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
-                      <td className="px-5 py-3 font-semibold text-sm">{pos.symbol.replace('USDT', '')}</td>
-                      <td className="px-5 py-3">
+                      <td className="px-4 py-3">
+                        <span className="font-semibold text-sm">{pos.symbol.replace('USDT', '')}</span>
+                        {conviction != null && (
+                          <span className="ml-1.5 text-[10px] text-hive-muted">{conviction}/10</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
                           pos.side === 'BUY' ? 'bg-emerald-500/10 text-emerald-400 ring-1 ring-inset ring-emerald-500/20'
                             : 'bg-red-500/10 text-red-400 ring-1 ring-inset ring-red-500/20'
                         }`}>{pos.side}</span>
                       </td>
-                      <td className="px-5 py-3 text-right text-sm">${size.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                      <td className="px-5 py-3 text-right text-sm text-hive-muted">${pos.entry_price.toLocaleString()}</td>
-                      <td className="px-5 py-3 text-right text-sm">${pos.current_price.toLocaleString()}</td>
-                      <td className={`px-5 py-3 text-right text-sm font-semibold ${pnlUsd >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      <td className="px-4 py-3 text-right text-sm">${size.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                      <td className="px-4 py-3 text-right text-sm">${pos.entry_price.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right text-sm">${pos.current_price.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right text-sm text-red-400/70">
+                        {sl > 0 ? `$${sl.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '\u2014'}
+                        {riskAmt > 0 && <span className="block text-[10px] text-hive-muted">-${riskAmt.toFixed(0)} risk</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm text-emerald-400/70">
+                        {tp > 0 ? `$${tp.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '\u2014'}
+                      </td>
+                      <td className={`px-4 py-3 text-right text-sm font-semibold ${pnlUsd >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                         {pnlUsd >= 0 ? '+' : ''}${pnlUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                         <span className="text-[10px] ml-1 opacity-60">({pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(1)}%)</span>
                       </td>
