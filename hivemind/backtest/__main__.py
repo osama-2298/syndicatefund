@@ -28,6 +28,8 @@ def _print_metrics(metrics: dict, header: str = "BACKTEST RESULTS") -> None:
     print(f"  vs BTC Hold:       {metrics.get('vs_btc_hold', 0):>10.2f}%")
     print(f"  vs ETH Hold:       {metrics.get('vs_eth_hold', 0):>10.2f}%")
     print(f"  Information Ratio: {metrics.get('information_ratio', 0):>10.4f}")
+    if "total_execution_costs" in metrics:
+        print(f"  Execution Costs:   ${metrics['total_execution_costs']:>10,.2f}")
     print(f"{'=' * 60}")
 
 

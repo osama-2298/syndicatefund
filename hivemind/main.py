@@ -24,6 +24,7 @@ import signal
 import sys
 import time
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import structlog
 
@@ -499,8 +500,9 @@ def run_pipeline(
     trade_monitor = TradeMonitor(storage_path=settings.open_trades_path)
     trade_ledger = TradeLedger(storage_path=settings.trade_ledger_path)
 
-    from hivemind.executive.team_weights import TeamWeightManager
+    from hivemind.executive.team_weights import TeamWeightManager, PhaseWeightManager
     team_weights = TeamWeightManager(storage_path=settings.team_weights_path)
+    phase_weights = PhaseWeightManager(storage_path=str(Path(settings.team_weights_path).parent / "phase_weights.json"))
 
     # Diagnostic: detect orphan trades (trade monitor has trade but portfolio has no position)
     if trade_monitor.open_trades:
@@ -901,8 +903,17 @@ def run_pipeline(
                         "expected_win_rate": conv * 10 / 100.0,
                     }
 
+        # Update phase weights from trade history (4-phase progressive learning)
+        closed_trades = len([e for e in trade_ledger.entries if e.exit_reason != "OPEN"])
+        phase_weights.update_from_tracker(tracker, closed_trades)
+        final_weights = phase_weights.get_weights(team_weights.weights)
+
+        phase_label = {1: "Equal", 2: "Shrunk IC", 3: "Full IC", 4: "IC+Thompson"}
+        weight_strs = "  ".join(f"{t[:4]}={w:.2f}" for t, w in final_weights.items())
+        print(f"    Phase {phase_weights.phase} ({phase_label[phase_weights.phase]}, {closed_trades} trades): {weight_strs}")
+
         aggregator = SignalAggregator(
-            team_weight_overrides=team_weights.weights,
+            team_weight_overrides=final_weights,
             regime=directive.regime.value,
             calibration_data=calibration_data,
         )
