@@ -296,6 +296,15 @@ class SignalAggregator:
                 {"convictions": all_convictions},
             ))
 
+        # Model diversity bonus: if signals from 2+ different providers agree, boost
+        if n_directional >= 2:
+            winner_providers = set()
+            for sig, w in (bullish if direction == "bullish" else bearish):
+                provider = sig.metadata.get("provider", "anthropic")
+                winner_providers.add(provider)
+            if len(winner_providers) >= 2:
+                confidence *= 1.15  # 15% ensemble diversity premium
+
         confidence = _clamp(confidence, 0.0, 1.0)
 
         # ── Build result with enriched metadata ──
@@ -335,13 +344,26 @@ class SignalAggregator:
         base = profile.weight if profile else 0.5
 
         # CEO team multiplier
-        team_mult = self._team_weights.get(sig.team.value, 1.0)
+        team_key = sig.team.value if hasattr(sig.team, 'value') else sig.team
+        team_mult = self._team_weights.get(team_key, 1.0)
         if team_mult <= 0:
             return 0.0  # FIRED
 
         # Agreement boost (from TeamSignal metadata)
         agreement = sig.metadata.get("agreement_level", 0.7)  # Default 0.7 if not a TeamSignal
         agreement_boost = 0.5 + (agreement * 0.5)  # Range: 0.5 to 1.0
+
+        # Quarantine weight reduction for new agents
+        quarantine = sig.metadata.get("quarantine_signals_remaining", 0)
+        if quarantine > 0:
+            base = 0.3  # Override base during quarantine
+        elif sig.metadata.get("total_signals", 0) < 20:
+            # Ramping phase: between quarantine and full weight
+            ramp_signals = sig.metadata.get("total_signals", 0)
+            if ramp_signals < 10:
+                base = min(base, 0.3)
+            else:
+                base = min(base, 0.5)
 
         # Timeframe boost (Technical team only)
         tf_alignment = sig.metadata.get("timeframe_alignment", "N/A")
@@ -397,7 +419,8 @@ class SignalAggregator:
         # Find Macro signal
         macro_sig = None
         for sig in signals:
-            if sig.team.value == "macro":
+            team_val = sig.team.value if hasattr(sig.team, 'value') else sig.team
+            if team_val == "macro":
                 macro_sig = sig
                 break
 
@@ -460,7 +483,8 @@ class SignalAggregator:
 
         tech_sig = None
         for sig in signals:
-            if sig.team.value == "technical":
+            team_val = sig.team.value if hasattr(sig.team, 'value') else sig.team
+            if team_val == "technical":
                 tech_sig = sig
                 break
 
@@ -512,9 +536,10 @@ class SignalAggregator:
         sentiment_sig = None
 
         for sig in signals:
-            if sig.team.value == "onchain":
+            team_val = sig.team.value if hasattr(sig.team, 'value') else sig.team
+            if team_val == "onchain":
                 onchain_sig = sig
-            elif sig.team.value == "sentiment":
+            elif team_val == "sentiment":
                 sentiment_sig = sig
 
         if onchain_sig is None or sentiment_sig is None:

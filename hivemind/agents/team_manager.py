@@ -113,7 +113,7 @@ class BaseTeamManager(BaseLLMCaller, ABC):
 
     @property
     @abstractmethod
-    def team_type(self) -> TeamType:
+    def team_type(self) -> TeamType | str:
         ...
 
     @property
@@ -134,7 +134,8 @@ class BaseTeamManager(BaseLLMCaller, ABC):
         try:
             raw = self._call_llm_with_tool(self.system_prompt, prompt, TEAM_SIGNAL_TOOL)
         except Exception as e:
-            logger.error("team_manager_failed", team=self.team_type.value, error=str(e))
+            team_val = self.team_type.value if hasattr(self.team_type, 'value') else self.team_type
+            logger.error("team_manager_failed", team=team_val, error=str(e))
             return self._deterministic_fallback(agent_signals, symbol)
 
         direction = raw.get("direction", "BULLISH")

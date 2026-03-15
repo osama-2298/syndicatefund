@@ -118,7 +118,7 @@ class PerformanceTracker:
         stats: dict[str, dict] = defaultdict(lambda: {"total": 0, "correct": 0, "incorrect": 0, "pending": 0})
 
         for r in self._records:
-            team = r.team.value
+            team = r.team.value if hasattr(r.team, 'value') else r.team
             stats[team]["total"] += 1
             if r.outcome == "CORRECT":
                 stats[team]["correct"] += 1

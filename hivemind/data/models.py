@@ -13,7 +13,7 @@ from typing import Any
 
 import uuid
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 def _new_id() -> str:
@@ -193,7 +193,7 @@ class Signal(BaseModel):
 
     id: str = Field(default_factory=lambda: _new_id())
     agent_id: str
-    team: TeamType
+    team: str  # Was TeamType. Now accepts any team name string.
     symbol: str  # e.g. "BTCUSDT"
     action: SignalAction
     confidence: float = Field(ge=0.0, le=1.0)
@@ -201,9 +201,17 @@ class Signal(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: dict[str, Any] = Field(default_factory=dict)
 
+    @field_validator("team", mode="before")
+    @classmethod
+    def coerce_team(cls, v):
+        """Accept both TeamType enum values and plain strings."""
+        if isinstance(v, TeamType):
+            return v.value
+        return str(v)
+
     def __str__(self) -> str:
         return (
-            f"[{self.team.value.upper()}] {self.symbol} → {self.action.value} "
+            f"[{self.team.upper()}] {self.symbol} → {self.action.value} "
             f"(confidence: {self.confidence:.0%}) | {self.reasoning[:80]}"
         )
 
@@ -237,8 +245,16 @@ class AgentProfile(BaseModel):
     """
 
     agent_id: str = Field(default_factory=lambda: _new_id())
-    team: TeamType
+    team: str  # Was TeamType. Now accepts any team name string.
     symbol: str  # assigned coin
+
+    @field_validator("team", mode="before")
+    @classmethod
+    def coerce_team(cls, v):
+        """Accept both TeamType enum values and plain strings."""
+        if isinstance(v, TeamType):
+            return v.value
+        return str(v)
     model: str = "claude-opus-4-6"
     provider: str = "anthropic"
     status: AgentStatus = AgentStatus.ACTIVE
@@ -499,12 +515,20 @@ class TeamSignal(BaseModel):
     """
 
     id: str = Field(default_factory=lambda: _new_id())
-    team: TeamType
+    team: str  # Was TeamType. Now accepts any team name string.
     symbol: str
     direction: str  # "BULLISH" or "BEARISH"
     conviction: int = Field(ge=1, le=10)
     action: SignalAction  # Derived from direction + conviction
     confidence: float = Field(ge=0.0, le=1.0)  # conviction / 10
+
+    @field_validator("team", mode="before")
+    @classmethod
+    def coerce_team(cls, v):
+        """Accept both TeamType enum values and plain strings."""
+        if isinstance(v, TeamType):
+            return v.value
+        return str(v)
 
     # Synthesis metadata
     agreement_level: float = Field(ge=0.0, le=1.0)  # How much agents agreed
@@ -522,7 +546,7 @@ class TeamSignal(BaseModel):
     def to_signal(self) -> Signal:
         """Convert to a Signal for backward compatibility with the aggregator."""
         return Signal(
-            agent_id=f"manager_{self.team.value}",
+            agent_id=f"manager_{self.team}",
             team=self.team,
             symbol=self.symbol,
             action=self.action,
@@ -543,7 +567,7 @@ class TeamSignal(BaseModel):
     def __str__(self) -> str:
         agree = f"{self.agreement_level:.0%}"
         return (
-            f"[{self.team.value.upper()} TEAM] {self.symbol} → {self.direction} "
+            f"[{self.team.upper()} TEAM] {self.symbol} → {self.direction} "
             f"(conviction: {self.conviction}/10, agreement: {agree})"
         )
 
@@ -554,8 +578,16 @@ class SignalRecord(BaseModel):
     signal_id: str
     agent_id: str
     symbol: str
-    team: TeamType
+    team: str  # Was TeamType. Now accepts any team name string.
     action: SignalAction
+
+    @field_validator("team", mode="before")
+    @classmethod
+    def coerce_team(cls, v):
+        """Accept both TeamType enum values and plain strings."""
+        if isinstance(v, TeamType):
+            return v.value
+        return str(v)
     confidence: float
     price_at_signal: float
     timestamp: datetime

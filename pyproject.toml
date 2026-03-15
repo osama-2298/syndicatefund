@@ -38,8 +38,18 @@ alembic = "^1.14.0"
 # Cache & queue
 redis = "^5.0.0"
 
+# Encryption & auth
+cryptography = "^44.0.0"
+itsdangerous = "^2.2.0"
+
+# Google AI
+google-generativeai = "^0.8.0"
+
 # Environment
 python-dotenv = "^1.0.0"
+
+# FastAPI extras
+python-multipart = "^0.0.20"
 
 # Utilities
 structlog = "^24.4.0"

@@ -1,0 +1,157 @@
+import StatCard from '@/components/StatCard';
+import { api, Portfolio, CycleSummary } from '@/lib/api';
+
+export const dynamic = 'force-dynamic';
+
+export default async function Dashboard() {
+  let portfolio: Portfolio | null = null;
+  let cycles: CycleSummary[] = [];
+  let currentCycle: any = null;
+
+  try {
+    [portfolio, cycles, currentCycle] = await Promise.all([
+      api.getPortfolio(),
+      api.getCycles(5),
+      api.getCurrentCycle(),
+    ]);
+  } catch (e) {
+    // API not available
+  }
+
+  const totalValue = portfolio?.total_value ?? portfolio?.cash ?? 100000;
+  const returnPct = ((totalValue - 100000) / 100000) * 100;
+  const positions = portfolio?.positions ?? [];
+  const regime = currentCycle?.regime ?? 'N/A';
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold mb-1">Dashboard</h1>
+        <p className="text-hive-muted">Multi-agent crypto analysis platform</p>
+      </div>
+
+      {/* Stat Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title="Portfolio Value"
+          value={`$${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          subtitle="Paper trading"
+          trend={returnPct > 0 ? 'up' : returnPct < 0 ? 'down' : 'neutral'}
+        />
+        <StatCard
+          title="Total Return"
+          value={`${returnPct >= 0 ? '+' : ''}${returnPct.toFixed(2)}%`}
+          subtitle={`$${(totalValue - 100000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} P&L`}
+          trend={returnPct > 0 ? 'up' : returnPct < 0 ? 'down' : 'neutral'}
+        />
+        <StatCard
+          title="Open Positions"
+          value={`${positions.length}`}
+          subtitle={positions.length > 0 ? positions.map(p => p.symbol.replace('USDT', '')).join(', ') : 'No positions'}
+        />
+        <StatCard
+          title="Market Regime"
+          value={regime.toUpperCase()}
+          subtitle={currentCycle?.status === 'running' ? 'Cycle in progress' : 'Waiting for next cycle'}
+          trend={regime === 'bull' ? 'up' : regime === 'bear' || regime === 'crisis' ? 'down' : 'neutral'}
+        />
+      </div>
+
+      {/* Open Positions */}
+      {positions.length > 0 && (
+        <div className="bg-hive-card border border-hive-border rounded-xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-hive-border">
+            <h2 className="text-lg font-semibold">Open Positions</h2>
+          </div>
+          <table className="w-full">
+            <thead>
+              <tr className="text-sm text-hive-muted border-b border-hive-border">
+                <th className="text-left px-5 py-3">Symbol</th>
+                <th className="text-left px-5 py-3">Side</th>
+                <th className="text-right px-5 py-3">Entry</th>
+                <th className="text-right px-5 py-3">Current</th>
+                <th className="text-right px-5 py-3">Qty</th>
+                <th className="text-right px-5 py-3">P&L</th>
+              </tr>
+            </thead>
+            <tbody>
+              {positions.map((pos, i) => {
+                const pnlPct = pos.entry_price > 0
+                  ? ((pos.current_price - pos.entry_price) / pos.entry_price * 100) * (pos.side === 'BUY' ? 1 : -1)
+                  : 0;
+                return (
+                  <tr key={i} className="border-b border-hive-border/50 hover:bg-hive-border/20">
+                    <td className="px-5 py-3 font-medium">{pos.symbol.replace('USDT', '')}</td>
+                    <td className="px-5 py-3">
+                      <span className={`text-xs px-2 py-0.5 rounded ${pos.side === 'BUY' ? 'bg-hive-green/20 text-hive-green' : 'bg-hive-red/20 text-hive-red'}`}>
+                        {pos.side}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-right">${pos.entry_price.toLocaleString()}</td>
+                    <td className="px-5 py-3 text-right">${pos.current_price.toLocaleString()}</td>
+                    <td className="px-5 py-3 text-right text-hive-muted">{pos.quantity.toFixed(6)}</td>
+                    <td className={`px-5 py-3 text-right font-medium ${pnlPct >= 0 ? 'text-hive-green' : 'text-hive-red'}`}>
+                      {pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Recent Cycles */}
+      <div className="bg-hive-card border border-hive-border rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-hive-border">
+          <h2 className="text-lg font-semibold">Recent Cycles</h2>
+        </div>
+        {cycles.length === 0 ? (
+          <div className="px-5 py-8 text-center text-hive-muted">
+            No cycles recorded yet. The pipeline runs every 4 hours.
+          </div>
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr className="text-sm text-hive-muted border-b border-hive-border">
+                <th className="text-left px-5 py-3">#</th>
+                <th className="text-left px-5 py-3">Time</th>
+                <th className="text-left px-5 py-3">Regime</th>
+                <th className="text-right px-5 py-3">Coins</th>
+                <th className="text-right px-5 py-3">Signals</th>
+                <th className="text-right px-5 py-3">Orders</th>
+                <th className="text-right px-5 py-3">Duration</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cycles.map((cycle) => (
+                <tr key={cycle.id} className="border-b border-hive-border/50 hover:bg-hive-border/20">
+                  <td className="px-5 py-3 text-hive-muted">{cycle.id}</td>
+                  <td className="px-5 py-3 text-sm">
+                    {new Date(cycle.started_at).toLocaleString()}
+                  </td>
+                  <td className="px-5 py-3">
+                    <span className={`text-xs px-2 py-0.5 rounded ${
+                      cycle.regime === 'bull' ? 'bg-hive-green/20 text-hive-green' :
+                      cycle.regime === 'bear' ? 'bg-hive-red/20 text-hive-red' :
+                      cycle.regime === 'crisis' ? 'bg-red-900/30 text-red-400' :
+                      'bg-hive-border text-hive-muted'
+                    }`}>
+                      {(cycle.regime ?? 'N/A').toUpperCase()}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3 text-right">{cycle.coins_analyzed}</td>
+                  <td className="px-5 py-3 text-right">{cycle.signals_produced}</td>
+                  <td className="px-5 py-3 text-right">{cycle.orders_executed}</td>
+                  <td className="px-5 py-3 text-right text-hive-muted">
+                    {cycle.duration_secs ? `${cycle.duration_secs.toFixed(0)}s` : '\u2014'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}

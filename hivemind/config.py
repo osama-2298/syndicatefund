@@ -14,6 +14,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class LLMProvider(str, Enum):
     ANTHROPIC = "anthropic"
     OPENAI = "openai"
+    GOOGLE = "google"
 
 
 class Settings(BaseSettings):
@@ -32,6 +33,7 @@ class Settings(BaseSettings):
     # ── LLM ──
     anthropic_api_key: str = ""
     openai_api_key: str = ""
+    google_api_key: str = ""
     default_llm_provider: LLMProvider = LLMProvider.ANTHROPIC
     default_llm_model: str = "claude-opus-4-6"
 
@@ -50,6 +52,13 @@ class Settings(BaseSettings):
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_whatsapp_from: str = ""
+
+    # ── Encryption ──
+    hivemind_encryption_key: str = ""  # 32-byte hex for AES-256-GCM
+
+    # ── Server ──
+    serve_host: str = "0.0.0.0"
+    serve_port: int = 8000
 
     # ── Platform ──
     paper_trading: bool = True
@@ -120,6 +129,12 @@ class Settings(BaseSettings):
                     "OPENAI_API_KEY is required when default_llm_provider=openai"
                 )
             return self.openai_api_key
+        elif self.default_llm_provider == LLMProvider.GOOGLE:
+            if not self.google_api_key:
+                raise ValueError(
+                    "GOOGLE_API_KEY is required when default_llm_provider=google"
+                )
+            return self.google_api_key
         raise ValueError(f"Unknown LLM provider: {self.default_llm_provider}")
 
     def has_binance_credentials(self) -> bool:

@@ -519,6 +519,10 @@ def perf_review_card(review) -> None:
 
 def ceo_review_card(review: dict, elapsed: float) -> None:
     """Print the CEO's post-cycle review."""
+    if not isinstance(review, dict):
+        print(f"    {dim(f'Review unavailable (got {type(review).__name__})')}")
+        print(f"    {dim(f'{elapsed:.1f}s')}")
+        return
     # Team capital allocation decisions
     actions = review.get("team_actions", [])
     action_badges = {

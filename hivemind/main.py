@@ -279,12 +279,173 @@ def _analyze_coin(
     return all_manager_signals, agent_profiles, coin.current_price
 
 
+# ═══════════════════════════════════════════════════════════════════
+#  DYNAMIC PIPELINE — uses AgentRegistry to load teams/agents from DB
+# ═══════════════════════════════════════════════════════════════════
+
+
+def _run_single_agent_dynamic(agent_def, registry, symbol, data):
+    """Run a single agent via the registry. Thread-safe."""
+    agent = registry.instantiate_agent(agent_def, symbol)
+    t0 = time.monotonic()
+    sig = agent.analyze(data)
+    elapsed = time.monotonic() - t0
+    return sig, elapsed
+
+
+def _run_team_dynamic(
+    team_name,
+    team_agents,
+    team_manager_prompt,
+    data,
+    symbol,
+    registry,
+    executor,
+):
+    """Run all agents in a team via the registry, then synthesize through the manager."""
+    from concurrent.futures import Future
+
+    futures: list[tuple] = []
+    for agent_def in team_agents:
+        fut = executor.submit(_run_single_agent_dynamic, agent_def, registry, symbol, data)
+        futures.append((agent_def, fut))
+
+    agent_signals = []
+    display_lines = []
+    for agent_def, fut in futures:
+        try:
+            sig, elapsed = fut.result()
+            direction = sig.metadata.get("direction", sig.action.value)
+            conviction = sig.metadata.get("conviction", int(sig.confidence * 10))
+            name = agent_def.role[:16]
+            display_lines.append(f"      {dim(name):<18} {direction} {conviction}/10  {dim(f'{elapsed:.1f}s')}")
+            agent_signals.append(sig)
+        except Exception as e:
+            logger.error("agent_failed", agent=agent_def.role, error=str(e))
+
+    if not agent_signals:
+        return None, display_lines
+
+    # Manager synthesizes
+    manager = registry.get_manager_for_team(team_name, team_manager_prompt)
+    t0 = time.monotonic()
+    team_signal = manager.synthesize(agent_signals, symbol)
+    mgr_elapsed = time.monotonic() - t0
+
+    final_signal = team_signal.to_signal()
+
+    from hivemind.display import action_badge, conf_bar
+    agree_str = f"{team_signal.agreement_level:.0%} agree"
+    tf_str = f" [{team_signal.timeframe_alignment}]" if team_signal.timeframe_alignment and team_signal.timeframe_alignment != "N/A" else ""
+    mgr_line = (
+        f"    {c(team_name, C.B_WHITE)}  "
+        f"{action_badge(final_signal.action.value)}  "
+        f"{conf_bar(final_signal.confidence)} {conf(final_signal.confidence)}  "
+        f"{dim(f'{agree_str}{tf_str}  {mgr_elapsed:.1f}s')}"
+    )
+
+    return final_signal, [*display_lines, mgr_line]
+
+
+def _analyze_coin_dynamic(
+    symbol,
+    snapshot,
+    registry,
+):
+    """Registry-based coin analysis — supports founding + contributor agents."""
+    from concurrent.futures import ThreadPoolExecutor, Future
+
+    coin = snapshot.coins.get(symbol)
+    if coin is None or coin.indicators is None:
+        return [], {}, 0.0
+
+    coin_header(symbol, coin.current_price, coin.stats_24h.get("price_change_pct", 0))
+
+    # System teams use the existing for_X() methods for backward compatibility
+    _SYSTEM_DATA_METHODS = {
+        "technical": snapshot.for_technical,
+        "sentiment": snapshot.for_sentiment,
+        "fundamental": snapshot.for_fundamental,
+        "macro": snapshot.for_macro,
+        "onchain": snapshot.for_onchain,
+    }
+
+    all_teams = registry.get_all_teams()
+
+    with ThreadPoolExecutor(max_workers=15) as executor:
+        team_futures: list[tuple[str, Future]] = []
+
+        for team_id, agents in all_teams.items():
+            meta = registry.get_team_meta(team_id)
+            if meta is None:
+                continue
+            team_name = meta["name"]
+
+            # Get data for this team
+            system_method = _SYSTEM_DATA_METHODS.get(team_name)
+            if system_method:
+                data = system_method(symbol)
+            else:
+                data = snapshot.for_team(meta.get("data_keys", []), symbol)
+
+            if not data:
+                continue
+
+            fut = executor.submit(
+                _run_team_dynamic,
+                team_name, agents, meta.get("manager_prompt"),
+                data, symbol, registry, executor,
+            )
+            team_futures.append((team_name, fut))
+
+        all_manager_signals = []
+        agent_profiles = {}
+
+        for team_name, fut in team_futures:
+            try:
+                result = fut.result()
+                if result is None:
+                    continue
+                final_signal, display_lines = result
+                if final_signal is None:
+                    continue
+
+                for line in display_lines:
+                    print(line)
+
+                final_signal.metadata["current_price"] = coin.current_price
+                final_signal.metadata["stats_24h"] = coin.stats_24h
+                if coin.indicators_4h and coin.indicators_4h.atr_14:
+                    final_signal.metadata["atr_14"] = coin.indicators_4h.atr_14
+
+                all_manager_signals.append(final_signal)
+
+                mgr_profile = AgentProfile(
+                    agent_id=f"manager_{team_name}",
+                    team=team_name, symbol=symbol,
+                    model=settings.default_llm_model,
+                    provider=settings.default_llm_provider.value,
+                )
+                agent_profiles[mgr_profile.agent_id] = mgr_profile
+
+            except Exception as e:
+                logger.error("team_failed", team=team_name, symbol=symbol, error=str(e))
+
+    return all_manager_signals, agent_profiles, coin.current_price
+
+
 def run_pipeline(
     interval: str = "4h",
     candle_count: int = 200,
     binance: BinanceClient | None = None,
+    registry=None,
 ) -> None:
-    """Run the full multi-coin pipeline with real data from all sources."""
+    """Run the full multi-coin pipeline with real data from all sources.
+
+    If ``registry`` is provided (an AgentRegistry loaded from the DB), uses
+    dynamic team/agent discovery. Otherwise falls back to the hardcoded
+    founding agents — no database required.
+    """
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     banner("Multi-Coin Cycle", now)
 
@@ -615,9 +776,14 @@ def run_pipeline(
         )
 
         # ═══════════════════════════════════════
-        # STEP 6: Analyze Each Coin (5 teams × N coins)
+        # STEP 6: Analyze Each Coin
         # ═══════════════════════════════════════
-        section(f"Agent Analysis — {len(selected_coins)} coins × 5 teams")
+        if registry:
+            n_teams = len(registry.get_all_teams())
+            n_agents = sum(len(a) for a in registry.get_all_teams().values())
+            section(f"Agent Analysis — {len(selected_coins)} coins × {n_teams} teams ({n_agents} agents)")
+        else:
+            section(f"Agent Analysis — {len(selected_coins)} coins × 5 teams")
 
         all_coin_signals: list[Signal] = []
         all_agent_profiles: dict[str, AgentProfile] = {}
@@ -625,8 +791,12 @@ def run_pipeline(
 
         from concurrent.futures import ThreadPoolExecutor as _CoinPool, as_completed
 
-        def _analyze_and_collect(sym):
-            return sym, _analyze_coin(sym, snapshot, api_key, provider)
+        if registry:
+            def _analyze_and_collect(sym):
+                return sym, _analyze_coin_dynamic(sym, snapshot, registry)
+        else:
+            def _analyze_and_collect(sym):
+                return sym, _analyze_coin(sym, snapshot, api_key, provider)
 
         with _CoinPool(max_workers=2) as coin_pool:
             futs = {coin_pool.submit(_analyze_and_collect, s): s for s in selected_coins}
@@ -822,8 +992,13 @@ def run_pipeline(
         n_coins = len(selected_coins)
         n_hot = len(hot_additions) if hot_additions else 0
         n_coo = n_coins - n_hot
-        # CEO pre + CEO post + COO + CRO + (12 sub-agents + 5 managers) per coin
-        n_llm_calls = 4 + (17 * n_coins)
+        # CEO pre + CEO post + COO + CRO + (agents + managers) per coin
+        if registry:
+            n_agents_total = sum(len(a) for a in registry.get_all_teams().values())
+            n_teams_total = len(registry.get_all_teams())
+            n_llm_calls = 4 + ((n_agents_total + n_teams_total) * n_coins)
+        else:
+            n_llm_calls = 4 + (17 * n_coins)
         hot_str = f" + {n_hot} hot" if n_hot else ""
         print(f"\n  {dim(f'Completed in {elapsed_total:.1f}s · {n_coo} COO{hot_str} = {n_coins} coins · {n_signals} signals · {n_llm_calls} LLM calls')}")
 
@@ -884,6 +1059,25 @@ def _format_duration(seconds: float) -> str:
     return f"{m}m"
 
 
+def _try_load_registry():
+    """Try to load the agent registry from the database. Returns None if DB unavailable."""
+    import asyncio
+
+    async def _load():
+        from hivemind.core.agent_registry import AgentRegistry
+        from hivemind.db.session import async_session_factory
+        async with async_session_factory() as session:
+            reg = AgentRegistry(session)
+            await reg.load_all()
+            return reg
+
+    try:
+        return asyncio.run(_load())
+    except Exception as e:
+        logger.info("registry_unavailable", reason=str(e)[:80])
+        return None
+
+
 def main() -> None:
     """Entry point — runs a single cycle."""
     try:
@@ -893,9 +1087,15 @@ def main() -> None:
         print(f"  Copy .env.example to .env and add your API key.\n")
         sys.exit(1)
 
+    registry = _try_load_registry()
+    if registry:
+        print(f"  {dim('Registry loaded from database')}")
+    else:
+        print(f"  {dim('No database — using hardcoded founding agents')}")
+
     binance = BinanceClient()
     try:
-        run_pipeline(binance=binance)
+        run_pipeline(binance=binance, registry=registry)
     finally:
         binance.close()
 
@@ -941,8 +1141,11 @@ def run_loop() -> None:
             ts = now.strftime("%Y-%m-%d %H:%M UTC")
             print(f"  {dim(f'[Cycle {cycle_count}] Starting at {ts}')}")
 
+            # Reload registry each cycle to pick up new agents
+            registry = _try_load_registry()
+
             try:
-                run_pipeline(binance=binance)
+                run_pipeline(binance=binance, registry=registry)
             except Exception as e:
                 logger.error("cycle_failed", cycle=cycle_count, error=str(e))
                 print(f"\n  {c('Cycle failed:', C.B_RED)} {e}")
@@ -976,8 +1179,36 @@ def run_loop() -> None:
         print(f"\n  {dim(f'Shutdown complete. Ran {cycle_count} cycle(s).')}\n")
 
 
+def run_server() -> None:
+    """Start the FastAPI server with background cycle loop."""
+    import uvicorn
+
+    try:
+        settings.get_active_llm_key()
+    except ValueError as e:
+        print(f"\n  {c('Error:', C.B_RED)} {e}")
+        print(f"  Copy .env.example to .env and add your API key.\n")
+        sys.exit(1)
+
+    from hivemind.api.app import app
+
+    print(f"\n  {c('HIVEMIND API SERVER', C.B_WHITE)}")
+    print(f"  {dim(f'Starting on {settings.serve_host}:{settings.serve_port}')}")
+    print(f"  {dim('API docs: http://localhost:' + str(settings.serve_port) + '/docs')}")
+    print(f"  {dim('Cycle loop runs in background every 4H')}\n")
+
+    uvicorn.run(
+        app,
+        host=settings.serve_host,
+        port=settings.serve_port,
+        log_level="info",
+    )
+
+
 if __name__ == "__main__":
-    if "--loop" in sys.argv:
+    if "--serve" in sys.argv:
+        run_server()
+    elif "--loop" in sys.argv:
         run_loop()
     else:
         main()

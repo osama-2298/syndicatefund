@@ -223,6 +223,67 @@ class MarketSnapshot:
             "defi_summary": self.defi_summary,
         }
 
+    # ─── Generic Data Slicing ───
+
+    _DATA_RESOLVERS: dict[str, Any] = {}  # Populated at class level below
+
+    def for_team(self, data_keys: list[str], symbol: str) -> dict[str, Any]:
+        """Generic data slicing for any team based on declared data requirements."""
+        coin = self.coins.get(symbol)
+        if coin is None:
+            return {}
+        result = {}
+        for key in data_keys:
+            resolver = self._DATA_RESOLVERS.get(key)
+            if resolver:
+                try:
+                    result[key] = resolver(self, coin, symbol)
+                except Exception:
+                    result[key] = None
+        return result
+
+
+# Data key registry — maps string keys to data accessors for dynamic team slicing
+# Each resolver takes (snapshot, coin, symbol) and returns the data
+MarketSnapshot._DATA_RESOLVERS = {
+    "indicators_4h": lambda snap, coin, sym: coin.indicators_4h,
+    "indicators_1h": lambda snap, coin, sym: coin.indicators_1h,
+    "indicators_1d": lambda snap, coin, sym: coin.indicators_1d,
+    "indicators_1w": lambda snap, coin, sym: coin.indicators_1w,
+    "price_history_4h": lambda snap, coin, sym: coin.price_history_4h,
+    "price_history_1d": lambda snap, coin, sym: coin.price_history_1d,
+    "stats_24h": lambda snap, coin, sym: coin.stats_24h,
+    "order_book": lambda snap, coin, sym: coin.order_book,
+    "derivatives": lambda snap, coin, sym: coin.derivatives,
+    "fear_greed": lambda snap, coin, sym: snap.fear_greed,
+    "reddit_sentiment": lambda snap, coin, sym: snap.reddit_sentiment,
+    "reddit_coin_sentiment": lambda snap, coin, sym: (
+        snap.reddit_sentiment.get("coin_sentiment", {}).get(sym.replace("USDT", ""))
+        if snap.reddit_sentiment else None
+    ),
+    "trending": lambda snap, coin, sym: snap.trending_coins,
+    "coingecko_coin": lambda snap, coin, sym: coin.coingecko,
+    "smart_money": lambda snap, coin, sym: (
+        {
+            "divergence": coin.derivatives.get("smart_money_divergence"),
+            "divergence_magnitude": coin.derivatives.get("divergence_magnitude", 0),
+            "funding": coin.derivatives.get("funding"),
+            "top_trader_ls": coin.derivatives.get("top_trader_ls"),
+            "taker_volume": coin.derivatives.get("taker_volume"),
+        } if coin.derivatives else None
+    ),
+    "global_data": lambda snap, coin, sym: snap.global_market,
+    "btc_onchain": lambda snap, coin, sym: snap.btc_onchain,
+    "defi_summary": lambda snap, coin, sym: snap.defi_summary,
+    "top_protocols": lambda snap, coin, sym: snap.top_protocols,
+    "whale_flows": lambda snap, coin, sym: snap.whale_flows,
+    "prediction_markets": lambda snap, coin, sym: snap.prediction_markets,
+    "paprika_global": lambda snap, coin, sym: snap.paprika_global,
+    "paprika_coin": lambda snap, coin, sym: coin.paprika,
+    "chain_tvl": lambda snap, coin, sym: coin.chain_tvl,
+    "indicators": lambda snap, coin, sym: coin.indicators_4h,  # Alias
+}
+
 
 class DataLayer:
     """

@@ -507,6 +507,15 @@ class CEOAgent(BaseLLMCaller):
             reasoning=raw.get("reasoning", ""),
         )
 
+    _REVIEW_FALLBACK: dict = {
+        "team_actions": [],
+        "strategy_adjustment": "",
+        "regime_still_valid": True,
+        "override_action": "NONE",
+        "override_reason": "",
+        "assessment": "",
+    }
+
     def review(
         self,
         directive: StrategicDirective,
@@ -525,17 +534,18 @@ class CEOAgent(BaseLLMCaller):
         prompt = self._build_post_prompt(ctx)
 
         try:
-            raw = self._call_llm_with_tool(self.POST_CYCLE_PROMPT, prompt, CEO_REVIEW_TOOL)
+            raw = self._call_llm_with_tool(
+                self.POST_CYCLE_PROMPT, prompt, CEO_REVIEW_TOOL,
+                max_tokens=2048,
+            )
         except Exception as e:
             logger.error("ceo_review_failed", error=str(e))
-            return {
-                "team_actions": [],
-                "strategy_adjustment": "",
-                "regime_still_valid": True,
-                "override_action": "NONE",
-                "override_reason": "",
-                "assessment": f"Review failed: {str(e)[:80]}",
-            }
+            return {**self._REVIEW_FALLBACK, "assessment": f"Review failed: {str(e)[:80]}"}
+
+        # Defensive: LLM may return a string (e.g. truncated JSON) instead of a dict
+        if not isinstance(raw, dict):
+            logger.error("ceo_review_bad_type", raw_type=type(raw).__name__)
+            return {**self._REVIEW_FALLBACK, "assessment": "Review returned non-dict response"}
 
         return raw
 

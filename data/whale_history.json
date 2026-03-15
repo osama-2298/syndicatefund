@@ -25,5 +25,32 @@
       "Binance Cold": 68200.01,
       "Bitfinex": 0.15
     }
+  },
+  {
+    "timestamp": "2026-03-14T22:04:14.989012+00:00",
+    "total": 316797.74,
+    "balances": {
+      "Binance Hot": 248597.58,
+      "Binance Cold": 68200.01,
+      "Bitfinex": 0.15
+    }
+  },
+  {
+    "timestamp": "2026-03-14T22:16:23.212875+00:00",
+    "total": 316797.74,
+    "balances": {
+      "Binance Hot": 248597.58,
+      "Binance Cold": 68200.01,
+      "Bitfinex": 0.15
+    }
+  },
+  {
+    "timestamp": "2026-03-15T12:22:25.631232+00:00",
+    "total": 316797.74,
+    "balances": {
+      "Binance Hot": 248597.58,
+      "Binance Cold": 68200.01,
+      "Bitfinex": 0.15
+    }
   }
 ]

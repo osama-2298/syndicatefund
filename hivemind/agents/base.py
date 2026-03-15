@@ -29,8 +29,16 @@ from hivemind.data.models import AgentProfile, Signal, SignalAction, TeamType
 
 logger = structlog.get_logger()
 
-# Max 10 concurrent Anthropic/OpenAI calls across all agents
-_LLM_SEMAPHORE = threading.Semaphore(10)
+# Per-provider concurrency limits
+_PROVIDER_SEMAPHORES = {
+    "anthropic": threading.Semaphore(10),
+    "openai": threading.Semaphore(20),
+    "google": threading.Semaphore(15),
+}
+
+def _get_semaphore(provider: str) -> threading.Semaphore:
+    """Get the semaphore for a provider, defaulting to anthropic limits."""
+    return _PROVIDER_SEMAPHORES.get(provider, _PROVIDER_SEMAPHORES["anthropic"])
 
 
 def _is_retryable_error(exc: BaseException) -> bool:
@@ -48,6 +56,13 @@ def _is_retryable_error(exc: BaseException) -> bool:
         return True
     if isinstance(exc, (openai.APIConnectionError, openai.APITimeoutError)):
         return True
+    # Google errors
+    try:
+        from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, InternalServerError
+        if isinstance(exc, (ResourceExhausted, ServiceUnavailable, InternalServerError)):
+            return True
+    except ImportError:
+        pass
     return False
 
 # The tool schema forces agents to pick a DIRECTION.
@@ -120,9 +135,17 @@ class BaseLLMCaller:
         if provider == LLMProvider.ANTHROPIC:
             self._anthropic = anthropic.Anthropic(api_key=api_key)
             self._openai = None
+            self._google = None
         elif provider == LLMProvider.OPENAI:
             self._openai = openai.OpenAI(api_key=api_key)
             self._anthropic = None
+            self._google = None
+        elif provider == LLMProvider.GOOGLE:
+            import google.generativeai as genai
+            genai.configure(api_key=api_key)
+            self._google = genai.GenerativeModel(model)
+            self._anthropic = None
+            self._openai = None
         else:
             raise ValueError(f"Unsupported LLM provider: {provider}")
 
@@ -131,11 +154,14 @@ class BaseLLMCaller:
         system_prompt: str,
         user_prompt: str,
         tool: dict[str, Any],
+        max_tokens: int = 1024,
     ) -> dict[str, Any]:
         if self._provider == LLMProvider.ANTHROPIC:
-            return self._call_anthropic(system_prompt, user_prompt, tool)
+            return self._call_anthropic(system_prompt, user_prompt, tool, max_tokens)
         elif self._provider == LLMProvider.OPENAI:
-            return self._call_openai(system_prompt, user_prompt, tool)
+            return self._call_openai(system_prompt, user_prompt, tool, max_tokens)
+        elif self._provider == LLMProvider.GOOGLE:
+            return self._call_google(system_prompt, user_prompt, tool, max_tokens)
         raise ValueError(f"Unsupported provider: {self._provider}")
 
     @retry(
@@ -144,12 +170,14 @@ class BaseLLMCaller:
         retry=retry_if_exception(_is_retryable_error),
     )
     def _call_anthropic(
-        self, system_prompt: str, user_prompt: str, tool: dict[str, Any]
+        self, system_prompt: str, user_prompt: str, tool: dict[str, Any],
+        max_tokens: int = 1024,
     ) -> dict[str, Any]:
-        with _LLM_SEMAPHORE:
+        sem = _get_semaphore("anthropic")
+        with sem:
             response = self._anthropic.messages.create(
                 model=self._model,
-                max_tokens=1024,
+                max_tokens=max_tokens,
                 system=system_prompt,
                 tools=[tool],
                 tool_choice={"type": "tool", "name": tool["name"]},
@@ -166,7 +194,8 @@ class BaseLLMCaller:
         retry=retry_if_exception(_is_retryable_error),
     )
     def _call_openai(
-        self, system_prompt: str, user_prompt: str, tool: dict[str, Any]
+        self, system_prompt: str, user_prompt: str, tool: dict[str, Any],
+        max_tokens: int = 1024,
     ) -> dict[str, Any]:
         openai_tool = {
             "type": "function",
@@ -176,10 +205,11 @@ class BaseLLMCaller:
                 "parameters": tool["input_schema"],
             },
         }
-        with _LLM_SEMAPHORE:
+        sem = _get_semaphore("openai")
+        with sem:
             response = self._openai.chat.completions.create(
                 model=self._model,
-                max_tokens=1024,
+                max_tokens=max_tokens,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
@@ -192,6 +222,62 @@ class BaseLLMCaller:
             args_str = message.tool_calls[0].function.arguments
             return json.loads(args_str)
         raise ValueError(f"LLM response did not contain a {tool['name']} function call")
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=2, max=30),
+        retry=retry_if_exception(_is_retryable_error),
+    )
+    def _call_google(
+        self, system_prompt: str, user_prompt: str, tool: dict[str, Any],
+        max_tokens: int = 1024,
+    ) -> dict[str, Any]:
+        """Call Google Gemini with function calling."""
+        import google.generativeai as genai
+
+        # Convert tool schema to Gemini format
+        properties = {}
+        required = tool["input_schema"].get("required", [])
+        for prop_name, prop_schema in tool["input_schema"]["properties"].items():
+            gtype = prop_schema.get("type", "string").upper()
+            # Map JSON Schema types to Gemini types
+            type_map = {"STRING": "STRING", "INTEGER": "INTEGER", "NUMBER": "NUMBER",
+                        "BOOLEAN": "BOOLEAN", "ARRAY": "ARRAY", "OBJECT": "OBJECT"}
+            properties[prop_name] = genai.protos.Schema(
+                type=getattr(genai.protos.Type, type_map.get(gtype, "STRING")),
+                description=prop_schema.get("description", ""),
+            )
+            if "enum" in prop_schema:
+                properties[prop_name].enum = prop_schema["enum"]
+
+        func_decl = genai.protos.FunctionDeclaration(
+            name=tool["name"],
+            description=tool["description"],
+            parameters=genai.protos.Schema(
+                type=genai.protos.Type.OBJECT,
+                properties=properties,
+                required=required,
+            ),
+        )
+        gemini_tool = genai.protos.Tool(function_declarations=[func_decl])
+
+        sem = _get_semaphore("google")
+        with sem:
+            response = self._google.generate_content(
+                [
+                    {"role": "user", "parts": [{"text": f"{system_prompt}\n\n{user_prompt}"}]},
+                ],
+                tools=[gemini_tool],
+                tool_config={"function_calling_config": {"mode": "ANY"}},
+            )
+
+        # Extract function call from response
+        for part in response.parts:
+            if hasattr(part, "function_call") and part.function_call.name == tool["name"]:
+                # function_call.args is a protobuf Struct — convert to plain dict
+                return dict(part.function_call.args)
+
+        raise ValueError(f"Gemini response did not contain a {tool['name']} function call")
 
 
 class BaseAgent(BaseLLMCaller, ABC):
@@ -210,7 +296,7 @@ class BaseAgent(BaseLLMCaller, ABC):
 
     @property
     @abstractmethod
-    def team_type(self) -> TeamType:
+    def team_type(self) -> TeamType | str:
         ...
 
     @property
