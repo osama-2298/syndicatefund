@@ -3,25 +3,30 @@ import { api, Portfolio, CycleSummary } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 export default async function Dashboard() {
   let portfolio: Portfolio | null = null;
   let cycles: CycleSummary[] = [];
   let currentCycle: any = null;
+  let trades: any = null;
 
   try {
-    [portfolio, cycles, currentCycle] = await Promise.all([
+    [portfolio, cycles, currentCycle, trades] = await Promise.all([
       api.getPortfolio(),
       api.getCycles(5),
       api.getCurrentCycle(),
+      fetch(`${API_BASE}/api/v1/portfolio/trades`, { next: { revalidate: 30 } }).then(r => r.json()).catch(() => null),
     ]);
-  } catch (e) {
-    // API not available
-  }
+  } catch (e) {}
 
   const totalValue = portfolio?.total_value ?? portfolio?.cash ?? 100000;
   const returnPct = ((totalValue - 100000) / 100000) * 100;
   const positions = portfolio?.positions ?? [];
   const regime = currentCycle?.regime ?? 'N/A';
+  const invested = positions.reduce((sum, p) => sum + p.quantity * (p.current_price || p.entry_price), 0);
+  const cash = portfolio?.cash ?? 100000;
+  const closedTrades = trades?.trades ?? [];
 
   return (
     <div className="space-y-8">
@@ -31,7 +36,7 @@ export default async function Dashboard() {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard
           title="Portfolio Value"
           value={`$${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
@@ -41,8 +46,13 @@ export default async function Dashboard() {
         <StatCard
           title="Total Return"
           value={`${returnPct >= 0 ? '+' : ''}${returnPct.toFixed(2)}%`}
-          subtitle={`$${(totalValue - 100000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} P&L`}
+          subtitle={`${returnPct >= 0 ? '+' : ''}$${(totalValue - 100000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           trend={returnPct > 0 ? 'up' : returnPct < 0 ? 'down' : 'neutral'}
+        />
+        <StatCard
+          title="Invested"
+          value={`$${invested.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+          subtitle={`$${cash.toLocaleString(undefined, { maximumFractionDigits: 0 })} cash`}
         />
         <StatCard
           title="Open Positions"
@@ -58,11 +68,20 @@ export default async function Dashboard() {
       </div>
 
       {/* Open Positions */}
-      {positions.length > 0 && (
-        <div className="bg-hive-card border border-hive-border rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-hive-border">
-            <h2 className="text-lg font-semibold">Open Positions</h2>
+      <div className="bg-hive-card border border-hive-border rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-hive-border flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Open Positions</h2>
+          {positions.length > 0 && (
+            <span className="text-sm text-hive-muted">
+              {positions.length} position{positions.length !== 1 ? 's' : ''} — ${invested.toLocaleString(undefined, { maximumFractionDigits: 0 })} invested
+            </span>
+          )}
+        </div>
+        {positions.length === 0 ? (
+          <div className="px-5 py-8 text-center text-hive-muted">
+            No open positions. Waiting for next cycle to generate trades.
           </div>
+        ) : (
           <table className="w-full">
             <thead>
               <tr className="text-sm text-hive-muted border-b border-hive-border">
@@ -77,7 +96,7 @@ export default async function Dashboard() {
             </thead>
             <tbody>
               {positions.map((pos, i) => {
-                const size = pos.quantity * pos.current_price;
+                const size = pos.quantity * (pos.current_price || pos.entry_price);
                 const pnlPct = pos.entry_price > 0
                   ? ((pos.current_price - pos.entry_price) / pos.entry_price * 100) * (pos.side === 'BUY' ? 1 : -1)
                   : 0;
@@ -106,8 +125,66 @@ export default async function Dashboard() {
               })}
             </tbody>
           </table>
+        )}
+      </div>
+
+      {/* Closed Trades */}
+      <div className="bg-hive-card border border-hive-border rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-hive-border flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Closed Trades</h2>
+          {closedTrades.length > 0 && (
+            <span className="text-sm text-hive-muted">{closedTrades.length} trades</span>
+          )}
         </div>
-      )}
+        {closedTrades.length === 0 ? (
+          <div className="px-5 py-8 text-center text-hive-muted">
+            No closed trades yet. Positions close when stop-loss, take-profit, or time-stop triggers.
+          </div>
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr className="text-sm text-hive-muted border-b border-hive-border">
+                <th className="text-left px-5 py-3">Symbol</th>
+                <th className="text-left px-5 py-3">Side</th>
+                <th className="text-right px-5 py-3">Entry</th>
+                <th className="text-right px-5 py-3">Exit</th>
+                <th className="text-right px-5 py-3">P&L</th>
+                <th className="text-right px-5 py-3">P&L %</th>
+                <th className="text-left px-5 py-3">Reason</th>
+                <th className="text-right px-5 py-3">Duration</th>
+              </tr>
+            </thead>
+            <tbody>
+              {closedTrades.slice(0, 20).map((trade: any, i: number) => {
+                const pnl = trade.pnl_usd ?? 0;
+                const pnlPct = trade.pnl_pct ?? 0;
+                return (
+                  <tr key={i} className="border-b border-hive-border/50 hover:bg-hive-border/20">
+                    <td className="px-5 py-3 font-medium">{(trade.symbol || '').replace('USDT', '')}</td>
+                    <td className="px-5 py-3">
+                      <span className={`text-xs px-2 py-0.5 rounded ${trade.side === 'BUY' ? 'bg-hive-green/20 text-hive-green' : 'bg-hive-red/20 text-hive-red'}`}>
+                        {trade.side}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-right">${(trade.entry_price ?? 0).toLocaleString()}</td>
+                    <td className="px-5 py-3 text-right">${(trade.exit_price ?? 0).toLocaleString()}</td>
+                    <td className={`px-5 py-3 text-right font-medium ${pnl >= 0 ? 'text-hive-green' : 'text-hive-red'}`}>
+                      {pnl >= 0 ? '+' : ''}${pnl.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </td>
+                    <td className={`px-5 py-3 text-right ${pnlPct >= 0 ? 'text-hive-green' : 'text-hive-red'}`}>
+                      {pnlPct >= 0 ? '+' : ''}{(pnlPct * 100).toFixed(1)}%
+                    </td>
+                    <td className="px-5 py-3 text-sm text-hive-muted">{trade.exit_reason ?? ''}</td>
+                    <td className="px-5 py-3 text-right text-hive-muted text-sm">
+                      {trade.holding_hours ? `${Math.round(trade.holding_hours)}h` : '—'}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       {/* Recent Cycles */}
       <div className="bg-hive-card border border-hive-border rounded-xl overflow-hidden">

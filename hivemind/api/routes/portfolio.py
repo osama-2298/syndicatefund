@@ -1,4 +1,4 @@
-"""Portfolio state endpoints."""
+"""Portfolio state and trade history endpoints."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
 @router.get("")
 async def get_portfolio():
-    """Get current portfolio state from JSON file (Phase 1 — migrates to DB in Phase 3)."""
+    """Get current portfolio state from JSON file."""
     portfolio_path = Path(settings.portfolio_state_path)
 
     if not portfolio_path.exists():
@@ -30,3 +30,18 @@ async def get_portfolio():
         return data
     except Exception:
         return {"error": "Failed to read portfolio state"}
+
+
+@router.get("/trades")
+async def get_trades():
+    """Get trade ledger — all closed trades with P&L."""
+    ledger_path = Path(settings.trade_ledger_path)
+
+    if not ledger_path.exists():
+        return {"trades": [], "stats": {}}
+
+    try:
+        data = json.loads(ledger_path.read_text())
+        return data
+    except Exception:
+        return {"trades": [], "stats": {}}
