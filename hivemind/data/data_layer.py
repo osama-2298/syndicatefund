@@ -96,10 +96,13 @@ class MarketSnapshot:
         self.btc_onchain: dict | None = None
         self.defi_summary: dict | None = None
         self.top_protocols: list[dict] = []
+        self.token_unlocks: list[dict] = []
+        self.dex_volumes: dict | None = None
         self.btc_change_30d: float | None = None
         self.paprika_global: dict | None = None
         self.prediction_markets: dict | None = None  # Polymarket (Fed, crypto, economy)
         self.whale_flows: dict | None = None  # Exchange wallet balances
+        self.news_sentiment: dict | None = None  # CryptoPanic news sentiment
 
         # Metadata
         self.fetch_times: dict[str, float] = {}
@@ -161,6 +164,7 @@ class MarketSnapshot:
             "fear_greed": self.fear_greed,
             "reddit_sentiment": self.reddit_sentiment,
             "reddit_coin_sentiment": reddit_coin_sentiment,
+            "news_sentiment": self.news_sentiment,
             "trending": self.trending_coins,
             "coingecko_coin": coin.coingecko,
             "smart_money": smart_money,
@@ -201,7 +205,7 @@ class MarketSnapshot:
         }
 
     def for_onchain(self, symbol: str) -> dict[str, Any]:
-        """On-Chain team sees: BTC network + DeFiLlama TVL + whale exchange flows."""
+        """On-Chain team sees: BTC network + DeFiLlama TVL + whale exchange flows + unlocks + DEX volumes."""
         coin = self.coins.get(symbol)
         if coin is None:
             return {}
@@ -212,6 +216,8 @@ class MarketSnapshot:
             "defi_summary": self.defi_summary,
             "top_protocols": self.top_protocols,
             "whale_flows": self.whale_flows,
+            "token_unlocks": self.token_unlocks,
+            "dex_volumes": self.dex_volumes,
         }
 
     def for_coo(self) -> dict[str, Any]:
@@ -261,6 +267,7 @@ MarketSnapshot._DATA_RESOLVERS = {
         snap.reddit_sentiment.get("coin_sentiment", {}).get(sym.replace("USDT", ""))
         if snap.reddit_sentiment else None
     ),
+    "news_sentiment": lambda snap, coin, sym: snap.news_sentiment,
     "trending": lambda snap, coin, sym: snap.trending_coins,
     "coingecko_coin": lambda snap, coin, sym: coin.coingecko,
     "smart_money": lambda snap, coin, sym: (
@@ -276,6 +283,8 @@ MarketSnapshot._DATA_RESOLVERS = {
     "btc_onchain": lambda snap, coin, sym: snap.btc_onchain,
     "defi_summary": lambda snap, coin, sym: snap.defi_summary,
     "top_protocols": lambda snap, coin, sym: snap.top_protocols,
+    "token_unlocks": lambda snap, coin, sym: snap.token_unlocks,
+    "dex_volumes": lambda snap, coin, sym: snap.dex_volumes,
     "whale_flows": lambda snap, coin, sym: snap.whale_flows,
     "prediction_markets": lambda snap, coin, sym: snap.prediction_markets,
     "paprika_global": lambda snap, coin, sym: snap.paprika_global,
@@ -407,6 +416,14 @@ class DataLayer:
                     tvl = llama.get_chain_tvl(sym)
                     if tvl and sym in snapshot.coins:
                         snapshot.coins[sym].chain_tvl = tvl
+                try:
+                    snapshot.token_unlocks = llama.get_token_unlocks()
+                except Exception as e:
+                    snapshot.errors.append(f"DeFiLlama unlocks: {str(e)[:60]}")
+                try:
+                    snapshot.dex_volumes = llama.get_dex_volumes()
+                except Exception as e:
+                    snapshot.errors.append(f"DeFiLlama DEX volumes: {str(e)[:60]}")
             except Exception as e:
                 snapshot.errors.append(f"DeFiLlama: {str(e)[:60]}")
             finally:

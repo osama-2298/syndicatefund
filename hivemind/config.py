@@ -63,6 +63,12 @@ class Settings(BaseSettings):
     twilio_auth_token: str = ""
     twilio_whatsapp_from: str = ""
 
+    # ── Whale Alert ──
+    whale_alert_api_key: str = ""
+
+    # ── CryptoPanic ──
+    cryptopanic_api_key: str = ""
+
     # ── Encryption ──
     syndicate_encryption_key: str = ""  # 32-byte hex for AES-256-GCM
 

@@ -586,7 +586,14 @@ def run_pipeline(
         def _fetch_defillama():
             ll = DeFiLlamaClient()
             try:
-                return "defi_summary", ll.get_defi_summary()
+                summary = ll.get_defi_summary()
+                unlocks = ll.get_token_unlocks()
+                dex_volumes = ll.get_dex_volumes()
+                return "defi_data", {
+                    "defi_summary": summary,
+                    "token_unlocks": unlocks,
+                    "dex_volumes": dex_volumes,
+                }
             finally:
                 ll.close()
 
@@ -597,14 +604,43 @@ def run_pipeline(
             finally:
                 p.close()
 
+        def _fetch_liquidations():
+            from hivemind.data.liquidations import LiquidationMonitor
+            lm = LiquidationMonitor()
+            try:
+                return "liquidations", lm.get_recent_liquidations()
+            finally:
+                lm.close()
+
+        def _fetch_whale_alert():
+            from hivemind.data.whale_alert import WhaleAlertClient
+            wa = WhaleAlertClient(api_key=getattr(settings, 'whale_alert_api_key', ''))
+            try:
+                btc = wa.get_recent_transactions(currency="bitcoin", min_value_usd=1_000_000)
+                eth = wa.get_recent_transactions(currency="ethereum", min_value_usd=500_000)
+                return "whale_alert", {"btc": btc, "eth": eth}
+            finally:
+                wa.close()
+
+        def _fetch_news_sentiment():
+            from hivemind.data.news_sentiment import NewsSentimentClient
+            nc = NewsSentimentClient(auth_token=getattr(settings, 'cryptopanic_api_key', ''))
+            try:
+                return "news_sentiment", nc.get_news_sentiment()
+            finally:
+                nc.close()
+
         # Run ALL intelligence sources in parallel
-        with ThreadPoolExecutor(max_workers=5) as intel_executor:
+        with ThreadPoolExecutor(max_workers=8) as intel_executor:
             futures = [
                 intel_executor.submit(_fetch_fg),
                 intel_executor.submit(_fetch_reddit),
                 intel_executor.submit(_fetch_coingecko),
                 intel_executor.submit(_fetch_defillama),
                 intel_executor.submit(_fetch_polymarket),
+                intel_executor.submit(_fetch_liquidations),
+                intel_executor.submit(_fetch_whale_alert),
+                intel_executor.submit(_fetch_news_sentiment),
             ]
 
             for fut in futures:
@@ -632,9 +668,23 @@ def run_pipeline(
         if intel.get("trending"):
             names = [t["symbol"] for t in intel["trending"][:5]]
             print(f"    {dim('Trending')}        {', '.join(names)}")
-        if intel.get("defi_summary"):
-            ds = intel["defi_summary"]
-            print(f"    {dim('DeFiLlama')}      TVL ${ds.get('total_tvl', 0):,.0f} · {ds.get('num_chains', 0)} chains")
+        if intel.get("defi_data"):
+            ds = intel["defi_data"].get("defi_summary", {})
+            if ds:
+                print(f"    {dim('DeFiLlama')}      TVL ${ds.get('total_tvl', 0):,.0f} · {ds.get('num_chains', 0)} chains")
+
+            # Token unlocks
+            unlocks = intel["defi_data"].get("token_unlocks", [])
+            high_risk = [u for u in unlocks if u.get("risk_level") == "HIGH"]
+            if high_risk:
+                for u in high_risk[:3]:
+                    print(f"    {c('UNLOCK', C.B_YELLOW)} {u['symbol']} — {u['unlock_pct']:.1f}% supply in {u['days_until']}d")
+
+            # DEX volumes
+            dex = intel["defi_data"].get("dex_volumes", {})
+            if dex.get("total_24h_volume"):
+                change = dex.get("volume_change_24h_pct", 0)
+                print(f"    {dim('DEX Volume')}     ${dex['total_24h_volume']/1e9:.1f}B 24h ({change:+.1f}%)")
         if intel.get("prediction_markets"):
             pred = intel["prediction_markets"]
             highlights = pred.get("highlights", [])
@@ -645,6 +695,24 @@ def run_pipeline(
                 prob_str = " / ".join(f"{k}:{v:.0f}%" for k, v in list(probs.items())[:2])
                 n_markets = len(pred.get("crypto", [])) + len(pred.get("fed", [])) + len(pred.get("economy", []))
                 print(f"    {dim('Polymarket')}     {n_markets} markets · top: {q} ({prob_str})")
+        if intel.get("liquidations"):
+            liq = intel["liquidations"]
+            if liq["intensity"] != "LOW":
+                print(f"    {dim('Liquidations')}   {liq['intensity']} — ${liq['total_long_liquidated_usd']/1e6:.1f}M longs, ${liq['total_short_liquidated_usd']/1e6:.1f}M shorts ({liq['net_direction']})")
+        if intel.get("whale_alert"):
+            wa = intel["whale_alert"]
+            btc_wa = wa.get("btc", {})
+            if btc_wa.get("count", 0) > 0:
+                print(f"    {dim('Whale Alert')}    BTC: {btc_wa['count']} large txs, ${btc_wa['exchange_inflows_usd']/1e6:.1f}M in / ${btc_wa['exchange_outflows_usd']/1e6:.1f}M out ({btc_wa['net_flow_direction']})")
+        if intel.get("news_sentiment"):
+            ns = intel["news_sentiment"]
+            if ns["overall_sentiment"] != "UNKNOWN":
+                n_articles = ns["bullish_count"] + ns["bearish_count"] + ns["neutral_count"]
+                ratio_pct = round(ns["sentiment_ratio"] * 100)
+                print(f"    {dim('News')}            {n_articles} articles · {ratio_pct}% bullish · {ns['overall_sentiment']}")
+                if ns["important_news"]:
+                    top = ns["important_news"][0]
+                    print(f"    {dim('Top Story')}       {top['title'][:60]} ({top['sentiment']})")
 
         intel_elapsed = time.monotonic() - t0
         print(f"    {dim(f'All sources fetched in parallel · {intel_elapsed:.1f}s')}")
@@ -778,6 +846,17 @@ def run_pipeline(
         snapshot.global_market = intel.get("global_market", {})
         snapshot.trending_coins = intel.get("trending", [])
         snapshot.prediction_markets = intel.get("prediction_markets")
+        snapshot.news_sentiment = intel.get("news_sentiment")
+
+        # DeFiLlama data — defi_summary may come from defi_data dict or DataLayer enrichment
+        defi_data = intel.get("defi_data", {})
+        if defi_data:
+            if not snapshot.defi_summary and defi_data.get("defi_summary"):
+                snapshot.defi_summary = defi_data["defi_summary"]
+            if defi_data.get("token_unlocks"):
+                snapshot.token_unlocks = defi_data["token_unlocks"]
+            if defi_data.get("dex_volumes"):
+                snapshot.dex_volumes = defi_data["dex_volumes"]
 
         # Show enrichment stats
         enriched_gecko = sum(1 for c in snapshot.coins.values() if c.coingecko)
