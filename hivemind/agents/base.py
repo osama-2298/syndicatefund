@@ -24,7 +24,7 @@ import openai
 import structlog
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 
-from hivemind.config import LLMProvider
+from hivemind.config import LLMProvider, OPENAI_COMPAT_BASE_URLS
 from hivemind.data.models import AgentProfile, Signal, SignalAction, TeamType
 
 logger = structlog.get_logger()

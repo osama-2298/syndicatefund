@@ -298,12 +298,10 @@ export default function TeamsPage() {
       {/* Main Content */}
       {!loading && !error && teams.length > 0 && (
         <>
-          {/* Team Cards — single row, equal width */}
-          <div className="flex gap-3">
+          {/* Team Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {teams.map((team) => (
-              <div key={team.id} className="flex-1 min-w-0">
-                <TeamCard team={team} agents={agents} />
-              </div>
+              <TeamCard key={team.id} team={team} agents={agents} />
             ))}
           </div>
 
