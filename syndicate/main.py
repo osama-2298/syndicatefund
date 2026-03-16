@@ -90,6 +90,8 @@ from syndicate.execution.trade_ledger import TradeLedger
 from syndicate.execution.trade_monitor import TradeMonitor
 from syndicate.portfolio.manager import PortfolioManagerGroup
 from syndicate.risk.risk_manager import RiskManager
+from syndicate.core.cycle_snapshot import CycleSnapshot
+from syndicate.core.events import emit_event, get_collector, start_cycle_collector, save_events_json, persist_events
 
 logger = structlog.get_logger()
 
@@ -488,6 +490,8 @@ def run_pipeline(
     max_coins = settings.max_coins_per_cycle
     cycle_start = time.monotonic()
     cycle_start_wall = time.time()  # Wall-clock for DB record
+    start_cycle_collector()
+    snapshot_data = CycleSnapshot(timestamp=now_utc.isoformat())
 
     _binance = binance or BinanceClient()
     _owns_binance = binance is None
