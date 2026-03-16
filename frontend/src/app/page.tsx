@@ -244,7 +244,7 @@ export default function LandingPage() {
             </span>
           </div>
           <div className="p-4 font-mono text-[12px] leading-relaxed h-[280px] overflow-hidden bg-[#0c0c14]">
-            {terminalLines.map((line, i) => (
+            {terminalLines.filter(Boolean).map((line, i) => (
               <div key={`${i}-${line}`} className="animate-[fadeUp_0.3s_ease-out] py-0.5">
                 <span className={
                   line.includes('[CEO]') ? 'text-amber-400' :
