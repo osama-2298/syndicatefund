@@ -1,10 +1,10 @@
-# HIVEMIND — Distributed AI Crypto Hedge Fund
+# SYNDICATE — Distributed AI Crypto Hedge Fund
 
 A multi-agent AI system that analyzes the entire crypto market and executes trades using swarm intelligence. 12 specialized AI agents organized into 5 teams, each managed by a Team Manager, working together under a strategic CEO agent.
 
 ## Architecture
 
-![Hivemind Architecture](docs/architecture.png)
+![Syndicate Architecture](docs/architecture.png)
 
 ```
 CEO (Pre-Cycle) → Intelligence Gathering → COO (Coin Selection) → CRO (Risk Rules)
@@ -111,7 +111,7 @@ data/
 ## Project Structure
 
 ```
-hivemind/
+syndicate/
 ├── agents/
 │   ├── base.py                    # BaseAgent + BaseLLMCaller + SIGNAL_TOOL
 │   ├── team_manager.py            # BaseTeamManager + TEAM_SIGNAL_TOOL
@@ -194,8 +194,8 @@ hivemind/
 
 ```bash
 # Clone
-git clone https://github.com/osama-2298/hivemind.git
-cd hivemind
+git clone https://github.com/osama-2298/syndicate.git
+cd syndicate
 
 # Setup
 python3 -m venv .venv
@@ -207,7 +207,7 @@ cp .env.example .env
 # Add your ANTHROPIC_API_KEY to .env
 
 # Run
-python -m hivemind.main
+python -m syndicate.main
 ```
 
 ## Requirements

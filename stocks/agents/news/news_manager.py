@@ -4,8 +4,8 @@ Stock News Team Manager — synthesizes direct news and second-order impact sign
 
 from __future__ import annotations
 
-from hivemind.agents.team_manager import BaseTeamManager
-from hivemind.data.models import TeamType
+from syndicate.agents.team_manager import BaseTeamManager
+from syndicate.data.models import TeamType
 
 
 class StockNewsManager(BaseTeamManager):

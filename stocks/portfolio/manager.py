@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import structlog
 
-from hivemind.data.models import PortfolioState, TradeOrder
+from syndicate.data.models import PortfolioState, TradeOrder
 
 logger = structlog.get_logger()
 

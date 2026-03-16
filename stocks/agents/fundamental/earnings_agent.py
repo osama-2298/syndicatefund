@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from hivemind.agents.base import BaseAgent
-from hivemind.data.models import TeamType
+from syndicate.agents.base import BaseAgent
+from syndicate.data.models import TeamType
 
 
 class StockEarningsAgent(BaseAgent):

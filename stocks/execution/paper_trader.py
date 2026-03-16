@@ -1,7 +1,7 @@
 """
 Stock Paper Trader — market hours awareness (9:30-16:00 ET), whole share execution.
 
-Inherits from hivemind PaperTrader with stock-specific overrides.
+Inherits from syndicate PaperTrader with stock-specific overrides.
 """
 
 from __future__ import annotations
@@ -10,8 +10,8 @@ from datetime import datetime, timezone
 
 import structlog
 
-from hivemind.data.models import OrderSide, Position, TradeOrder, TradeResult
-from hivemind.execution.paper_trader import PaperTrader
+from syndicate.data.models import OrderSide, Position, TradeOrder, TradeResult
+from syndicate.execution.paper_trader import PaperTrader
 
 logger = structlog.get_logger()
 

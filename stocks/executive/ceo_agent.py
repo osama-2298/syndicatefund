@@ -11,9 +11,9 @@ from typing import Any
 
 import structlog
 
-from hivemind.agents.base import BaseLLMCaller
-from hivemind.config import LLMProvider
-from hivemind.data.models import MarketRegime, StrategicDirective, TechnicalIndicators
+from syndicate.agents.base import BaseLLMCaller
+from syndicate.config import LLMProvider
+from syndicate.data.models import MarketRegime, StrategicDirective, TechnicalIndicators
 
 logger = structlog.get_logger()
 

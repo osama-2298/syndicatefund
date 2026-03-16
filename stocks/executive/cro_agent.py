@@ -8,8 +8,8 @@ from typing import Any
 
 import structlog
 
-from hivemind.agents.base import BaseLLMCaller
-from hivemind.data.models import MarketRegime, PortfolioState, RiskLimits, StrategicDirective
+from syndicate.agents.base import BaseLLMCaller
+from syndicate.data.models import MarketRegime, PortfolioState, RiskLimits, StrategicDirective
 
 logger = structlog.get_logger()
 

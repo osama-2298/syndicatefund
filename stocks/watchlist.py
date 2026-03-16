@@ -57,7 +57,7 @@ def _scrape_sp500_tickers() -> list[str]:
     # Fallback: fetch HTML and parse manually
     try:
         with httpx.Client(timeout=15.0) as client:
-            resp = client.get(SP500_WIKI_URL, headers={"User-Agent": "Hivemind/1.0"})
+            resp = client.get(SP500_WIKI_URL, headers={"User-Agent": "Syndicate/1.0"})
             resp.raise_for_status()
             html = resp.text
 

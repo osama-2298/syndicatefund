@@ -4,8 +4,8 @@ Stock Macro Team Manager — synthesizes US reports, rates/dollar, and sector ro
 
 from __future__ import annotations
 
-from hivemind.agents.team_manager import BaseTeamManager
-from hivemind.data.models import TeamType
+from syndicate.agents.team_manager import BaseTeamManager
+from syndicate.data.models import TeamType
 
 
 class StockMacroManager(BaseTeamManager):

@@ -84,7 +84,7 @@ def get_cnn_fear_greed() -> dict:
     try:
         url = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata"
         with httpx.Client(timeout=10.0) as client:
-            resp = client.get(url, headers={"User-Agent": "Hivemind/1.0"})
+            resp = client.get(url, headers={"User-Agent": "Syndicate/1.0"})
             resp.raise_for_status()
             data = resp.json()
 

@@ -1,5 +1,5 @@
 """
-Stocks Hivemind — Multi-Stock Pipeline Orchestrator
+Stocks Syndicate — Multi-Stock Pipeline Orchestrator
 
 14-step pipeline (12 crypto steps + earnings blackout + news team):
   0. Check open trades from prior cycles
@@ -30,18 +30,18 @@ from datetime import datetime, timezone
 
 import structlog
 
-# Shared base classes from hivemind
-from hivemind.agents.base import BaseAgent
-from hivemind.config import settings as hivemind_settings
-from hivemind.data.models import (
+# Shared base classes from syndicate
+from syndicate.agents.base import BaseAgent
+from syndicate.config import settings as syndicate_settings
+from syndicate.data.models import (
     AgentProfile,
     AggregatedSignal,
     Signal,
     SignalAction,
     TeamType,
 )
-from hivemind.data.technical_indicators import compute_indicators
-from hivemind.display import (
+from syndicate.data.technical_indicators import compute_indicators
+from syndicate.display import (
     C,
     action_badge,
     banner,
@@ -61,10 +61,10 @@ from hivemind.display import (
     strategic_directive_card,
     trade_fill,
 )
-from hivemind.evaluation.performance_tracker import PerformanceTracker
-from hivemind.execution.trade_ledger import TradeLedger
-from hivemind.execution.trade_monitor import TradeMonitor
-from hivemind.risk.risk_manager import RiskManager
+from syndicate.evaluation.performance_tracker import PerformanceTracker
+from syndicate.execution.trade_ledger import TradeLedger
+from syndicate.execution.trade_monitor import TradeMonitor
+from syndicate.risk.risk_manager import RiskManager
 
 # Stock-specific imports
 from stocks.agents.technical.trend_agent import StockTrendAgent
@@ -125,7 +125,7 @@ def _run_single_agent(agent_cls, team_type, symbol, data, api_key, provider):
     """Run a single agent. Thread-safe."""
     profile = AgentProfile(
         team=team_type, symbol=symbol,
-        model=hivemind_settings.default_llm_model, provider=provider.value,
+        model=syndicate_settings.default_llm_model, provider=provider.value,
     )
     agent = agent_cls(profile=profile, api_key=api_key, provider=provider)
     t0 = time.monotonic()
@@ -154,7 +154,7 @@ def _run_team(team_name, team_type, agent_classes, manager_cls, data, symbol, ap
     for line in display_lines:
         print(line)
 
-    manager = manager_cls(api_key=api_key, provider=provider, model=hivemind_settings.default_llm_model)
+    manager = manager_cls(api_key=api_key, provider=provider, model=syndicate_settings.default_llm_model)
     t0 = time.monotonic()
     team_signal = manager.synthesize(agent_signals, symbol)
     mgr_elapsed = time.monotonic() - t0
@@ -235,7 +235,7 @@ def _analyze_stock(symbol, snapshot, api_key, provider):
 
                 mgr_profile = AgentProfile(
                     agent_id=f"manager_{team_type.value}", team=team_type, symbol=symbol,
-                    model=hivemind_settings.default_llm_model, provider=provider.value,
+                    model=syndicate_settings.default_llm_model, provider=provider.value,
                 )
                 agent_profiles[mgr_profile.agent_id] = mgr_profile
 
@@ -266,8 +266,8 @@ def run_pipeline() -> None:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     banner("Stock Market Cycle", now)
 
-    api_key = hivemind_settings.get_active_llm_key()
-    provider = hivemind_settings.default_llm_provider
+    api_key = syndicate_settings.get_active_llm_key()
+    provider = syndicate_settings.default_llm_provider
     max_stocks = stock_settings.max_stocks_per_cycle
     cycle_start = time.monotonic()
 
@@ -313,11 +313,11 @@ def run_pipeline() -> None:
             return "market_news", get_market_news()
 
         def _fetch_us_reports():
-            from hivemind.data.us_economic_reports import fetch_us_reports
+            from syndicate.data.us_economic_reports import fetch_us_reports
             return "us_economic_reports", fetch_us_reports(importance_min=3)
 
         def _fetch_polymarket():
-            from hivemind.data.polymarket import PolymarketClient
+            from syndicate.data.polymarket import PolymarketClient
             p = PolymarketClient()
             try:
                 return "prediction_markets", p.get_all_relevant_markets()
@@ -377,7 +377,7 @@ def run_pipeline() -> None:
         portfolio_summary = paper_trader.get_summary()
         perf_summary = tracker.get_summary()
 
-        ceo = StockCEOAgent(api_key=api_key, provider=provider, model=hivemind_settings.default_llm_model)
+        ceo = StockCEOAgent(api_key=api_key, provider=provider, model=syndicate_settings.default_llm_model)
         last_feedback = ceo_memory.get_last_feedback()
         experience = ceo_memory.get_experience_summary()
         t0 = time.monotonic()
@@ -420,7 +420,7 @@ def run_pipeline() -> None:
         intel["ceo_focus_strategy"] = directive.focus_strategy
         intel["ceo_sector_weights"] = directive.sector_weights
 
-        coo = StockCOOAgent(api_key=api_key, provider=provider, model=hivemind_settings.default_llm_model)
+        coo = StockCOOAgent(api_key=api_key, provider=provider, model=syndicate_settings.default_llm_model)
         selection = coo.select(all_stats, directive.regime, max_stocks=max_stocks, extra_intelligence=intel)
         coo_elapsed = time.monotonic() - t0
 
@@ -486,7 +486,7 @@ def run_pipeline() -> None:
         # ═══════════════════════════════════════
         section("Stock CRO — Risk Rules")
 
-        cro = StockCROAgent(api_key=api_key, provider=provider, model=hivemind_settings.default_llm_model)
+        cro = StockCROAgent(api_key=api_key, provider=provider, model=syndicate_settings.default_llm_model)
         t0 = time.monotonic()
         risk_limits, cro_reasoning = cro.set_rules(directive, paper_trader.portfolio, perf_summary)
         cro_elapsed = time.monotonic() - t0
@@ -696,7 +696,7 @@ def run_pipeline() -> None:
 def main() -> None:
     """Entry point."""
     try:
-        hivemind_settings.get_active_llm_key()
+        syndicate_settings.get_active_llm_key()
     except ValueError as e:
         print(f"\n  {c('Error:', C.B_RED)} {e}")
         print(f"  Copy .env.example to .env and add your API key.\n")

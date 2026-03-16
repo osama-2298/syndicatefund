@@ -783,7 +783,7 @@ This preserves signal-associated eigenvalues while shrinking noise.
 
 General rule: **T >> N** (observations should be an order of magnitude greater than number of signals).
 
-### Recommended Cold-Start Protocol for Hivemind
+### Recommended Cold-Start Protocol for Syndicate
 
 Given 3-7 agent teams and 50-100 initial trades:
 

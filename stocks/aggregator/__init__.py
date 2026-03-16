@@ -1,8 +1,8 @@
 """
-Stock Aggregator — imports SignalAggregator from hivemind directly.
+Stock Aggregator — imports SignalAggregator from syndicate directly.
 The aggregator handles any TeamType generically.
 """
 
-from hivemind.aggregator.signal_aggregator import SignalAggregator
+from syndicate.aggregator.signal_aggregator import SignalAggregator
 
 __all__ = ["SignalAggregator"]

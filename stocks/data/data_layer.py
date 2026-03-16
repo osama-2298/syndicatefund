@@ -13,9 +13,9 @@ from typing import Any
 
 import structlog
 
-from hivemind.data.models import TechnicalIndicators
-from hivemind.data.technical_indicators import compute_indicators, format_price_history
-from hivemind.data.us_economic_reports import USReportsSnapshot
+from syndicate.data.models import TechnicalIndicators
+from syndicate.data.technical_indicators import compute_indicators, format_price_history
+from syndicate.data.us_economic_reports import USReportsSnapshot
 from stocks.data.models import (
     EarningsData,
     InstitutionalData,

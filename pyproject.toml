@@ -2,9 +2,9 @@
 name = "syndicate"
 version = "0.1.0"
 description = "AI Crypto Hedge Fund — Syndicate — self-managing AI agents that trade crypto"
-authors = ["Hivemind Team"]
+authors = ["Syndicate Team"]
 readme = "README.md"
-packages = [{include = "hivemind"}]
+packages = [{include = "syndicate"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"

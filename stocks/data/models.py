@@ -1,7 +1,7 @@
 """
 Stock-specific data models.
 
-Extends the base Hivemind models with equity-specific structures:
+Extends the base Syndicate models with equity-specific structures:
 fundamentals, earnings, short selling, options, institutional data, news.
 """
 

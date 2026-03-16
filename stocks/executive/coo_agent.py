@@ -8,8 +8,8 @@ from typing import Any
 
 import structlog
 
-from hivemind.agents.base import BaseLLMCaller
-from hivemind.data.models import MarketRegime
+from syndicate.agents.base import BaseLLMCaller
+from syndicate.data.models import MarketRegime
 from stocks.data.models import StockScore, StockSelection
 from stocks.data.stock_screener import compute_stock_scores
 

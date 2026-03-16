@@ -4,8 +4,8 @@ Stock Sentiment Team Manager — synthesizes social, market, and smart money sig
 
 from __future__ import annotations
 
-from hivemind.agents.team_manager import BaseTeamManager
-from hivemind.data.models import TeamType
+from syndicate.agents.team_manager import BaseTeamManager
+from syndicate.data.models import TeamType
 
 
 class StockSentimentManager(BaseTeamManager):

@@ -6,7 +6,7 @@ Stocks have lower volatility than crypto, so tighter ATR multipliers and larger 
 
 from __future__ import annotations
 
-from hivemind.data.models import (
+from syndicate.data.models import (
     MarketRegime,
     OrderSide,
     PortfolioState,

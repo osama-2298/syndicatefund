@@ -12,8 +12,8 @@ from typing import Any
 import structlog
 import yfinance as yf
 
-from hivemind.data.models import Candle, TechnicalIndicators
-from hivemind.data.technical_indicators import compute_indicators
+from syndicate.data.models import Candle, TechnicalIndicators
+from syndicate.data.technical_indicators import compute_indicators
 from stocks.data.models import (
     EarningsData,
     OptionsSnapshot,

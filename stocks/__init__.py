@@ -1,6 +1,6 @@
 """
-Stocks module — Hivemind for the stock market.
+Stocks module — Syndicate for the stock market.
 
-Same architecture as the crypto Hivemind (5→6 teams, executive layer, aggregator,
+Same architecture as the crypto Syndicate (5→6 teams, executive layer, aggregator,
 risk, portfolio, execution), adapted for equities.
 """

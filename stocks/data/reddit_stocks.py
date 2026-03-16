@@ -1,7 +1,7 @@
 """
 Reddit stock sentiment — r/wallstreetbets, r/stocks, r/investing, r/options.
 
-Same scraping pattern as hivemind crypto Reddit module.
+Same scraping pattern as syndicate crypto Reddit module.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ SUBREDDITS = {
     "pennystocks": {"tier": 3, "focus": "small caps", "weight": 0.3},
 }
 
-USER_AGENT = "Hivemind/1.0 (stock research bot)"
+USER_AGENT = "Syndicate/1.0 (stock research bot)"
 
 BULLISH_WORDS = frozenset({
     "bull", "bullish", "moon", "pump", "rally", "breakout", "ath", "all time high",

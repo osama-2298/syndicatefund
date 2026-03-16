@@ -11,7 +11,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class StockSettings(BaseSettings):
-    """Stock-specific settings layered on top of hivemind base settings."""
+    """Stock-specific settings layered on top of syndicate base settings."""
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -40,7 +40,7 @@ class StockSettings(BaseSettings):
     newsapi_key: str = ""
 
     # ── SEC EDGAR ──
-    sec_edgar_user_agent: str = "Hivemind/1.0 (research@hivemind.ai)"
+    sec_edgar_user_agent: str = "Syndicate/1.0 (research@syndicate.ai)"
 
     # ── Data Paths ──
     stock_data_dir: str = "data/stocks"

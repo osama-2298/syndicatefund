@@ -6,8 +6,8 @@ CRITICAL: Propagates earnings blackout flag to override team conviction to 0.
 
 from __future__ import annotations
 
-from hivemind.agents.team_manager import BaseTeamManager
-from hivemind.data.models import Signal, SignalAction, TeamSignal, TeamType
+from syndicate.agents.team_manager import BaseTeamManager
+from syndicate.data.models import Signal, SignalAction, TeamSignal, TeamType
 
 import structlog
 

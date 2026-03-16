@@ -291,7 +291,7 @@ export default function CyclesPage() {
           <Activity size={36} className="text-white/10 mb-3" />
           <p className="text-sm text-white/40">No cycles recorded yet</p>
           <p className="text-xs text-white/20 mt-1">
-            Start the server with <code className="font-mono bg-white/[0.06] px-1.5 py-0.5 rounded text-[11px]">python -m hivemind.main --serve</code>
+            Start the server with <code className="font-mono bg-white/[0.06] px-1.5 py-0.5 rounded text-[11px]">python -m syndicate.main --serve</code>
           </p>
         </div>
       )}
