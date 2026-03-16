@@ -85,16 +85,22 @@ class CEOWriter(BaseLLMCaller):
     """CEO communication agent — writes blogs, memos, and daily briefings."""
 
     BLOG_PROMPT = (
-        "You are Marcus Blackwell, CEO of Syndicate, an AI-powered crypto hedge fund.\n\n"
-        "You are writing your weekly blog post for the fund's public website. Your audience is "
-        "contributors, potential investors, and crypto enthusiasts who follow the fund.\n\n"
+        "You are Marcus Blackwell, CEO of Syndicate, an AI-powered crypto hedge fund where "
+        "15 AI agents analyze markets, argue with each other, and make trading decisions.\n\n"
+        "You are writing a blog post for the fund's public website. Your audience is crypto "
+        "Twitter, potential investors, and people fascinated by AI trading.\n\n"
+        "YOUR VOICE: Confident, data-driven, slightly dramatic. You talk about your AI teams "
+        "like they're real employees. When teams disagree, describe the drama. When a trade "
+        "works, take credit. When it fails, be brutally honest.\n\n"
         "RULES:\n"
-        "- Write in first person ('This week, we...')\n"
-        "- Reference specific data: BTC price, regime, trades made, P&L\n"
-        "- Be honest about losses — transparency builds trust\n"
-        "- End with an outlook for next week\n"
-        "- Professional but human tone — you're a CEO, not a robot\n"
-        "- 300-500 words\n"
+        "- LEAD WITH THE MOST INTERESTING THING — a disagreement, a big trade, a bold call\n"
+        "- Reference specific data: coin names, prices, confidence levels, P&L numbers\n"
+        "- Describe team disagreements dramatically — 'Technical was screaming BUY while Macro refused'\n"
+        "- Be brutally honest about losses — 'We got wrecked on XRP. Here's why.'\n"
+        "- End with what the AI is telling you to watch next\n"
+        "- Make it sound like something people would screenshot and share on Twitter\n"
+        "- 300-500 words. Every sentence should have a specific data point.\n"
+        "- DO NOT use generic filler or cliches like 'in the ever-changing crypto landscape'\n"
     )
 
     MEMO_PROMPT = (
@@ -120,6 +126,56 @@ class CEOWriter(BaseLLMCaller):
         "- End with 'Watch for:' section with 2-3 things to monitor\n"
         "- 150-250 words, can use bullet points\n"
     )
+
+    def write_cycle_blog(self, snapshot: dict) -> dict[str, str]:
+        """Write a blog post about what just happened in this cycle."""
+        prompt = self._build_cycle_blog_prompt(snapshot)
+        try:
+            return self._call_llm_with_tool(self.BLOG_PROMPT, prompt, BLOG_TOOL)
+        except Exception as e:
+            logger.error("ceo_cycle_blog_failed", error=str(e))
+            return {"title": "Cycle Update", "content": f"Blog generation failed: {str(e)[:100]}", "summary": ""}
+
+    def _build_cycle_blog_prompt(self, snap: dict) -> str:
+        p = "Write a blog post about what JUST HAPPENED in the latest analysis cycle.\n\n=== CYCLE DATA ===\n"
+        ceo = snap.get("ceo_directive", {})
+        if ceo:
+            p += f"Market Regime: {(ceo.get('regime', '?')).upper()}\nRisk Multiplier: {ceo.get('risk_multiplier', '?')}x\n"
+            if ceo.get("focus_strategy"): p += f"Strategy: {str(ceo['focus_strategy'])[:200]}\n"
+        coo = snap.get("coo_selection", {})
+        if coo.get("selected_coins"):
+            coins = [c.replace("USDT", "") for c in coo["selected_coins"]]
+            p += f"Coins Analyzed: {', '.join(coins)} ({len(coins)} total)\n"
+        p += f"Signals: {snap.get('signals_produced', 0)} | Trades: {snap.get('orders_executed', 0)} | Duration: {snap.get('duration_secs', 0):.0f}s\n"
+        disagreements = snap.get("disagreements", [])
+        if disagreements:
+            p += f"\n=== DISAGREEMENTS ({len(disagreements)}) ===\n"
+            for d in disagreements[:5]:
+                sym = d.get("symbol", "").replace("USDT", "")
+                p += f"  {sym}: {len(d.get('bullish_teams', []))} bull vs {len(d.get('bearish_teams', []))} bear ({d.get('polarization',0)*100:.0f}% split) → {d.get('resolution', '?')}\n"
+        verdicts = snap.get("verdicts", [])
+        if verdicts:
+            approved = [v for v in verdicts if not v.get("blocked")]
+            blocked = [v for v in verdicts if v.get("blocked")]
+            p += f"\n=== VERDICTS ===\nApproved: {', '.join(v.get('symbol','').replace('USDT','') for v in approved)}\n"
+            if blocked: p += f"Blocked: {', '.join(v.get('symbol','').replace('USDT','') + ' (' + (v.get('reason','') or 'risk') + ')' for v in blocked[:5])}\n"
+        trades = snap.get("trades_executed", [])
+        if trades:
+            p += f"\n=== TRADES ===\n"
+            for t in trades:
+                p += f"  {t.get('side','?')} {t.get('symbol','').replace('USDT','')} @ ${t.get('price',0):,.2f}\n"
+        exits = snap.get("trade_exits", [])
+        if exits:
+            p += f"\n=== CLOSED TRADES ===\n"
+            for ex in exits:
+                p += f"  {ex.get('symbol','').replace('USDT','')}: {ex.get('pnl_pct',0)*100:+.1f}% (${ex.get('pnl_usd',0):+,.0f})\n"
+        portfolio = snap.get("portfolio_summary", {})
+        if portfolio:
+            p += f"\nPortfolio: ${portfolio.get('total_value', 100000):,.0f}"
+            if portfolio.get("return_pct") is not None: p += f" ({portfolio['return_pct']:+.2f}%)"
+            p += "\n"
+        p += "\nWrite the blog post. Focus on the most dramatic/interesting parts."
+        return p
 
     def write_blog(self, context: dict[str, Any]) -> dict[str, str]:
         """Write a weekly blog post."""
