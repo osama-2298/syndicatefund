@@ -1276,28 +1276,31 @@ def run_pipeline(
             writer = CEOWriter(api_key=api_key, provider=provider, model=settings.default_llm_model)
             snap_dict = json.loads(Path(snap_path).read_text()) if snap_path else {}
             blog_result = writer.write_cycle_blog(snap_dict)
-            # Save blog to DB
-            import asyncio as _aio
-            from syndicate.db.models import CeoPostRow
-            from syndicate.db.session import async_session_factory as _sf
-            async def _save_blog():
-                async with _sf() as session:
-                    post = CeoPostRow(
-                        post_type="blog",
-                        title=blog_result.get("title", "Cycle Update"),
-                        content=blog_result.get("content", ""),
-                        summary=blog_result.get("summary", ""),
-                        market_context={"regime": directive.regime.value,
-                                        "btc_price": coin_prices.get("BTCUSDT", 0),
-                                        "coins_analyzed": n_coins, "trades": len(final_orders)},
-                    )
-                    session.add(post)
-                    await session.commit()
+            # Save blog to JSON file (DB write happens async in _record below)
+            import json as _json
+            blog_entry = {
+                "post_type": "blog",
+                "title": blog_result.get("title", "Cycle Update"),
+                "content": blog_result.get("content", ""),
+                "summary": blog_result.get("summary", ""),
+                "market_context": {"regime": directive.regime.value,
+                                    "btc_price": coin_prices.get("BTCUSDT", 0),
+                                    "coins_analyzed": n_coins, "trades": len(final_orders)},
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+            # Save to JSON for API fallback
+            blog_path = Path("data/latest_blog.json")
+            blog_path.parent.mkdir(parents=True, exist_ok=True)
+            blog_path.write_text(_json.dumps(blog_entry, indent=2, default=str))
+            # Also append to blog history
+            blog_history_path = Path("data/blog_history.json")
             try:
-                loop = _aio.get_running_loop()
-                _aio.run_coroutine_threadsafe(_save_blog(), loop).result(timeout=15)
-            except RuntimeError:
-                _aio.run(_save_blog())
+                history = _json.loads(blog_history_path.read_text()) if blog_history_path.exists() else []
+            except Exception:
+                history = []
+            history.insert(0, blog_entry)
+            history = history[:50]  # Keep last 50
+            blog_history_path.write_text(_json.dumps(history, indent=2, default=str))
             blog_title = blog_result.get("title", "?")[:60]
             print(f"    {dim(f'Blog posted: {blog_title}')}")
         except Exception as e:

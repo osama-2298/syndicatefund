@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import uuid
+from pathlib import Path
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy import select, desc
@@ -35,18 +39,44 @@ async def list_posts(
         query = query.where(CeoPostRow.post_type == post_type)
     result = await db.execute(query)
     posts = result.scalars().all()
-    return [
-        CeoPost(
-            id=str(p.id),
-            post_type=p.post_type,
-            title=p.title,
-            content=p.content,
-            summary=p.summary,
-            market_context=p.market_context,
-            created_at=p.created_at.isoformat(),
-        )
-        for p in posts
-    ]
+
+    if posts:
+        return [
+            CeoPost(
+                id=str(p.id),
+                post_type=p.post_type,
+                title=p.title,
+                content=p.content,
+                summary=p.summary,
+                market_context=p.market_context,
+                created_at=p.created_at.isoformat(),
+            )
+            for p in posts
+        ]
+
+    # Fallback to JSON blog history
+    blog_history_path = Path("data/blog_history.json")
+    if blog_history_path.exists():
+        try:
+            history = json.loads(blog_history_path.read_text())
+            results = []
+            for entry in history[:limit]:
+                if post_type and entry.get("post_type") != post_type:
+                    continue
+                results.append(CeoPost(
+                    id=str(uuid.uuid4()),
+                    post_type=entry.get("post_type", "blog"),
+                    title=entry.get("title", ""),
+                    content=entry.get("content", ""),
+                    summary=entry.get("summary"),
+                    market_context=entry.get("market_context"),
+                    created_at=entry.get("created_at", ""),
+                ))
+            return results
+        except Exception:
+            pass
+
+    return []
 
 
 @router.get("/posts/latest")
