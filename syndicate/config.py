@@ -17,6 +17,10 @@ class LLMProvider(str, Enum):
     GOOGLE = "google"
 
 
+# Base URLs for OpenAI-compatible providers (empty dict = use defaults)
+OPENAI_COMPAT_BASE_URLS: dict[str, str] = {}
+
+
 class Settings(BaseSettings):
     """
     Application settings loaded from environment variables / .env file.
