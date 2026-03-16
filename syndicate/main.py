@@ -1325,8 +1325,10 @@ def run_pipeline(
             from syndicate.db.session import async_session_factory
 
             _evt_collector = collector
+            _blog_entry = blog_entry if 'blog_entry' in dir() else None
 
             async def _record():
+                from syndicate.db.models import CeoPostRow
                 async with async_session_factory() as session:
                     cycle_id = await record_cycle_to_db(
                         db_session=session,
@@ -1339,18 +1341,27 @@ def run_pipeline(
                         orders_executed=len(final_orders),
                         portfolio_value=summary.get("total_value", 100000),
                     )
+                    # Save blog post to DB
+                    if _blog_entry:
+                        post = CeoPostRow(
+                            post_type=_blog_entry["post_type"],
+                            title=_blog_entry["title"],
+                            content=_blog_entry["content"],
+                            summary=_blog_entry.get("summary", ""),
+                            market_context=_blog_entry.get("market_context"),
+                        )
+                        session.add(post)
                     await session.commit()
                     # Persist pipeline events
                     if _evt_collector:
                         await persist_events(cycle_id, _evt_collector)
 
-            # Run async from sync context (thread-safe)
+            # Always use a fresh event loop from sync thread context
+            _loop = asyncio.new_event_loop()
             try:
-                loop = asyncio.get_running_loop()
-                future = asyncio.run_coroutine_threadsafe(_record(), loop)
-                future.result(timeout=15)
-            except RuntimeError:
-                asyncio.run(_record())
+                _loop.run_until_complete(_record())
+            finally:
+                _loop.close()
         except Exception as e:
             logger.warning("cycle_db_record_failed", error=str(e))
 
