@@ -1,18 +1,103 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import {
-  Wallet, TrendingUp, TrendingDown, BarChart3, Bot,
-  Zap, Shield, Activity, Clock, ArrowRight, Signal,
+  TrendingUp, TrendingDown, Shield, Activity, Clock, ArrowRight,
+  ChevronRight, Zap,
 } from 'lucide-react';
 
+// ---------------------------------------------------------------------------
+// Constants & Types
+// ---------------------------------------------------------------------------
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+const AGENT_COLORS: Record<string, string> = {
+  'TechnicalTrendAgent': 'from-blue-500 to-cyan-500',
+  'TechnicalSignalAgent': 'from-blue-400 to-indigo-500',
+  'TechnicalTimingAgent': 'from-sky-500 to-blue-500',
+  'SocialSentimentAgent': 'from-purple-500 to-pink-500',
+  'MarketSentimentAgent': 'from-violet-500 to-purple-600',
+  'SmartMoneySentimentAgent': 'from-fuchsia-500 to-purple-500',
+  'ValuationAgent': 'from-yellow-500 to-amber-500',
+  'CyclePositionAgent': 'from-amber-500 to-orange-500',
+  'CryptoMacroAgent': 'from-cyan-500 to-teal-500',
+  'ExternalMacroAgent': 'from-teal-500 to-emerald-500',
+  'NetworkHealthAgent': 'from-emerald-500 to-green-500',
+  'CapitalFlowAgent': 'from-green-500 to-lime-500',
+};
+
+const TEAM_COLORS: Record<string, string> = {
+  'technical': 'from-blue-500 to-cyan-500',
+  'sentiment': 'from-purple-500 to-pink-500',
+  'fundamental': 'from-yellow-500 to-amber-500',
+  'macro': 'from-cyan-500 to-teal-500',
+  'onchain': 'from-emerald-500 to-green-500',
+};
 
 interface Position { symbol: string; side: string; entry_price: number; quantity: number; current_price: number; }
 interface TradeEntry { symbol: string; side: string; entry_price: number; stop_loss: number; take_profit_1: number; conviction: number; confidence: number; risk_amount: number; exit_reason: string; asset_tier: string; }
 interface CycleData { id: number; started_at: string; regime: string | null; coins_analyzed: number; signals_produced: number; orders_executed: number; duration_secs: number | null; }
 interface AgentData { id: string; team_name: string | null; role: string; agent_class: string | null; status: string; total_signals: number; accuracy: number; provider: string; }
 interface TeamData { id: string; name: string; active_agent_count: number; agent_count: number; weight: number; }
+
+// ---------------------------------------------------------------------------
+// Animated Number Component
+// ---------------------------------------------------------------------------
+
+function AnimatedNumber({ value, prefix = '$', decimals = 0 }: { value: number; prefix?: string; decimals?: number }) {
+  const [display, setDisplay] = useState(value);
+  const prevRef = useRef(value);
+
+  useEffect(() => {
+    const start = prevRef.current;
+    prevRef.current = value;
+    const startTime = performance.now();
+    const duration = 800;
+    let raf: number;
+    const animate = (now: number) => {
+      const progress = Math.min((now - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(start + (value - start) * eased);
+      if (progress < 1) raf = requestAnimationFrame(animate);
+    };
+    raf = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+
+  return (
+    <span className="tabular-nums font-mono">
+      {prefix}{display.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tiny reusable pieces
+// ---------------------------------------------------------------------------
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-3">{children}</h3>;
+}
+
+function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <div className={`bg-[#0d0d15] border border-white/[0.06] rounded-xl ${className}`}>{children}</div>;
+}
+
+function StatusDot({ active }: { active: boolean }) {
+  return active ? (
+    <span className="relative flex h-1.5 w-1.5">
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+    </span>
+  ) : (
+    <span className="h-1.5 w-1.5 rounded-full bg-white/10" />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard
+// ---------------------------------------------------------------------------
 
 export default function Dashboard() {
   const [portfolio, setPortfolio] = useState<any>(null);
@@ -23,7 +108,9 @@ export default function Dashboard() {
   const [livePrices, setLivePrices] = useState<Record<string, number>>({});
   const [priceFlash, setPriceFlash] = useState<Record<string, 'up' | 'down' | ''>>({});
   const [loading, setLoading] = useState(true);
+  const livePricesRef = useRef<Record<string, number>>({});
 
+  // ---- Data fetching ----
   useEffect(() => {
     Promise.all([
       fetch(`${API_BASE}/api/v1/portfolio`).then(r => r.json()).catch(() => null),
@@ -40,7 +127,7 @@ export default function Dashboard() {
     }).finally(() => setLoading(false));
   }, []);
 
-  // Poll live prices from Binance every 10 seconds
+  // ---- Live Binance price polling ----
   useEffect(() => {
     const symbols = (portfolio?.positions ?? []).map((p: Position) => p.symbol);
     if (symbols.length === 0) return;
@@ -55,17 +142,18 @@ export default function Dashboard() {
         for (const item of data) {
           const price = parseFloat(item.price);
           newPrices[item.symbol] = price;
-          const prev = livePrices[item.symbol];
+          const prev = livePricesRef.current[item.symbol];
           if (prev && price !== prev) {
             flashes[item.symbol] = price > prev ? 'up' : 'down';
           }
         }
+        livePricesRef.current = newPrices;
         setLivePrices(newPrices);
         if (Object.keys(flashes).length > 0) {
           setPriceFlash(flashes);
           setTimeout(() => setPriceFlash({}), 1000);
         }
-      } catch {}
+      } catch { /* silently fail */ }
     };
 
     fetchPrices();
@@ -73,19 +161,17 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [portfolio]);
 
+  // ---- Derived data ----
   const positions: Position[] = portfolio?.positions ?? [];
   const cash = portfolio?.cash ?? 100000;
-  const invested = positions.reduce((s, p) => s + p.quantity * (p.current_price || p.entry_price), 0);
+  const invested = positions.reduce((s, p) => s + p.quantity * (livePrices[p.symbol] || p.current_price || p.entry_price), 0);
   const totalValue = cash + invested;
   const returnPct = ((totalValue - 100000) / 100000) * 100;
   const returnUsd = totalValue - 100000;
 
-  // Build lookup: symbol -> trade entry (for SL/TP data)
   const openTradesBySymbol: Record<string, TradeEntry> = {};
   for (const t of trades) {
-    if (t.exit_reason === 'OPEN') {
-      openTradesBySymbol[t.symbol] = t;
-    }
+    if (t.exit_reason === 'OPEN') openTradesBySymbol[t.symbol] = t;
   }
 
   const activeAgents = agents.filter(a => ['founding', 'active', 'assigned'].includes(a.status));
@@ -93,295 +179,586 @@ export default function Dashboard() {
   const lastCycle = cycles?.[0];
   const totalOrders = cycles.reduce((s, c) => s + c.orders_executed, 0);
 
+  // Top 5 agents by total_signals
+  const topAgents = [...agents].sort((a, b) => b.total_signals - a.total_signals).slice(0, 5);
+
+  // Recent closed trades for activity feed
+  const recentTrades = trades
+    .filter(t => t.exit_reason !== 'OPEN')
+    .slice(0, 8);
+
+  const pipelineSteps = ['Intelligence', 'CEO Directive', 'Coin Selection', 'Agent Analysis', 'Aggregation', 'Risk Check', 'Execution'];
+
+  // ---- Loading state ----
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Activity size={24} className="animate-spin text-amber-400" />
+        <Activity size={20} className="animate-spin text-amber-400" />
       </div>
     );
   }
 
+  // ---- Render ----
   return (
-    <div className="slide-up space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-white/40 mt-1">Autonomous AI hedge fund — {activeAgents.length} agents across {teams.length} teams</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="glass-card flex items-center gap-2 px-3 py-1.5">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+    <div className="slide-up">
+      {/* Top bar — status strip */}
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 bg-[#0d0d15] border border-white/[0.06] rounded-lg px-2.5 py-1">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
             </span>
-            <span className="text-xs font-medium text-emerald-400">LIVE</span>
+            <span className="text-[10px] font-bold tracking-wider text-emerald-400">LIVE</span>
           </div>
+          <span className="text-[10px] text-white/25 font-mono">
+            {activeAgents.length} agents / {teams.length} teams / {totalSignals.toLocaleString()} signals
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
           {lastCycle && (
-            <div className="glass-card flex items-center gap-1.5 px-3 py-1.5">
-              <Clock size={12} className="text-white/30" />
-              <span className="text-xs text-white/40">{new Date(lastCycle.started_at).toLocaleTimeString()}</span>
-            </div>
+            <span className="text-[10px] text-white/25 font-mono flex items-center gap-1">
+              <Clock size={10} className="text-white/20" />
+              Last cycle {new Date(lastCycle.started_at).toLocaleTimeString()}
+            </span>
           )}
         </div>
       </div>
 
-      {/* Hero Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="glass-card p-5">
-          <div className="flex items-start justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Portfolio</p>
-            <Wallet size={16} className="text-white/10" />
-          </div>
-          <p className={`mt-2 text-2xl font-bold tracking-tight ${returnPct >= 0 ? 'text-white' : 'text-red-400'}`}>
-            ${totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-          </p>
-          <div className={`mt-1.5 flex items-center gap-1 text-xs font-medium ${returnPct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-            {returnPct >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-            {returnPct >= 0 ? '+' : ''}{returnPct.toFixed(2)}% (${returnUsd >= 0 ? '+' : ''}${returnUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })})
-          </div>
-        </div>
+      {/* === 3-Column Terminal Layout === */}
+      <div className="flex flex-col lg:flex-row gap-3">
 
-        <div className="glass-card p-5">
-          <div className="flex items-start justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Active Agents</p>
-            <Bot size={16} className="text-white/10" />
-          </div>
-          <p className="mt-2 text-2xl font-bold tracking-tight">{activeAgents.length}</p>
-          <p className="mt-1.5 text-xs text-white/40">{teams.length} teams · {agents.length - activeAgents.length} pending</p>
-        </div>
+        {/* ================================================================ */}
+        {/* LEFT COLUMN — Portfolio Vitals + Regime + Pipeline               */}
+        {/* ================================================================ */}
+        <div className="w-full lg:w-[280px] shrink-0 space-y-3">
 
-        <div className="glass-card p-5">
-          <div className="flex items-start justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Signals Produced</p>
-            <Zap size={16} className="text-white/10" />
-          </div>
-          <p className="mt-2 text-2xl font-bold tracking-tight">{totalSignals.toLocaleString()}</p>
-          <p className="mt-1.5 text-xs text-white/40">{totalOrders} trades executed</p>
-        </div>
+          {/* Portfolio Value — hero number with ambient glow */}
+          <Card className="p-4 relative overflow-hidden">
+            {/* Ambient glow */}
+            <div className="absolute -top-8 -left-8 w-40 h-40 bg-amber-500/[0.04] rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-amber-500/[0.03] rounded-full blur-3xl pointer-events-none" />
+            <SectionLabel>Portfolio Value</SectionLabel>
+            <div className={`text-[28px] font-bold leading-none ${returnPct >= 0 ? 'text-white' : 'text-red-400'}`}>
+              <AnimatedNumber value={totalValue} prefix="$" decimals={0} />
+            </div>
+            <div className={`mt-2 flex items-center gap-1.5 text-xs font-medium ${returnPct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              {returnPct >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+              <span className="font-mono tabular-nums">
+                {returnPct >= 0 ? '+' : ''}{returnPct.toFixed(2)}%
+              </span>
+              <span className="text-white/25 mx-0.5">|</span>
+              <span className="font-mono tabular-nums">
+                {returnUsd >= 0 ? '+' : ''}${returnUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </span>
+            </div>
+          </Card>
 
-        <div className="glass-card p-5">
-          <div className="flex items-start justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Deployed Capital</p>
-            <BarChart3 size={16} className="text-white/10" />
-          </div>
-          <p className="mt-2 text-2xl font-bold tracking-tight">${invested.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-          <p className="mt-1.5 text-xs text-white/40">${cash.toLocaleString(undefined, { maximumFractionDigits: 0 })} available</p>
-        </div>
-      </div>
-
-      {/* Team Overview */}
-      <div className="glass-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Analysis Teams</p>
-          <a href="/org" className="text-xs text-amber-400/80 hover:text-amber-300 transition-colors flex items-center gap-1">
-            Org Chart <ArrowRight size={12} />
-          </a>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          {teams.map((team) => (
-            <div key={team.id} className="glass-card-hover p-3 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <span className={`h-2 w-2 rounded-full ${team.active_agent_count > 0 ? 'bg-emerald-400' : 'bg-white/10'}`} />
-                <span className="text-xs font-semibold capitalize truncate">{team.name}</span>
+          {/* Vitals strip */}
+          <Card className="p-4 space-y-3">
+            <SectionLabel>Capital Allocation</SectionLabel>
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-white/50">Invested</span>
+                <span className="text-[13px] font-mono tabular-nums text-white">
+                  <AnimatedNumber value={invested} prefix="$" decimals={0} />
+                </span>
               </div>
-              <div className="flex items-end justify-between">
-                <span className="text-lg font-bold">{team.active_agent_count}</span>
-                <span className="text-[10px] text-white/30">{team.weight.toFixed(1)}x</span>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-white/50">Cash</span>
+                <span className="text-[13px] font-mono tabular-nums text-white/50">
+                  ${cash.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </span>
+              </div>
+              {/* Allocation bar */}
+              <div className="h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-700"
+                  style={{ width: `${totalValue > 0 ? (invested / totalValue) * 100 : 0}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-white/25">
+                  {totalValue > 0 ? ((invested / totalValue) * 100).toFixed(1) : '0'}% deployed
+                </span>
+                <span className="text-[10px] text-white/25">
+                  {positions.length} position{positions.length !== 1 ? 's' : ''}
+                </span>
               </div>
             </div>
-          ))}
-        </div>
-      </div>
+          </Card>
 
-      {/* Positions + Regime side by side */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Open Positions - 2/3 width */}
-        <div className="lg:col-span-2 glass-card overflow-hidden">
-          <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Signal size={14} className="text-amber-400" />
-              <h2 className="text-sm font-semibold">Open Positions</h2>
-            </div>
-            {positions.length > 0 && (
-              <span className="text-xs text-white/40">${invested.toLocaleString(undefined, { maximumFractionDigits: 0 })} invested</span>
-            )}
-          </div>
-          {positions.length === 0 ? (
-            <div className="px-5 py-10 text-center">
-              <BarChart3 size={28} className="mx-auto text-white/10 mb-3" />
-              <p className="text-sm text-white/40">No open positions</p>
-              <p className="text-xs text-white/20 mt-1">Next cycle will analyze markets and generate trades</p>
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="text-[10px] font-semibold uppercase tracking-widest text-white/30 border-b border-white/[0.06]">
-                  <th className="text-left px-4 py-2.5">Symbol</th>
-                  <th className="text-left px-4 py-2.5">Side</th>
-                  <th className="text-right px-4 py-2.5">Size</th>
-                  <th className="text-right px-4 py-2.5">Entry</th>
-                  <th className="text-right px-4 py-2.5">Live Price</th>
-                  <th className="text-right px-4 py-2.5">SL</th>
-                  <th className="text-right px-4 py-2.5">TP</th>
-                  <th className="text-right px-4 py-2.5">P&L</th>
-                </tr>
-              </thead>
-              <tbody>
-                {positions.map((pos, i) => {
-                  const live = livePrices[pos.symbol] || pos.current_price;
-                  const size = pos.quantity * live;
-                  const pnlUsd = pos.side === 'BUY'
-                    ? (live - pos.entry_price) * pos.quantity
-                    : (pos.entry_price - live) * pos.quantity;
-                  const pnlPct = pos.entry_price > 0
-                    ? ((live - pos.entry_price) / pos.entry_price * 100) * (pos.side === 'BUY' ? 1 : -1)
-                    : 0;
-                  const trade = openTradesBySymbol[pos.symbol];
-                  const sl = trade?.stop_loss ?? 0;
-                  const tp = trade?.take_profit_1 ?? 0;
-                  const conviction = trade?.conviction;
-                  const riskAmt = trade?.risk_amount ?? 0;
-                  const flash = priceFlash[pos.symbol];
-                  return (
-                    <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
-                      <td className="px-4 py-3">
-                        <span className="font-semibold text-sm">{pos.symbol.replace('USDT', '')}</span>
-                        {conviction != null && (
-                          <span className="ml-1.5 text-[10px] text-white/30">{conviction}/10</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ring-1 ring-inset ${
-                          pos.side === 'BUY' ? 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/20'
-                            : 'bg-red-500/10 text-red-400 ring-red-500/20'
-                        }`}>{pos.side}</span>
-                      </td>
-                      <td className="px-4 py-3 text-right text-sm">${size.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                      <td className="px-4 py-3 text-right text-sm text-white/40">${pos.entry_price.toLocaleString()}</td>
-                      <td className={`px-4 py-3 text-right text-sm font-mono tabular-nums transition-colors duration-300 ${
-                        flash === 'up' ? 'text-emerald-400 bg-emerald-400/5' :
-                        flash === 'down' ? 'text-red-400 bg-red-400/5' : 'text-white'
-                      }`}>
-                        ${live.toLocaleString()}
-                        <span className="ml-1 text-[9px] text-white/20">LIVE</span>
-                      </td>
-                      <td className="px-4 py-3 text-right text-sm text-red-400/70">
-                        {sl > 0 ? `$${sl.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '\u2014'}
-                        {riskAmt > 0 && <span className="block text-[10px] text-white/30">-${riskAmt.toFixed(0)} risk</span>}
-                      </td>
-                      <td className="px-4 py-3 text-right text-sm text-emerald-400/70">
-                        {tp > 0 ? `$${tp.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '\u2014'}
-                      </td>
-                      <td className={`px-4 py-3 text-right text-sm font-semibold ${pnlUsd >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {pnlUsd >= 0 ? '+' : ''}${pnlUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                        <span className="text-[10px] ml-1 opacity-60">({pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(1)}%)</span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        {/* Right sidebar - Market Regime + Cycle info */}
-        <div className="space-y-4">
-          <div className="glass-card p-5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-3">Market Regime</p>
+          {/* Market Regime */}
+          <Card className="p-4">
+            <SectionLabel>Market Regime</SectionLabel>
             {lastCycle?.regime ? (
-              <>
-                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold ring-1 ring-inset ${
-                  lastCycle.regime === 'bull' ? 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/20' :
-                  lastCycle.regime === 'bear' ? 'bg-red-500/10 text-red-400 ring-red-500/20' :
-                  lastCycle.regime === 'crisis' ? 'bg-red-900/20 text-red-300 ring-red-500/30' :
-                  'bg-amber-500/10 text-amber-400 ring-amber-500/20'
+              <div className="flex items-center gap-2.5">
+                <div className={`flex items-center justify-center w-9 h-9 rounded-lg ring-1 ring-inset ${
+                  lastCycle.regime === 'bull' ? 'bg-emerald-500/10 ring-emerald-500/20' :
+                  lastCycle.regime === 'bear' ? 'bg-red-500/10 ring-red-500/20' :
+                  lastCycle.regime === 'crisis' ? 'bg-red-900/20 ring-red-500/30' :
+                  'bg-amber-500/10 ring-amber-500/20'
                 }`}>
-                  {lastCycle.regime === 'bull' ? <TrendingUp size={14} /> : lastCycle.regime === 'bear' ? <TrendingDown size={14} /> : <Shield size={14} />}
-                  {lastCycle.regime.toUpperCase()}
+                  {lastCycle.regime === 'bull' ? <TrendingUp size={16} className="text-emerald-400" /> :
+                   lastCycle.regime === 'bear' ? <TrendingDown size={16} className="text-red-400" /> :
+                   <Shield size={16} className="text-amber-400" />}
                 </div>
-                <p className="text-xs text-white/30 mt-2">Set by CEO agent each cycle</p>
-              </>
+                <div>
+                  <span className={`text-sm font-bold tracking-wide ${
+                    lastCycle.regime === 'bull' ? 'text-emerald-400' :
+                    lastCycle.regime === 'bear' ? 'text-red-400' :
+                    lastCycle.regime === 'crisis' ? 'text-red-300' :
+                    'text-amber-400'
+                  }`}>
+                    {lastCycle.regime.toUpperCase()}
+                  </span>
+                  <p className="text-[10px] text-white/25 mt-0.5">Set by CEO each cycle</p>
+                </div>
+              </div>
             ) : (
-              <p className="text-sm text-white/40">Awaiting first cycle</p>
+              <p className="text-xs text-white/25">Awaiting first cycle</p>
             )}
-          </div>
+          </Card>
 
-          <div className="glass-card p-5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-3">Cycle Pipeline</p>
-            <div className="space-y-2">
-              {['Intelligence', 'CEO Directive', 'Coin Selection', 'Agent Analysis', 'Aggregation', 'Risk Check', 'Execution'].map((step, i) => (
-                <div key={step} className="flex items-center gap-2">
-                  <span className="w-5 text-[10px] text-white/20 text-right">{i + 1}</span>
-                  <div className={`flex-1 text-xs py-1 px-2 rounded ${
-                    lastCycle ? 'bg-emerald-500/5 text-emerald-400/60 ring-1 ring-inset ring-emerald-500/10'
-                      : 'bg-white/[0.02] text-white/20 ring-1 ring-inset ring-white/[0.04]'
-                  }`}>{step}</div>
+          {/* Cycle Pipeline */}
+          <Card className="p-4">
+            <SectionLabel>Cycle Pipeline</SectionLabel>
+            <div className="space-y-1">
+              {pipelineSteps.map((step, i) => (
+                <div key={step} className="flex items-center gap-2 group">
+                  <span className="w-4 text-[9px] font-mono text-white/15 text-right">{i + 1}</span>
+                  <div className={`flex-1 text-[11px] py-1 px-2 rounded transition-colors ${
+                    lastCycle
+                      ? 'bg-emerald-500/[0.04] text-emerald-400/50 ring-1 ring-inset ring-emerald-500/[0.08]'
+                      : 'bg-white/[0.02] text-white/15 ring-1 ring-inset ring-white/[0.04]'
+                  }`}>
+                    {step}
+                  </div>
                 </div>
               ))}
             </div>
-            <p className="text-[10px] text-white/30 mt-3">Runs every 4h on UTC boundaries</p>
-          </div>
-        </div>
-      </div>
+            <p className="text-[9px] text-white/20 mt-2.5 font-mono">Every 4h on UTC boundaries</p>
+          </Card>
 
-      {/* Recent Cycles */}
-      {cycles.length > 0 && (
-        <div className="glass-card overflow-hidden">
-          <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Activity size={14} className="text-amber-400" />
-              <h2 className="text-sm font-semibold">Recent Cycles</h2>
+          {/* Quick stats */}
+          <Card className="p-4">
+            <SectionLabel>Cycle Stats</SectionLabel>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-[10px] text-white/25">Total Orders</p>
+                <p className="text-lg font-bold font-mono tabular-nums">{totalOrders}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-white/25">Signals</p>
+                <p className="text-lg font-bold font-mono tabular-nums">{totalSignals.toLocaleString()}</p>
+              </div>
             </div>
-            <a href="/cycles" className="text-xs text-amber-400/80 hover:text-amber-300 transition-colors flex items-center gap-1">
-              View all <ArrowRight size={12} />
-            </a>
-          </div>
-          <table className="w-full">
-            <thead>
-              <tr className="text-[10px] font-semibold uppercase tracking-widest text-white/30 border-b border-white/[0.06]">
-                <th className="text-left px-5 py-2.5">#</th>
-                <th className="text-left px-5 py-2.5">Time</th>
-                <th className="text-left px-5 py-2.5">Regime</th>
-                <th className="text-right px-5 py-2.5">Coins</th>
-                <th className="text-right px-5 py-2.5">Signals</th>
-                <th className="text-right px-5 py-2.5">Trades</th>
-                <th className="text-right px-5 py-2.5">Duration</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cycles.map((c) => (
-                <tr key={c.id} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
-                  <td className="px-5 py-3 text-sm text-white/40">{c.id}</td>
-                  <td className="px-5 py-3 text-sm">{new Date(c.started_at).toLocaleString()}</td>
-                  <td className="px-5 py-3">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ring-1 ring-inset ${
-                      c.regime === 'bull' ? 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/20' :
-                      c.regime === 'bear' ? 'bg-red-500/10 text-red-400 ring-red-500/20' :
-                      'bg-white/[0.04] text-white/40 ring-white/[0.06]'
-                    }`}>{(c.regime ?? 'N/A').toUpperCase()}</span>
-                  </td>
-                  <td className="px-5 py-3 text-right text-sm">{c.coins_analyzed}</td>
-                  <td className="px-5 py-3 text-right text-sm">{c.signals_produced}</td>
-                  <td className="px-5 py-3 text-right text-sm">{c.orders_executed}</td>
-                  <td className="px-5 py-3 text-right text-sm text-white/40">{c.duration_secs ? `${Math.round(c.duration_secs)}s` : '\u2014'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          </Card>
         </div>
-      )}
 
-      {/* CTA */}
-      <div className="glass-card p-6 border-amber-400/10 bg-gradient-to-r from-amber-500/[0.04] to-orange-500/[0.04]">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-bold mb-1">Contribute your API key to expand the hive</h3>
-            <p className="text-xs text-white/40">More agents = more coins scanned, deeper analysis, better signals. Your key, your agents.</p>
-          </div>
-          <a href="/register" className="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-black text-xs font-bold rounded-xl hover:shadow-lg hover:shadow-amber-500/20 transition-all">
-            Contribute <ArrowRight size={14} />
-          </a>
+        {/* ================================================================ */}
+        {/* CENTER — Positions Table + Activity Feed                         */}
+        {/* ================================================================ */}
+        <div className="flex-1 min-w-0 space-y-3">
+
+          {/* Positions Table */}
+          <Card className="overflow-hidden">
+            <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Open Positions</span>
+              </div>
+              <span className="text-[10px] font-mono text-white/25">
+                {positions.length} open / ${invested.toLocaleString(undefined, { maximumFractionDigits: 0 })} deployed
+              </span>
+            </div>
+
+            {positions.length === 0 ? (
+              <div className="px-4 py-16 text-center">
+                <div className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mx-auto mb-3">
+                  <Activity size={16} className="text-white/10" />
+                </div>
+                <p className="text-xs text-white/25">No open positions</p>
+                <p className="text-[10px] text-white/15 mt-1">Next cycle will analyze markets and generate trades</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/25 border-b border-white/[0.06]">
+                      <th className="text-left pl-4 pr-2 py-2">Symbol</th>
+                      <th className="text-left px-2 py-2">Side</th>
+                      <th className="text-right px-2 py-2">Size</th>
+                      <th className="text-right px-2 py-2">Entry</th>
+                      <th className="text-right px-2 py-2">Price</th>
+                      <th className="text-right px-2 py-2">SL</th>
+                      <th className="text-right px-2 py-2">TP</th>
+                      <th className="text-right px-2 py-2">P&L</th>
+                      <th className="text-right pr-4 pl-2 py-2">Conv</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {positions.map((pos, i) => {
+                      const live = livePrices[pos.symbol] || pos.current_price;
+                      const size = pos.quantity * live;
+                      const pnlUsd = pos.side === 'BUY'
+                        ? (live - pos.entry_price) * pos.quantity
+                        : (pos.entry_price - live) * pos.quantity;
+                      const pnlPct = pos.entry_price > 0
+                        ? ((live - pos.entry_price) / pos.entry_price * 100) * (pos.side === 'BUY' ? 1 : -1)
+                        : 0;
+                      const trade = openTradesBySymbol[pos.symbol];
+                      const sl = trade?.stop_loss ?? 0;
+                      const tp = trade?.take_profit_1 ?? 0;
+                      const conviction = trade?.conviction ?? 0;
+                      const riskAmt = trade?.risk_amount ?? 0;
+                      const flash = priceFlash[pos.symbol];
+                      const teamName = trade?.asset_tier; // might be useful later
+                      const agentClass = trade ? Object.keys(AGENT_COLORS).find(k => k.toLowerCase().includes('technical')) : null;
+
+                      // Determine team color for the row dot
+                      const dotGradient = TEAM_COLORS['technical'] ?? 'from-white/20 to-white/10';
+
+                      return (
+                        <tr
+                          key={i}
+                          className={`border-b border-white/[0.03] transition-all duration-300 hover:bg-white/[0.02] hover:ring-1 hover:ring-inset hover:ring-white/[0.06] ${
+                            flash === 'up' ? 'bg-emerald-500/[0.04]' :
+                            flash === 'down' ? 'bg-red-500/[0.04]' : ''
+                          }`}
+                        >
+                          {/* Symbol with team color dot */}
+                          <td className="pl-4 pr-2 py-2.5">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-2 h-2 rounded-full bg-gradient-to-br ${dotGradient} shrink-0`} />
+                              <span className="text-[13px] font-bold text-white">
+                                {pos.symbol.replace('USDT', '')}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Side badge */}
+                          <td className="px-2 py-2.5">
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                              pos.side === 'BUY'
+                                ? 'bg-emerald-500/10 text-emerald-400 ring-1 ring-inset ring-emerald-500/20'
+                                : 'bg-red-500/10 text-red-400 ring-1 ring-inset ring-red-500/20'
+                            }`}>
+                              {pos.side}
+                            </span>
+                          </td>
+
+                          {/* Size */}
+                          <td className="px-2 py-2.5 text-right">
+                            <span className="text-[12px] font-mono tabular-nums text-white">
+                              ${size.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            </span>
+                          </td>
+
+                          {/* Entry */}
+                          <td className="px-2 py-2.5 text-right">
+                            <span className="text-[12px] font-mono tabular-nums text-white/40">
+                              ${pos.entry_price.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                            </span>
+                          </td>
+
+                          {/* Live price — flashing */}
+                          <td className={`px-2 py-2.5 text-right transition-colors duration-500 ${
+                            flash === 'up' ? 'text-emerald-400' :
+                            flash === 'down' ? 'text-red-400' : 'text-white'
+                          }`}>
+                            <span className="text-[12px] font-mono tabular-nums font-medium">
+                              ${live.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                            </span>
+                          </td>
+
+                          {/* SL */}
+                          <td className="px-2 py-2.5 text-right">
+                            <span className="text-[12px] font-mono tabular-nums text-red-400/60">
+                              {sl > 0 ? `$${sl.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '\u2014'}
+                            </span>
+                          </td>
+
+                          {/* TP */}
+                          <td className="px-2 py-2.5 text-right">
+                            <span className="text-[12px] font-mono tabular-nums text-emerald-400/60">
+                              {tp > 0 ? `$${tp.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '\u2014'}
+                            </span>
+                          </td>
+
+                          {/* P&L */}
+                          <td className="px-2 py-2.5 text-right">
+                            <div className={`text-[12px] font-mono tabular-nums font-semibold ${pnlUsd >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {pnlUsd >= 0 ? '+' : ''}{pnlUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                            </div>
+                            <div className={`text-[9px] font-mono tabular-nums ${pnlUsd >= 0 ? 'text-emerald-400/50' : 'text-red-400/50'}`}>
+                              {pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%
+                            </div>
+                          </td>
+
+                          {/* Conviction bar */}
+                          <td className="pr-4 pl-2 py-2.5">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <div className="w-12 h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
+                                <div
+                                  className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all"
+                                  style={{ width: `${(conviction / 10) * 100}%` }}
+                                />
+                              </div>
+                              <span className="text-[9px] font-mono text-white/25 w-4 text-right">{conviction}</span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+
+          {/* Recent Activity Feed */}
+          <Card className="overflow-hidden">
+            <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Recent Activity</span>
+              </div>
+              <a href="/cycles" className="text-[10px] text-amber-400/50 hover:text-amber-400 transition-colors flex items-center gap-0.5">
+                All cycles <ChevronRight size={10} />
+              </a>
+            </div>
+
+            {/* Recent cycles as dense rows */}
+            {cycles.length > 0 ? (
+              <div className="divide-y divide-white/[0.03]">
+                {cycles.map((c) => (
+                  <div key={c.id} className="px-4 py-2.5 flex items-center gap-3 hover:bg-white/[0.02] transition-colors">
+                    <span className="text-[10px] font-mono text-white/15 w-6 text-right">#{c.id}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                          c.regime === 'bull' ? 'bg-emerald-500/10 text-emerald-400 ring-1 ring-inset ring-emerald-500/20' :
+                          c.regime === 'bear' ? 'bg-red-500/10 text-red-400 ring-1 ring-inset ring-red-500/20' :
+                          'bg-white/[0.04] text-white/30 ring-1 ring-inset ring-white/[0.06]'
+                        }`}>
+                          {(c.regime ?? 'N/A').toUpperCase()}
+                        </span>
+                        <span className="text-[11px] text-white/40">
+                          {c.coins_analyzed} coins scanned
+                        </span>
+                        <span className="text-white/10">|</span>
+                        <span className="text-[11px] text-white/40">
+                          {c.signals_produced} signals
+                        </span>
+                        <span className="text-white/10">|</span>
+                        <span className="text-[11px] text-white/40">
+                          {c.orders_executed} trades
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {c.duration_secs && (
+                        <span className="text-[10px] font-mono text-white/15">{Math.round(c.duration_secs)}s</span>
+                      )}
+                      <span className="text-[10px] font-mono text-white/20">
+                        {new Date(c.started_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="px-4 py-8 text-center">
+                <p className="text-xs text-white/25">No cycles recorded yet</p>
+              </div>
+            )}
+
+            {/* Closed trades list */}
+            {recentTrades.length > 0 && (
+              <>
+                <div className="px-4 py-2 border-t border-white/[0.06]">
+                  <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/20">Recent Closed Trades</span>
+                </div>
+                <div className="divide-y divide-white/[0.03]">
+                  {recentTrades.map((t, i) => {
+                    const pnlPct = t.entry_price > 0
+                      ? ((t.take_profit_1 - t.entry_price) / t.entry_price * 100) * (t.side === 'BUY' ? 1 : -1)
+                      : 0;
+                    return (
+                      <div key={i} className="px-4 py-2 flex items-center gap-3 hover:bg-white/[0.02] transition-colors">
+                        <span className={`w-1 h-4 rounded-full ${t.side === 'BUY' ? 'bg-emerald-500/40' : 'bg-red-500/40'}`} />
+                        <span className="text-[12px] font-bold text-white w-16">{t.symbol.replace('USDT', '')}</span>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                          t.side === 'BUY'
+                            ? 'bg-emerald-500/10 text-emerald-400/60'
+                            : 'bg-red-500/10 text-red-400/60'
+                        }`}>{t.side}</span>
+                        <span className="flex-1" />
+                        <span className="text-[10px] font-mono text-white/25">
+                          ${t.entry_price.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                        </span>
+                        <span className="text-white/10">{'\u2192'}</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                          t.exit_reason === 'TP_HIT' ? 'bg-emerald-500/10 text-emerald-400' :
+                          t.exit_reason === 'SL_HIT' ? 'bg-red-500/10 text-red-400' :
+                          'bg-white/[0.04] text-white/40'
+                        }`}>
+                          {t.exit_reason}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </Card>
+
+          {/* CTA banner — compact */}
+          <Card className="p-3 border-amber-500/[0.08] bg-gradient-to-r from-amber-500/[0.03] to-orange-500/[0.03]">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Zap size={14} className="text-amber-400/60 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold text-white/70 truncate">Contribute your API key to expand the hive</p>
+                  <p className="text-[10px] text-white/25 truncate">More agents = deeper analysis, better signals</p>
+                </div>
+              </div>
+              <a href="/register" className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-black text-[10px] font-bold rounded-lg hover:shadow-lg hover:shadow-amber-500/20 transition-all">
+                Contribute <ArrowRight size={10} />
+              </a>
+            </div>
+          </Card>
+        </div>
+
+        {/* ================================================================ */}
+        {/* RIGHT COLUMN — Team Status + Agent Leaderboard                   */}
+        {/* ================================================================ */}
+        <div className="w-full lg:w-[280px] shrink-0 space-y-3">
+
+          {/* Team Status Cards */}
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <SectionLabel>Team Status</SectionLabel>
+              <a href="/org" className="text-[10px] text-amber-400/50 hover:text-amber-400 transition-colors flex items-center gap-0.5">
+                Org <ChevronRight size={10} />
+              </a>
+            </div>
+            <div className="space-y-1.5">
+              {teams.map((team) => {
+                const gradient = TEAM_COLORS[team.name.toLowerCase()] ?? 'from-white/20 to-white/10';
+                const maxWeight = Math.max(...teams.map(t => t.weight), 1);
+                return (
+                  <div
+                    key={team.id}
+                    className="flex items-center gap-2.5 py-2 px-2.5 rounded-lg hover:bg-white/[0.02] transition-colors group relative overflow-hidden"
+                  >
+                    {/* Gradient left border */}
+                    <div className={`absolute left-0 top-0 bottom-0 w-[2px] bg-gradient-to-b ${gradient}`} />
+
+                    <div className="flex-1 min-w-0 ml-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[12px] font-semibold capitalize truncate text-white">{team.name}</span>
+                        <StatusDot active={team.active_agent_count > 0} />
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-[10px] text-white/25">
+                          {team.active_agent_count}/{team.agent_count} agents
+                        </span>
+                        <span className="text-[10px] font-mono text-white/25">{team.weight.toFixed(1)}x</span>
+                      </div>
+                      {/* Weight bar */}
+                      <div className="mt-1.5 h-[3px] rounded-full bg-white/[0.04] overflow-hidden">
+                        <div
+                          className={`h-full rounded-full bg-gradient-to-r ${gradient} transition-all duration-500`}
+                          style={{ width: `${(team.weight / maxWeight) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+
+          {/* Agent Leaderboard */}
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <SectionLabel>Agent Leaderboard</SectionLabel>
+              <a href="/agents" className="text-[10px] text-amber-400/50 hover:text-amber-400 transition-colors flex items-center gap-0.5">
+                All <ChevronRight size={10} />
+              </a>
+            </div>
+            <div className="space-y-2">
+              {topAgents.map((agent, i) => {
+                const agentClass = agent.agent_class ?? '';
+                const gradient = AGENT_COLORS[agentClass] ?? 'from-white/20 to-white/10';
+                const initial = agentClass.charAt(0) || agent.id.charAt(0).toUpperCase();
+                const maxSignals = Math.max(...topAgents.map(a => a.total_signals), 1);
+                return (
+                  <div key={agent.id} className="flex items-center gap-2.5 py-1.5 group">
+                    {/* Rank */}
+                    <span className="text-[10px] font-mono text-white/15 w-3 text-right">{i + 1}</span>
+
+                    {/* Gradient avatar */}
+                    <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center shrink-0`}>
+                      <span className="text-[10px] font-bold text-white/90">{initial}</span>
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold text-white truncate max-w-[120px]">
+                          {agentClass.replace('Agent', '')}
+                        </span>
+                        <span className="text-[10px] font-mono tabular-nums text-white/40">
+                          {agent.total_signals}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between mt-0.5">
+                        <span className="text-[9px] text-white/25 capitalize">{agent.team_name ?? 'unassigned'}</span>
+                        {agent.accuracy > 0 && (
+                          <span className="text-[9px] font-mono text-emerald-400/50">{(agent.accuracy * 100).toFixed(0)}%</span>
+                        )}
+                      </div>
+                      {/* Signal count bar */}
+                      <div className="mt-1 h-[2px] rounded-full bg-white/[0.04] overflow-hidden">
+                        <div
+                          className={`h-full rounded-full bg-gradient-to-r ${gradient} transition-all duration-500`}
+                          style={{ width: `${(agent.total_signals / maxSignals) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {topAgents.length === 0 && (
+              <p className="text-xs text-white/25 text-center py-4">No agents registered</p>
+            )}
+          </Card>
+
+          {/* Active Agent count card */}
+          <Card className="p-4">
+            <SectionLabel>System Status</SectionLabel>
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-white/50">Active Agents</span>
+                <span className="text-[13px] font-mono tabular-nums font-bold text-white">{activeAgents.length}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-white/50">Pending</span>
+                <span className="text-[13px] font-mono tabular-nums text-white/25">{agents.length - activeAgents.length}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-white/50">Teams</span>
+                <span className="text-[13px] font-mono tabular-nums text-white/25">{teams.length}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-white/50">Cycles Run</span>
+                <span className="text-[13px] font-mono tabular-nums text-white/25">{cycles.length}</span>
+              </div>
+            </div>
+          </Card>
         </div>
       </div>
     </div>

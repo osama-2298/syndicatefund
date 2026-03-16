@@ -1,11 +1,66 @@
 'use client';
 
 import { useState } from 'react';
-import { UserPlus, Shield, Check, AlertCircle, ChevronRight, Lock } from 'lucide-react';
+import {
+  Loader2,
+  Shield,
+  Check,
+  AlertCircle,
+  ChevronRight,
+  Lock,
+  Eye,
+  EyeOff,
+  Cpu,
+  Search,
+  Key,
+  Users,
+  Minus,
+  Plus,
+  Copy,
+  CheckCheck,
+  Layers,
+  Bot,
+} from 'lucide-react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+const providers = [
+  {
+    id: 'anthropic',
+    name: 'Anthropic',
+    models: ['claude-sonnet-4-6', 'claude-haiku-4-5-20251001'],
+    startingPrice: '$3/M tokens',
+    description: 'Claude models — deep reasoning, strong analysis',
+    gradient: 'from-amber-400/20 to-orange-500/20',
+    ring: 'ring-amber-400/30',
+    placeholder: 'sk-ant-...',
+  },
+  {
+    id: 'openai',
+    name: 'OpenAI',
+    models: ['gpt-4o', 'gpt-4o-mini'],
+    startingPrice: '$2.50/M tokens',
+    description: 'GPT models — broad knowledge, fast inference',
+    gradient: 'from-emerald-400/20 to-teal-500/20',
+    ring: 'ring-emerald-400/30',
+    placeholder: 'sk-...',
+  },
+  {
+    id: 'google',
+    name: 'Google',
+    models: ['gemini-2.0-flash'],
+    startingPrice: '$0.075/M tokens',
+    description: 'Gemini models — cost-effective, high throughput',
+    gradient: 'from-blue-400/20 to-indigo-500/20',
+    ring: 'ring-blue-400/30',
+    placeholder: 'AI...',
+  },
+];
+
+const steps = ['Identity', 'Provider', 'Configure'];
+
 export default function RegisterPage() {
+  const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     display_name: '',
     email: '',
@@ -14,18 +69,21 @@ export default function RegisterPage() {
     max_agents: 2,
     preferred_model: 'claude-sonnet-4-6',
   });
+  const [showKey, setShowKey] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
 
-  const models: Record<string, string[]> = {
-    anthropic: ['claude-sonnet-4-6', 'claude-haiku-4-5-20251001'],
-    openai: ['gpt-4o', 'gpt-4o-mini'],
-    google: ['gemini-2.0-flash'],
+  const selectedProvider = providers.find((p) => p.id === form.provider)!;
+
+  const canAdvance = () => {
+    if (step === 0) return form.display_name.trim().length > 0;
+    if (step === 1) return form.api_key.trim().length > 0;
+    return true;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     setLoading(true);
     setError('');
     setResult(null);
@@ -47,12 +105,10 @@ export default function RegisterPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.detail || `Error ${res.status}`);
       }
-
       setResult(await res.json());
     } catch (err: any) {
       setError(err.message);
@@ -61,189 +117,502 @@ export default function RegisterPage() {
     }
   };
 
-  return (
-    <div className="slide-up max-w-xl mx-auto space-y-8">
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-3 mb-2">
-          <div className="glass-card p-2.5">
-            <UserPlus size={18} className="text-amber-400" />
+  const copyToken = () => {
+    if (result?.bearer_token) {
+      navigator.clipboard.writeText(result.bearer_token);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  // ── Success state ──
+  if (result) {
+    return (
+      <div className="max-w-2xl mx-auto slide-up">
+        {/* Animated gradient border wrapper */}
+        <div className="relative rounded-xl p-px overflow-hidden">
+          <div
+            className="absolute inset-0 rounded-xl"
+            style={{
+              background:
+                'conic-gradient(from 0deg, #f59e0b, #22c55e, #3b82f6, #a855f7, #f59e0b)',
+              animation: 'spin 4s linear infinite',
+            }}
+          />
+          <div className="relative bg-[#0d0d15] rounded-xl p-8">
+            {/* Header */}
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-12 h-12 rounded-full bg-emerald-400/10 flex items-center justify-center ring-1 ring-emerald-400/20">
+                <Check size={24} className="text-emerald-400" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-emerald-400">Registration Successful</h2>
+                <p className="text-sm text-white/40">{result.message}</p>
+              </div>
+            </div>
+
+            {/* Bearer token */}
+            <div className="mb-6">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-2">
+                Your Bearer Token
+              </p>
+              <p className="text-[11px] text-red-400/60 mb-2">
+                Save this token now. It will not be shown again.
+              </p>
+              <div className="relative group">
+                <code className="block bg-black/40 border border-white/[0.06] rounded-lg p-4 text-sm font-mono tabular-nums break-all select-all text-amber-400/80 pr-12">
+                  {result.bearer_token}
+                </code>
+                <button
+                  onClick={copyToken}
+                  className="absolute top-3 right-3 p-1.5 rounded-md bg-white/[0.04] hover:bg-white/[0.08] transition-colors"
+                >
+                  {copied ? (
+                    <CheckCheck size={14} className="text-emerald-400" />
+                  ) : (
+                    <Copy size={14} className="text-white/30" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <div className="bg-white/[0.02] border border-white/[0.06] rounded-lg p-4">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/25 mb-1">
+                  Agents Created
+                </p>
+                <p className="text-2xl font-bold font-mono tabular-nums text-white">
+                  {result.agents_created}
+                </p>
+              </div>
+              <div className="bg-white/[0.02] border border-white/[0.06] rounded-lg p-4">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/25 mb-1">
+                  Est. Monthly Cost
+                </p>
+                <p className="text-2xl font-bold font-mono tabular-nums text-white">
+                  ${result.estimated_monthly_cost_usd?.toFixed(2)}
+                </p>
+              </div>
+            </div>
+
+            {/* Next steps */}
+            <div className="bg-white/[0.02] border border-white/[0.06] rounded-lg p-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-3">
+                What Happens Next
+              </p>
+              <div className="space-y-2">
+                <div className="flex items-start gap-2.5">
+                  <div className="w-5 h-5 rounded-full bg-amber-400/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-[10px] font-bold text-amber-400">1</span>
+                  </div>
+                  <p className="text-sm text-white/50">
+                    The Board of Directors reviews your registration and assigns agents to teams.
+                  </p>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  <div className="w-5 h-5 rounded-full bg-amber-400/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-[10px] font-bold text-amber-400">2</span>
+                  </div>
+                  <p className="text-sm text-white/50">
+                    Agents start in quarantine (0.3x weight) and earn full weight after 20 signals.
+                  </p>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  <div className="w-5 h-5 rounded-full bg-amber-400/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-[10px] font-bold text-amber-400">3</span>
+                  </div>
+                  <p className="text-sm text-white/50">
+                    Visit the{' '}
+                    <a
+                      href="/agents"
+                      className="text-amber-400/80 hover:text-amber-300 transition-colors underline underline-offset-2"
+                    >
+                      Agents
+                    </a>{' '}
+                    page to track their performance.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Contribute to Syndicate</h1>
-            <p className="text-sm text-white/40 mt-1">Add your API key to expand the hive with new agents</p>
+        </div>
+
+        <style jsx>{`
+          @keyframes spin {
+            from {
+              transform: rotate(0deg);
+            }
+            to {
+              transform: rotate(360deg);
+            }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  // ── Main layout: value prop + form ──
+  return (
+    <div className="max-w-5xl mx-auto slide-up">
+      <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
+        {/* ── Left: Value proposition (40%) ── */}
+        <div className="lg:w-[38%] lg:pt-6">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-4">
+            Contributor Registration
+          </p>
+          <h1 className="text-2xl font-bold tracking-tight text-white mb-2">
+            Join the Syndicate
+          </h1>
+          <p className="text-sm text-white/40 mb-8 leading-relaxed">
+            Contribute your API keys to expand the analysis engine. Your agents join the collective
+            intelligence, governed by the Board.
+          </p>
+
+          <div className="space-y-4">
+            {[
+              {
+                icon: Bot,
+                title: 'Your agents join the analysis',
+                desc: 'Assigned to teams by the Board, trained with custom prompts, deployed to live cycles.',
+                color: 'text-amber-400',
+                bg: 'bg-amber-400/10',
+              },
+              {
+                icon: Search,
+                title: 'Full transparency — see everything',
+                desc: 'Every signal, every vote, every team synthesis. Nothing hidden.',
+                color: 'text-emerald-400',
+                bg: 'bg-emerald-400/10',
+              },
+              {
+                icon: Shield,
+                title: 'AES-256 encrypted keys',
+                desc: 'Your API keys are encrypted with AES-256-GCM. Never stored in plaintext, never logged.',
+                color: 'text-blue-400',
+                bg: 'bg-blue-400/10',
+              },
+              {
+                icon: Layers,
+                title: 'Board assigns optimal teams',
+                desc: 'The CSO finds coverage gaps, the CTO writes prompts, the CPO monitors performance.',
+                color: 'text-purple-400',
+                bg: 'bg-purple-400/10',
+              },
+            ].map((item, i) => (
+              <div key={i} className="flex items-start gap-3.5">
+                <div
+                  className={`w-9 h-9 rounded-lg ${item.bg} flex items-center justify-center flex-shrink-0 ring-1 ring-white/[0.04]`}
+                >
+                  <item.icon size={16} className={item.color} />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">{item.title}</p>
+                  <p className="text-xs text-white/30 leading-relaxed mt-0.5">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Right: Form (60%) ── */}
+        <div className="lg:flex-1">
+          {/* Step indicator */}
+          <div className="flex items-center gap-2 mb-6">
+            {steps.map((s, i) => (
+              <div key={s} className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <div
+                    className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
+                      i === step
+                        ? 'bg-amber-400/20 text-amber-400 ring-1 ring-amber-400/30'
+                        : i < step
+                        ? 'bg-emerald-400/10 text-emerald-400'
+                        : 'bg-white/[0.04] text-white/20'
+                    }`}
+                  >
+                    {i < step ? <Check size={12} /> : i + 1}
+                  </div>
+                  <span
+                    className={`text-xs font-medium ${
+                      i === step ? 'text-white/60' : 'text-white/20'
+                    }`}
+                  >
+                    {s}
+                  </span>
+                </div>
+                {i < steps.length - 1 && (
+                  <div className="w-8 h-px bg-white/[0.06] mx-1" />
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-[#0d0d15] border border-white/[0.06] rounded-xl p-6">
+            {/* ── Step 0: Identity ── */}
+            {step === 0 && (
+              <div className="space-y-5">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 block mb-2">
+                    Display Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={form.display_name}
+                    onChange={(e) => setForm({ ...form, display_name: e.target.value })}
+                    className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-3 text-white focus:border-amber-400/50 focus:outline-none focus:ring-1 focus:ring-amber-400/20 transition-all placeholder:text-white/15"
+                    placeholder="Your name or alias"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 block mb-2">
+                    Email{' '}
+                    <span className="text-white/20 normal-case tracking-normal font-normal">
+                      (optional)
+                    </span>
+                  </label>
+                  <input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-3 text-white focus:border-amber-400/50 focus:outline-none focus:ring-1 focus:ring-amber-400/20 transition-all placeholder:text-white/15"
+                    placeholder="you@email.com"
+                  />
+                </div>
+
+                <button
+                  onClick={() => canAdvance() && setStep(1)}
+                  disabled={!canAdvance()}
+                  className="w-full bg-white/[0.06] hover:bg-white/[0.10] text-white py-3 rounded-xl font-semibold text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  Continue
+                  <ChevronRight size={15} />
+                </button>
+              </div>
+            )}
+
+            {/* ── Step 1: Provider + API key ── */}
+            {step === 1 && (
+              <div className="space-y-5">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 block mb-3">
+                    Select Provider
+                  </label>
+                  <div className="space-y-2.5">
+                    {providers.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() =>
+                          setForm({ ...form, provider: p.id, preferred_model: p.models[0] })
+                        }
+                        className={`w-full text-left p-4 rounded-xl border transition-all ${
+                          form.provider === p.id
+                            ? `bg-gradient-to-r ${p.gradient} border-white/[0.10] ring-1 ${p.ring}`
+                            : 'bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04] hover:border-white/[0.08]'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-sm font-bold text-white">{p.name}</span>
+                          <span className="text-[10px] font-mono tabular-nums text-white/30">
+                            {p.startingPrice}
+                          </span>
+                        </div>
+                        <p className="text-xs text-white/35 mb-2">{p.description}</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {p.models.map((m) => (
+                            <span
+                              key={m}
+                              className="text-[10px] font-mono text-white/20 bg-white/[0.04] px-2 py-0.5 rounded"
+                            >
+                              {m}
+                            </span>
+                          ))}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 block mb-2">
+                    API Key
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showKey ? 'text' : 'password'}
+                      required
+                      value={form.api_key}
+                      onChange={(e) => setForm({ ...form, api_key: e.target.value })}
+                      className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-3 pr-12 text-white font-mono text-sm focus:border-amber-400/50 focus:outline-none focus:ring-1 focus:ring-amber-400/20 transition-all placeholder:text-white/15"
+                      placeholder={selectedProvider.placeholder}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowKey(!showKey)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-white/[0.06] transition-colors"
+                    >
+                      {showKey ? (
+                        <EyeOff size={14} className="text-white/25" />
+                      ) : (
+                        <Eye size={14} className="text-white/25" />
+                      )}
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <Lock size={10} className="text-white/15" />
+                    <p className="text-[10px] text-white/15">
+                      Encrypted with AES-256-GCM. Never stored in plaintext.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2.5">
+                  <button
+                    onClick={() => setStep(0)}
+                    className="px-5 bg-white/[0.04] hover:bg-white/[0.06] text-white/50 py-3 rounded-xl text-sm transition-all"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={() => canAdvance() && setStep(2)}
+                    disabled={!canAdvance()}
+                    className="flex-1 bg-white/[0.06] hover:bg-white/[0.10] text-white py-3 rounded-xl font-semibold text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    Continue
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ── Step 2: Configure + Submit ── */}
+            {step === 2 && (
+              <div className="space-y-5">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 block mb-2">
+                    Model
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={form.preferred_model}
+                      onChange={(e) => setForm({ ...form, preferred_model: e.target.value })}
+                      className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-3 text-white text-sm focus:border-amber-400/50 focus:outline-none focus:ring-1 focus:ring-amber-400/20 transition-all appearance-none cursor-pointer"
+                    >
+                      {selectedProvider.models.map((m) => (
+                        <option key={m} value={m} className="bg-[#0a0a0f] text-white">
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                    <Cpu
+                      size={14}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 block mb-3">
+                    Number of Agents
+                  </label>
+                  <div className="flex items-center justify-center gap-5">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm({ ...form, max_agents: Math.max(1, form.max_agents - 1) })
+                      }
+                      className="w-10 h-10 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] flex items-center justify-center transition-all"
+                    >
+                      <Minus size={16} className="text-white/40" />
+                    </button>
+                    <div className="w-20 text-center">
+                      <span className="text-3xl font-bold font-mono tabular-nums text-white">
+                        {form.max_agents}
+                      </span>
+                      <p className="text-[10px] text-white/20 mt-0.5">agents</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm({ ...form, max_agents: Math.min(10, form.max_agents + 1) })
+                      }
+                      className="w-10 h-10 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] flex items-center justify-center transition-all"
+                    >
+                      <Plus size={16} className="text-white/40" />
+                    </button>
+                  </div>
+                  <div className="flex justify-between text-[10px] text-white/15 mt-2 px-4">
+                    <span>Min: 1</span>
+                    <span>Max: 10</span>
+                  </div>
+                </div>
+
+                {/* Summary */}
+                <div className="bg-white/[0.02] border border-white/[0.04] rounded-lg p-4 space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/25 mb-2">
+                    Summary
+                  </p>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-white/30">Name</span>
+                    <span className="text-white/60 font-medium">{form.display_name}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-white/30">Provider</span>
+                    <span className="text-white/60 font-medium">{selectedProvider.name}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-white/30">Model</span>
+                    <span className="text-white/60 font-mono text-[11px]">{form.preferred_model}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-white/30">Agents</span>
+                    <span className="text-white/60 font-mono tabular-nums">{form.max_agents}</span>
+                  </div>
+                </div>
+
+                {/* Error state */}
+                {error && (
+                  <div className="bg-red-400/[0.05] border border-red-400/20 rounded-lg p-4 flex items-start gap-3">
+                    <AlertCircle size={16} className="text-red-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-red-400">Registration Failed</p>
+                      <p className="text-xs text-red-400/60 mt-0.5">{error}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-2.5">
+                  <button
+                    onClick={() => setStep(1)}
+                    className="px-5 bg-white/[0.04] hover:bg-white/[0.06] text-white/50 py-3 rounded-xl text-sm transition-all"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={loading}
+                    className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 text-black py-3 rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-amber-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Registering...
+                      </>
+                    ) : (
+                      <>
+                        Register & Contribute
+                        <ChevronRight size={16} />
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
-
-      {result ? (
-        /* Success State */
-        <div className="glass-card p-6 space-y-5 border-emerald-500/20">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center h-10 w-10 rounded-full bg-emerald-500/10 ring-1 ring-inset ring-emerald-500/20">
-              <Check size={20} className="text-emerald-400" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-emerald-400">Registration Successful</h2>
-              <p className="text-xs text-white/40">{result.message}</p>
-            </div>
-          </div>
-
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-2">Your Bearer Token</p>
-            <p className="text-[10px] text-white/30 mb-1.5">Save this token — it will not be shown again</p>
-            <code className="block bg-white/[0.03] border border-white/[0.06] rounded-lg p-3 text-sm font-mono break-all select-all text-amber-400/80">
-              {result.bearer_token}
-            </code>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="glass-card p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Agents Created</p>
-              <p className="mt-1 text-2xl font-bold tracking-tight">{result.agents_created}</p>
-            </div>
-            <div className="glass-card p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Est. Monthly Cost</p>
-              <p className="mt-1 text-2xl font-bold tracking-tight">${result.estimated_monthly_cost_usd.toFixed(2)}</p>
-            </div>
-          </div>
-
-          <p className="text-sm text-white/40">
-            The Board of Directors will assign your agents to teams shortly.
-            Check the <a href="/agents" className="text-amber-400/80 hover:text-amber-300 transition-colors">Agents</a> page to see their status.
-          </p>
-        </div>
-      ) : (
-        /* Registration Form */
-        <form onSubmit={handleSubmit} className="glass-card p-6 space-y-6">
-          {/* Display Name */}
-          <div>
-            <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 block mb-2">Display Name</label>
-            <input
-              type="text"
-              required
-              value={form.display_name}
-              onChange={(e) => setForm({ ...form, display_name: e.target.value })}
-              className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-2.5 text-white focus:border-amber-400/50 focus:outline-none focus:ring-1 focus:ring-amber-400/20 transition-all placeholder:text-white/20"
-              placeholder="Your name or alias"
-            />
-          </div>
-
-          {/* Email */}
-          <div>
-            <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 block mb-2">
-              Email <span className="text-white/20 normal-case tracking-normal">(optional)</span>
-            </label>
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-2.5 text-white focus:border-amber-400/50 focus:outline-none focus:ring-1 focus:ring-amber-400/20 transition-all placeholder:text-white/20"
-              placeholder="you@email.com"
-            />
-          </div>
-
-          {/* Provider */}
-          <div>
-            <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 block mb-2">API Provider</label>
-            <div className="grid grid-cols-3 gap-2">
-              {(['anthropic', 'openai', 'google'] as const).map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setForm({ ...form, provider: p, preferred_model: models[p][0] })}
-                  className={`py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                    form.provider === p
-                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-black shadow-lg shadow-amber-500/10'
-                      : 'bg-white/[0.04] text-white/40 ring-1 ring-white/[0.06] hover:bg-white/[0.06] hover:text-white/60'
-                  }`}
-                >
-                  {p === 'anthropic' ? 'Anthropic' : p === 'openai' ? 'OpenAI' : 'Google'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* API Key */}
-          <div>
-            <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 block mb-2">API Key</label>
-            <input
-              type="password"
-              required
-              value={form.api_key}
-              onChange={(e) => setForm({ ...form, api_key: e.target.value })}
-              className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-2.5 text-white font-mono text-sm focus:border-amber-400/50 focus:outline-none focus:ring-1 focus:ring-amber-400/20 transition-all placeholder:text-white/20"
-              placeholder={form.provider === 'anthropic' ? 'sk-ant-...' : form.provider === 'openai' ? 'sk-...' : 'AI...'}
-            />
-            <div className="flex items-center gap-1.5 mt-2">
-              <Lock size={10} className="text-white/20" />
-              <p className="text-[10px] text-white/20">Encrypted with AES-256-GCM. Never stored in plaintext.</p>
-            </div>
-          </div>
-
-          {/* Model */}
-          <div>
-            <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 block mb-2">Model</label>
-            <select
-              value={form.preferred_model}
-              onChange={(e) => setForm({ ...form, preferred_model: e.target.value })}
-              className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-2.5 text-white focus:border-amber-400/50 focus:outline-none focus:ring-1 focus:ring-amber-400/20 transition-all"
-            >
-              {models[form.provider].map((m) => (
-                <option key={m} value={m} className="bg-[#0a0a0f] text-white">{m}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Agent Count */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Number of Agents</label>
-              <span className="text-sm font-bold text-white">{form.max_agents}</span>
-            </div>
-            <input
-              type="range"
-              min={1}
-              max={10}
-              value={form.max_agents}
-              onChange={(e) => setForm({ ...form, max_agents: parseInt(e.target.value) })}
-              className="w-full accent-amber-500"
-            />
-            <div className="flex justify-between text-[10px] text-white/20 mt-1">
-              <span>1</span>
-              <span>5</span>
-              <span>10</span>
-            </div>
-          </div>
-
-          {/* Error State */}
-          {error && (
-            <div className="glass-card p-3 border-red-500/20 bg-red-500/[0.04] flex items-start gap-2.5">
-              <AlertCircle size={16} className="text-red-400 shrink-0 mt-0.5" />
-              <p className="text-sm text-red-400">{error}</p>
-            </div>
-          )}
-
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-black py-3 rounded-xl font-bold hover:shadow-lg hover:shadow-amber-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-                <Shield size={16} className="animate-spin" />
-                Registering...
-              </>
-            ) : (
-              <>
-                Register & Contribute
-                <ChevronRight size={16} />
-              </>
-            )}
-          </button>
-        </form>
-      )}
     </div>
   );
 }
