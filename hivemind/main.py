@@ -1268,10 +1268,11 @@ def run_pipeline(
                     )
                     await session.commit()
 
-            # Run async from sync context
+            # Run async from sync context (thread-safe)
             try:
                 loop = asyncio.get_running_loop()
-                loop.create_task(_record())
+                future = asyncio.run_coroutine_threadsafe(_record(), loop)
+                future.result(timeout=10)  # Wait up to 10s for DB write
             except RuntimeError:
                 asyncio.run(_record())
         except Exception as e:
