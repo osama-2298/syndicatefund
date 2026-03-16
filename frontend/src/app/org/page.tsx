@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Network, ChevronRight } from 'lucide-react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -30,24 +31,13 @@ interface Team {
 function StatusDot({ status }: { status: string }) {
   const colors: Record<string, string> = {
     founding: 'bg-amber-400',
-    active: 'bg-hive-green',
-    assigned: 'bg-hive-blue',
+    active: 'bg-emerald-400',
+    assigned: 'bg-blue-400',
     registered: 'bg-gray-400',
     probation: 'bg-orange-400',
-    fired: 'bg-hive-red',
+    fired: 'bg-red-400',
   };
   return <span className={`inline-block w-2 h-2 rounded-full ${colors[status] || 'bg-gray-400'} flex-shrink-0`} />;
-}
-
-function Chevron({ open }: { open: boolean }) {
-  return (
-    <svg
-      className={`w-3.5 h-3.5 text-hive-muted transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
-      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-    </svg>
-  );
 }
 
 function Node({
@@ -76,28 +66,35 @@ function Node({
     <div className="relative">
       <button
         onClick={() => hasChildren && setOpen(!open)}
-        className={`w-full flex items-center gap-2 py-1.5 px-2 rounded transition-colors text-left
-          ${hasChildren ? 'hover:bg-hive-border/20 cursor-pointer' : 'cursor-default'}`}
+        className={`w-full flex items-center gap-2 py-2 px-2.5 rounded-lg transition-colors text-left group
+          ${hasChildren ? 'hover:bg-white/[0.04] cursor-pointer' : 'cursor-default'}`}
       >
         <span className="w-4 flex-shrink-0 flex items-center justify-center">
-          {hasChildren ? <Chevron open={open} /> : <span className="w-1.5 h-1.5 rounded-full bg-hive-border" />}
+          {hasChildren ? (
+            <ChevronRight
+              size={14}
+              className={`text-white/20 group-hover:text-white/40 transition-all duration-150 ${open ? 'rotate-90' : ''}`}
+            />
+          ) : (
+            <span className="w-1.5 h-1.5 rounded-full bg-white/[0.08]" />
+          )}
         </span>
 
         <div className="flex-1 min-w-0 flex items-center gap-2">
           <span className="text-sm font-medium">{label}</span>
           {badge && (
-            <span className={`text-[10px] px-1.5 py-0.5 rounded ${badgeColor || 'bg-hive-border text-hive-muted'}`}>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded ring-1 ring-inset ${badgeColor || 'bg-white/[0.04] text-white/30 ring-white/[0.08]'}`}>
               {badge}
             </span>
           )}
-          {subtitle && <span className="text-xs text-hive-muted truncate hidden md:inline">{subtitle}</span>}
+          {subtitle && <span className="text-xs text-white/30 truncate hidden md:inline">{subtitle}</span>}
         </div>
 
         {right && <div className="flex-shrink-0">{right}</div>}
       </button>
 
       {open && hasChildren && (
-        <div className="ml-4 pl-4 border-l border-hive-border/30">
+        <div className="ml-4 pl-4 border-l border-white/[0.06]">
           {children}
         </div>
       )}
@@ -117,15 +114,15 @@ function Leaf({
   right?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-2 py-1.5 px-2">
+    <div className="flex items-center gap-2 py-2 px-2.5 rounded-lg hover:bg-white/[0.03] transition-colors">
       <span className="w-4 flex-shrink-0 flex items-center justify-center">
-        {status ? <StatusDot status={status} /> : <span className="w-1.5 h-1.5 rounded-full bg-hive-border" />}
+        {status ? <StatusDot status={status} /> : <span className="w-1.5 h-1.5 rounded-full bg-white/[0.08]" />}
       </span>
       <div className="flex-1 min-w-0">
         <span className="text-sm">{label}</span>
-        {sublabel && <span className="text-xs text-hive-muted ml-2">{sublabel}</span>}
+        {sublabel && <span className="text-xs text-white/30 ml-2">{sublabel}</span>}
       </div>
-      {right && <div className="flex-shrink-0 text-xs text-hive-muted">{right}</div>}
+      {right && <div className="flex-shrink-0 text-xs text-white/30">{right}</div>}
     </div>
   );
 }
@@ -145,7 +142,6 @@ export default function OrgPage() {
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  // Names for founding agents and managers
   const agentNames: Record<string, string> = {
     'TechnicalTrendAgent': 'Lena Karlsson',
     'TechnicalSignalAgent': 'David Osei',
@@ -186,20 +182,33 @@ export default function OrgPage() {
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center py-20"><p className="text-hive-muted">Loading...</p></div>;
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex items-center gap-3">
+          <div className="w-5 h-5 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
+          <p className="text-sm text-white/30">Loading organization...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-3xl mx-auto py-4">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-1">Organization</h1>
-        <p className="text-hive-muted text-sm">
+    <div className="max-w-3xl mx-auto slide-up">
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center gap-2.5 mb-3">
+          <Network size={18} className="text-amber-400/60" />
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Org Chart</p>
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight">Organization</h1>
+        <p className="text-sm text-white/40 mt-1">
           {teams.length} teams, {agents.length} agents. Click to expand.
         </p>
       </div>
 
-      <div className="bg-hive-card border border-hive-border rounded-xl p-3">
-        <Node label="Marcus Blackwell — CEO" subtitle="Strategic leadership" badge="EXECUTIVE" badgeColor="bg-hive-accent/20 text-hive-accent" defaultOpen={true}>
+      {/* Tree */}
+      <div className="glass-card p-4">
+        <Node label="Marcus Blackwell — CEO" subtitle="Strategic leadership" badge="EXECUTIVE" badgeColor="bg-amber-400/10 text-amber-400 ring-amber-400/20" defaultOpen={true}>
 
           <Node label="Elena Vasquez — COO" subtitle="Coin selection">
             <Leaf label="Selects which coins to analyze each cycle based on volume, momentum, and CEO strategy" />
@@ -214,7 +223,7 @@ export default function OrgPage() {
             </Node>
           </Node>
 
-          <Node label="Board of Directors" subtitle="Organizational governance" badge="META" badgeColor="bg-purple-500/20 text-purple-400">
+          <Node label="Board of Directors" subtitle="Organizational governance" badge="META" badgeColor="bg-purple-400/10 text-purple-400 ring-purple-400/20">
             <Leaf label="Victor Okafor — CSO" sublabel="Team creation and dissolution" />
             <Leaf label="Nadia Chen — CTO" sublabel="Agent assignment and prompt writing" />
             <Leaf label="Raphael Moreno — CPO" sublabel="Probation and firing pipeline" />
@@ -228,8 +237,8 @@ export default function OrgPage() {
                   key={team.id}
                   label={`${team.name.charAt(0).toUpperCase() + team.name.slice(1)} Team`}
                   badge={team.is_system ? 'SYSTEM' : 'DYNAMIC'}
-                  badgeColor={team.is_system ? 'bg-amber-500/20 text-amber-400' : 'bg-hive-blue/20 text-hive-blue'}
-                  right={<span className="text-xs text-hive-muted">{team.weight.toFixed(1)}x</span>}
+                  badgeColor={team.is_system ? 'bg-amber-400/10 text-amber-400 ring-amber-400/20' : 'bg-blue-400/10 text-blue-400 ring-blue-400/20'}
+                  right={<span className="text-xs text-white/30">{team.weight.toFixed(1)}x</span>}
                 >
                   <Leaf label={`${managerNames[team.name] || 'Manager'} — ${team.name.charAt(0).toUpperCase() + team.name.slice(1)} Manager`} sublabel="Synthesizes agent signals" />
                   {ta.map((agent) => (
@@ -274,7 +283,7 @@ export default function OrgPage() {
           </Node>
 
           {unassigned.length > 0 && (
-            <Node label={`Unassigned (${unassigned.length})`} subtitle="Awaiting Board assignment" badge="PENDING" badgeColor="bg-gray-500/20 text-gray-400" defaultOpen={true}>
+            <Node label={`Unassigned (${unassigned.length})`} subtitle="Awaiting Board assignment" badge="PENDING" badgeColor="bg-gray-400/10 text-gray-400 ring-gray-400/20" defaultOpen={true}>
               {unassigned.map((agent) => (
                 <Leaf
                   key={agent.id}

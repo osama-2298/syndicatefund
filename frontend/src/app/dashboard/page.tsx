@@ -80,7 +80,7 @@ export default function Dashboard() {
   const returnPct = ((totalValue - 100000) / 100000) * 100;
   const returnUsd = totalValue - 100000;
 
-  // Build lookup: symbol → trade entry (for SL/TP data)
+  // Build lookup: symbol -> trade entry (for SL/TP data)
   const openTradesBySymbol: Record<string, TradeEntry> = {};
   for (const t of trades) {
     if (t.exit_reason === 'OPEN') {
@@ -96,7 +96,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Activity size={24} className="animate-spin text-hive-accent" />
+        <Activity size={24} className="animate-spin text-amber-400" />
       </div>
     );
   }
@@ -107,7 +107,7 @@ export default function Dashboard() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-hive-muted mt-1">Autonomous AI hedge fund — {activeAgents.length} agents across {teams.length} teams</p>
+          <p className="text-sm text-white/40 mt-1">Autonomous AI hedge fund — {activeAgents.length} agents across {teams.length} teams</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="glass-card flex items-center gap-2 px-3 py-1.5">
@@ -119,8 +119,8 @@ export default function Dashboard() {
           </div>
           {lastCycle && (
             <div className="glass-card flex items-center gap-1.5 px-3 py-1.5">
-              <Clock size={12} className="text-hive-muted" />
-              <span className="text-xs text-hive-muted">{new Date(lastCycle.started_at).toLocaleTimeString()}</span>
+              <Clock size={12} className="text-white/30" />
+              <span className="text-xs text-white/40">{new Date(lastCycle.started_at).toLocaleTimeString()}</span>
             </div>
           )}
         </div>
@@ -130,10 +130,10 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="glass-card p-5">
           <div className="flex items-start justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted">Portfolio</p>
-            <Wallet size={16} className="text-hive-muted/40" />
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Portfolio</p>
+            <Wallet size={16} className="text-white/10" />
           </div>
-          <p className={`mt-2 text-2xl font-bold tracking-tight ${returnPct >= 0 ? 'text-hive-text' : 'text-hive-red'}`}>
+          <p className={`mt-2 text-2xl font-bold tracking-tight ${returnPct >= 0 ? 'text-white' : 'text-red-400'}`}>
             ${totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
           </p>
           <div className={`mt-1.5 flex items-center gap-1 text-xs font-medium ${returnPct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -144,37 +144,37 @@ export default function Dashboard() {
 
         <div className="glass-card p-5">
           <div className="flex items-start justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted">Active Agents</p>
-            <Bot size={16} className="text-hive-muted/40" />
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Active Agents</p>
+            <Bot size={16} className="text-white/10" />
           </div>
           <p className="mt-2 text-2xl font-bold tracking-tight">{activeAgents.length}</p>
-          <p className="mt-1.5 text-xs text-hive-muted">{teams.length} teams · {agents.length - activeAgents.length} pending</p>
+          <p className="mt-1.5 text-xs text-white/40">{teams.length} teams · {agents.length - activeAgents.length} pending</p>
         </div>
 
         <div className="glass-card p-5">
           <div className="flex items-start justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted">Signals Produced</p>
-            <Zap size={16} className="text-hive-muted/40" />
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Signals Produced</p>
+            <Zap size={16} className="text-white/10" />
           </div>
           <p className="mt-2 text-2xl font-bold tracking-tight">{totalSignals.toLocaleString()}</p>
-          <p className="mt-1.5 text-xs text-hive-muted">{totalOrders} trades executed</p>
+          <p className="mt-1.5 text-xs text-white/40">{totalOrders} trades executed</p>
         </div>
 
         <div className="glass-card p-5">
           <div className="flex items-start justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted">Deployed Capital</p>
-            <BarChart3 size={16} className="text-hive-muted/40" />
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Deployed Capital</p>
+            <BarChart3 size={16} className="text-white/10" />
           </div>
           <p className="mt-2 text-2xl font-bold tracking-tight">${invested.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-          <p className="mt-1.5 text-xs text-hive-muted">${cash.toLocaleString(undefined, { maximumFractionDigits: 0 })} available</p>
+          <p className="mt-1.5 text-xs text-white/40">${cash.toLocaleString(undefined, { maximumFractionDigits: 0 })} available</p>
         </div>
       </div>
 
       {/* Team Overview */}
       <div className="glass-card p-5">
         <div className="flex items-center justify-between mb-4">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted">Analysis Teams</p>
-          <a href="/org" className="text-xs text-hive-accent hover:text-amber-300 transition-colors flex items-center gap-1">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Analysis Teams</p>
+          <a href="/org" className="text-xs text-amber-400/80 hover:text-amber-300 transition-colors flex items-center gap-1">
             Org Chart <ArrowRight size={12} />
           </a>
         </div>
@@ -187,7 +187,7 @@ export default function Dashboard() {
               </div>
               <div className="flex items-end justify-between">
                 <span className="text-lg font-bold">{team.active_agent_count}</span>
-                <span className="text-[10px] text-hive-muted">{team.weight.toFixed(1)}x</span>
+                <span className="text-[10px] text-white/30">{team.weight.toFixed(1)}x</span>
               </div>
             </div>
           ))}
@@ -200,23 +200,23 @@ export default function Dashboard() {
         <div className="lg:col-span-2 glass-card overflow-hidden">
           <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Signal size={14} className="text-hive-accent" />
+              <Signal size={14} className="text-amber-400" />
               <h2 className="text-sm font-semibold">Open Positions</h2>
             </div>
             {positions.length > 0 && (
-              <span className="text-xs text-hive-muted">${invested.toLocaleString(undefined, { maximumFractionDigits: 0 })} invested</span>
+              <span className="text-xs text-white/40">${invested.toLocaleString(undefined, { maximumFractionDigits: 0 })} invested</span>
             )}
           </div>
           {positions.length === 0 ? (
             <div className="px-5 py-10 text-center">
               <BarChart3 size={28} className="mx-auto text-white/10 mb-3" />
-              <p className="text-sm text-hive-muted">No open positions</p>
-              <p className="text-xs text-hive-muted/50 mt-1">Next cycle will analyze markets and generate trades</p>
+              <p className="text-sm text-white/40">No open positions</p>
+              <p className="text-xs text-white/20 mt-1">Next cycle will analyze markets and generate trades</p>
             </div>
           ) : (
             <table className="w-full">
               <thead>
-                <tr className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted border-b border-white/[0.06]">
+                <tr className="text-[10px] font-semibold uppercase tracking-widest text-white/30 border-b border-white/[0.06]">
                   <th className="text-left px-4 py-2.5">Symbol</th>
                   <th className="text-left px-4 py-2.5">Side</th>
                   <th className="text-right px-4 py-2.5">Size</th>
@@ -248,27 +248,27 @@ export default function Dashboard() {
                       <td className="px-4 py-3">
                         <span className="font-semibold text-sm">{pos.symbol.replace('USDT', '')}</span>
                         {conviction != null && (
-                          <span className="ml-1.5 text-[10px] text-hive-muted">{conviction}/10</span>
+                          <span className="ml-1.5 text-[10px] text-white/30">{conviction}/10</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                          pos.side === 'BUY' ? 'bg-emerald-500/10 text-emerald-400 ring-1 ring-inset ring-emerald-500/20'
-                            : 'bg-red-500/10 text-red-400 ring-1 ring-inset ring-red-500/20'
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ring-1 ring-inset ${
+                          pos.side === 'BUY' ? 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/20'
+                            : 'bg-red-500/10 text-red-400 ring-red-500/20'
                         }`}>{pos.side}</span>
                       </td>
                       <td className="px-4 py-3 text-right text-sm">${size.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                      <td className="px-4 py-3 text-right text-sm text-hive-muted">${pos.entry_price.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right text-sm text-white/40">${pos.entry_price.toLocaleString()}</td>
                       <td className={`px-4 py-3 text-right text-sm font-mono tabular-nums transition-colors duration-300 ${
                         flash === 'up' ? 'text-emerald-400 bg-emerald-400/5' :
-                        flash === 'down' ? 'text-red-400 bg-red-400/5' : 'text-hive-text'
+                        flash === 'down' ? 'text-red-400 bg-red-400/5' : 'text-white'
                       }`}>
                         ${live.toLocaleString()}
-                        <span className="ml-1 text-[9px] text-hive-muted/50">LIVE</span>
+                        <span className="ml-1 text-[9px] text-white/20">LIVE</span>
                       </td>
                       <td className="px-4 py-3 text-right text-sm text-red-400/70">
                         {sl > 0 ? `$${sl.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '\u2014'}
-                        {riskAmt > 0 && <span className="block text-[10px] text-hive-muted">-${riskAmt.toFixed(0)} risk</span>}
+                        {riskAmt > 0 && <span className="block text-[10px] text-white/30">-${riskAmt.toFixed(0)} risk</span>}
                       </td>
                       <td className="px-4 py-3 text-right text-sm text-emerald-400/70">
                         {tp > 0 ? `$${tp.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '\u2014'}
@@ -288,39 +288,39 @@ export default function Dashboard() {
         {/* Right sidebar - Market Regime + Cycle info */}
         <div className="space-y-4">
           <div className="glass-card p-5">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted mb-3">Market Regime</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-3">Market Regime</p>
             {lastCycle?.regime ? (
               <>
-                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold ${
-                  lastCycle.regime === 'bull' ? 'bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20' :
-                  lastCycle.regime === 'bear' ? 'bg-red-500/10 text-red-400 ring-1 ring-red-500/20' :
-                  lastCycle.regime === 'crisis' ? 'bg-red-900/20 text-red-300 ring-1 ring-red-500/30' :
-                  'bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/20'
+                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold ring-1 ring-inset ${
+                  lastCycle.regime === 'bull' ? 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/20' :
+                  lastCycle.regime === 'bear' ? 'bg-red-500/10 text-red-400 ring-red-500/20' :
+                  lastCycle.regime === 'crisis' ? 'bg-red-900/20 text-red-300 ring-red-500/30' :
+                  'bg-amber-500/10 text-amber-400 ring-amber-500/20'
                 }`}>
                   {lastCycle.regime === 'bull' ? <TrendingUp size={14} /> : lastCycle.regime === 'bear' ? <TrendingDown size={14} /> : <Shield size={14} />}
                   {lastCycle.regime.toUpperCase()}
                 </div>
-                <p className="text-xs text-hive-muted mt-2">Set by CEO agent each cycle</p>
+                <p className="text-xs text-white/30 mt-2">Set by CEO agent each cycle</p>
               </>
             ) : (
-              <p className="text-sm text-hive-muted">Awaiting first cycle</p>
+              <p className="text-sm text-white/40">Awaiting first cycle</p>
             )}
           </div>
 
           <div className="glass-card p-5">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted mb-3">Cycle Pipeline</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-3">Cycle Pipeline</p>
             <div className="space-y-2">
               {['Intelligence', 'CEO Directive', 'Coin Selection', 'Agent Analysis', 'Aggregation', 'Risk Check', 'Execution'].map((step, i) => (
                 <div key={step} className="flex items-center gap-2">
-                  <span className="w-5 text-[10px] text-hive-muted/40 text-right">{i + 1}</span>
+                  <span className="w-5 text-[10px] text-white/20 text-right">{i + 1}</span>
                   <div className={`flex-1 text-xs py-1 px-2 rounded ${
                     lastCycle ? 'bg-emerald-500/5 text-emerald-400/60 ring-1 ring-inset ring-emerald-500/10'
-                      : 'bg-white/[0.02] text-hive-muted/40 ring-1 ring-inset ring-white/[0.04]'
+                      : 'bg-white/[0.02] text-white/20 ring-1 ring-inset ring-white/[0.04]'
                   }`}>{step}</div>
                 </div>
               ))}
             </div>
-            <p className="text-[10px] text-hive-muted mt-3">Runs every 4h on UTC boundaries</p>
+            <p className="text-[10px] text-white/30 mt-3">Runs every 4h on UTC boundaries</p>
           </div>
         </div>
       </div>
@@ -330,16 +330,16 @@ export default function Dashboard() {
         <div className="glass-card overflow-hidden">
           <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Activity size={14} className="text-hive-accent" />
+              <Activity size={14} className="text-amber-400" />
               <h2 className="text-sm font-semibold">Recent Cycles</h2>
             </div>
-            <a href="/cycles" className="text-xs text-hive-accent hover:text-amber-300 transition-colors flex items-center gap-1">
+            <a href="/cycles" className="text-xs text-amber-400/80 hover:text-amber-300 transition-colors flex items-center gap-1">
               View all <ArrowRight size={12} />
             </a>
           </div>
           <table className="w-full">
             <thead>
-              <tr className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted border-b border-white/[0.06]">
+              <tr className="text-[10px] font-semibold uppercase tracking-widest text-white/30 border-b border-white/[0.06]">
                 <th className="text-left px-5 py-2.5">#</th>
                 <th className="text-left px-5 py-2.5">Time</th>
                 <th className="text-left px-5 py-2.5">Regime</th>
@@ -352,19 +352,19 @@ export default function Dashboard() {
             <tbody>
               {cycles.map((c) => (
                 <tr key={c.id} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
-                  <td className="px-5 py-3 text-sm text-hive-muted">{c.id}</td>
+                  <td className="px-5 py-3 text-sm text-white/40">{c.id}</td>
                   <td className="px-5 py-3 text-sm">{new Date(c.started_at).toLocaleString()}</td>
                   <td className="px-5 py-3">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                      c.regime === 'bull' ? 'bg-emerald-500/10 text-emerald-400 ring-1 ring-inset ring-emerald-500/20' :
-                      c.regime === 'bear' ? 'bg-red-500/10 text-red-400 ring-1 ring-inset ring-red-500/20' :
-                      'bg-white/[0.04] text-hive-muted ring-1 ring-inset ring-white/[0.06]'
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ring-1 ring-inset ${
+                      c.regime === 'bull' ? 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/20' :
+                      c.regime === 'bear' ? 'bg-red-500/10 text-red-400 ring-red-500/20' :
+                      'bg-white/[0.04] text-white/40 ring-white/[0.06]'
                     }`}>{(c.regime ?? 'N/A').toUpperCase()}</span>
                   </td>
                   <td className="px-5 py-3 text-right text-sm">{c.coins_analyzed}</td>
                   <td className="px-5 py-3 text-right text-sm">{c.signals_produced}</td>
                   <td className="px-5 py-3 text-right text-sm">{c.orders_executed}</td>
-                  <td className="px-5 py-3 text-right text-sm text-hive-muted">{c.duration_secs ? `${Math.round(c.duration_secs)}s` : '\u2014'}</td>
+                  <td className="px-5 py-3 text-right text-sm text-white/40">{c.duration_secs ? `${Math.round(c.duration_secs)}s` : '\u2014'}</td>
                 </tr>
               ))}
             </tbody>
@@ -373,13 +373,13 @@ export default function Dashboard() {
       )}
 
       {/* CTA */}
-      <div className="glass-card p-6 border-hive-accent/10 bg-gradient-to-r from-amber-500/[0.04] to-orange-500/[0.04]">
+      <div className="glass-card p-6 border-amber-400/10 bg-gradient-to-r from-amber-500/[0.04] to-orange-500/[0.04]">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold mb-1">Contribute your API key to expand the hive</h3>
-            <p className="text-xs text-hive-muted">More agents = more coins scanned, deeper analysis, better signals. Your key, your agents.</p>
+            <p className="text-xs text-white/40">More agents = more coins scanned, deeper analysis, better signals. Your key, your agents.</p>
           </div>
-          <a href="/register" className="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 bg-hive-accent text-black text-xs font-bold rounded-lg hover:bg-amber-400 transition-all">
+          <a href="/register" className="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-black text-xs font-bold rounded-xl hover:shadow-lg hover:shadow-amber-500/20 transition-all">
             Contribute <ArrowRight size={14} />
           </a>
         </div>
