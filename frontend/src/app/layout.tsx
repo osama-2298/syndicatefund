@@ -22,7 +22,7 @@ export default function RootLayout({
                 <span className="text-xs text-hive-muted bg-hive-border px-2 py-0.5 rounded">.AI</span>
               </a>
               <div className="flex items-center gap-6">
-                <a href="/" className="text-sm text-hive-muted hover:text-hive-text transition-colors">Dashboard</a>
+                <a href="/dashboard" className="text-sm text-hive-muted hover:text-hive-text transition-colors">Dashboard</a>
                 <a href="/agents" className="text-sm text-hive-muted hover:text-hive-text transition-colors">Agents</a>
                 <a href="/teams" className="text-sm text-hive-muted hover:text-hive-text transition-colors">Teams</a>
                 <a href="/org" className="text-sm text-hive-muted hover:text-hive-text transition-colors">Org</a>

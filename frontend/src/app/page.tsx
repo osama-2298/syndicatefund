@@ -1,389 +1,333 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import {
-  Wallet, TrendingUp, TrendingDown, BarChart3, Bot,
-  Zap, Shield, Activity, Clock, ArrowRight, Signal,
-} from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import { ArrowRight, Eye, Brain, Zap, ChevronDown } from 'lucide-react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-interface Position { symbol: string; side: string; entry_price: number; quantity: number; current_price: number; }
-interface TradeEntry { symbol: string; side: string; entry_price: number; stop_loss: number; take_profit_1: number; conviction: number; confidence: number; risk_amount: number; exit_reason: string; asset_tier: string; }
-interface CycleData { id: number; started_at: string; regime: string | null; coins_analyzed: number; signals_produced: number; orders_executed: number; duration_secs: number | null; }
-interface AgentData { id: string; team_name: string | null; role: string; agent_class: string | null; status: string; total_signals: number; accuracy: number; provider: string; }
-interface TeamData { id: string; name: string; active_agent_count: number; agent_count: number; weight: number; }
+function useCounter(target: number, duration = 2000) {
+  const [count, setCount] = useState(0);
+  const [started, setStarted] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
 
-export default function Dashboard() {
-  const [portfolio, setPortfolio] = useState<any>(null);
-  const [cycles, setCycles] = useState<CycleData[]>([]);
-  const [agents, setAgents] = useState<AgentData[]>([]);
-  const [teams, setTeams] = useState<TeamData[]>([]);
-  const [trades, setTrades] = useState<TradeEntry[]>([]);
-  const [livePrices, setLivePrices] = useState<Record<string, number>>({});
-  const [priceFlash, setPriceFlash] = useState<Record<string, 'up' | 'down' | ''>>({});
-  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    if (!ref.current) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) setStarted(true);
+    }, { threshold: 0.3 });
+    observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!started || target === 0) return;
+    const start = performance.now();
+    const animate = (now: number) => {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.round(target * eased));
+      if (progress < 1) requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
+  }, [started, target, duration]);
+
+  return { count, ref };
+}
+
+function RevealText({ text, className = '', delay = 0 }: { text: string; className?: string; delay?: number }) {
+  return (
+    <span className={className}>
+      {text.split(' ').map((word, i) => (
+        <span key={i} className="inline-block overflow-hidden mr-[0.3em]">
+          <span
+            className="inline-block animate-[wordReveal_0.6s_ease-out_forwards] opacity-0"
+            style={{ animationDelay: `${delay + i * 80}ms` }}
+          >
+            {word}
+          </span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+export default function LandingPage() {
+  const [stats, setStats] = useState({ agents: 0, teams: 0, signals: 0, positions: 0, portfolioValue: 100000 });
+  const [terminalLines, setTerminalLines] = useState<string[]>([]);
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API_BASE}/api/v1/portfolio`).then(r => r.json()).catch(() => null),
-      fetch(`${API_BASE}/api/v1/cycles?limit=5`).then(r => r.json()).catch(() => []),
       fetch(`${API_BASE}/api/v1/agents`).then(r => r.json()).catch(() => []),
       fetch(`${API_BASE}/api/v1/teams`).then(r => r.json()).catch(() => []),
-      fetch(`${API_BASE}/api/v1/portfolio/trades`).then(r => r.json()).catch(() => []),
-    ]).then(([p, c, a, t, tr]) => {
-      setPortfolio(p);
-      setCycles(c);
-      setAgents(a);
-      setTeams(t);
-      setTrades(Array.isArray(tr) ? tr : []);
-    }).finally(() => setLoading(false));
+      fetch(`${API_BASE}/api/v1/portfolio`).then(r => r.json()).catch(() => null),
+    ]).then(([agents, teams, portfolio]) => {
+      const positions = portfolio?.positions ?? [];
+      const cash = portfolio?.cash ?? 100000;
+      const invested = positions.reduce((s: number, p: any) => s + p.quantity * (p.current_price || p.entry_price), 0);
+      setStats({
+        agents: agents.length || 12,
+        teams: teams.length || 5,
+        signals: agents.reduce((s: number, a: any) => s + (a.total_signals || 0), 0),
+        positions: positions.length,
+        portfolioValue: cash + invested,
+      });
+    });
   }, []);
 
-  // Poll live prices from Binance every 10 seconds
   useEffect(() => {
-    const symbols = (portfolio?.positions ?? []).map((p: Position) => p.symbol);
-    if (symbols.length === 0) return;
-
-    const fetchPrices = async () => {
-      try {
-        const params = symbols.map((s: string) => `"${s}"`).join(',');
-        const res = await fetch(`https://data-api.binance.vision/api/v3/ticker/price?symbols=[${params}]`);
-        const data = await res.json();
-        const newPrices: Record<string, number> = {};
-        const flashes: Record<string, 'up' | 'down' | ''> = {};
-        for (const item of data) {
-          const price = parseFloat(item.price);
-          newPrices[item.symbol] = price;
-          const prev = livePrices[item.symbol];
-          if (prev && price !== prev) {
-            flashes[item.symbol] = price > prev ? 'up' : 'down';
-          }
-        }
-        setLivePrices(newPrices);
-        if (Object.keys(flashes).length > 0) {
-          setPriceFlash(flashes);
-          setTimeout(() => setPriceFlash({}), 1000);
-        }
-      } catch {}
-    };
-
-    fetchPrices();
-    const interval = setInterval(fetchPrices, 10000);
+    const lines = [
+      '> [08:00 UTC] CEO daily briefing: BTC holding $71.4K, F&G 45/100',
+      '> [CYCLE] Intelligence gathering... 5 sources in parallel',
+      '> [CEO] Regime: RANGING — risk multiplier 0.9',
+      '> [COO] Selected 8 coins: BTC, ETH, SOL, AAVE, LINK, DOT, AVAX, ADA',
+      '> [TECHNICAL] Lena Karlsson analyzing BTC... BULLISH 7/10',
+      '> [SENTIMENT] Priya Sharma scanning Reddit... BEARISH 3/10',
+      '> [MACRO] Lucas Weber reading Fed signals... BULLISH 5/10',
+      '> [AGGREGATOR] Bayesian consensus: BUY @ 64% confidence',
+      '> [RISK] Position sized: $7,000 (7% of portfolio)',
+      '> [EXECUTION] BUY 0.098 BTC @ $71,459 — SL: $70,124 TP: $75,418',
+      '> [MONITOR] Checking SL/TP every 2s... all positions healthy',
+      '> [CEO] Weekly blog published: "Navigating the Range"',
+    ];
+    let i = 0;
+    const interval = setInterval(() => {
+      if (i < lines.length) {
+        setTerminalLines(prev => [...prev.slice(-8), lines[i]]);
+        i++;
+      } else { i = 0; setTerminalLines([]); }
+    }, 2500);
     return () => clearInterval(interval);
-  }, [portfolio]);
+  }, []);
 
-  const positions: Position[] = portfolio?.positions ?? [];
-  const cash = portfolio?.cash ?? 100000;
-  const invested = positions.reduce((s, p) => s + p.quantity * (p.current_price || p.entry_price), 0);
-  const totalValue = cash + invested;
-  const returnPct = ((totalValue - 100000) / 100000) * 100;
-  const returnUsd = totalValue - 100000;
-
-  // Build lookup: symbol → trade entry (for SL/TP data)
-  const openTradesBySymbol: Record<string, TradeEntry> = {};
-  for (const t of trades) {
-    if (t.exit_reason === 'OPEN') {
-      openTradesBySymbol[t.symbol] = t;
-    }
-  }
-
-  const activeAgents = agents.filter(a => ['founding', 'active', 'assigned'].includes(a.status));
-  const totalSignals = agents.reduce((s, a) => s + a.total_signals, 0);
-  const lastCycle = cycles?.[0];
-  const totalOrders = cycles.reduce((s, c) => s + c.orders_executed, 0);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Activity size={24} className="animate-spin text-hive-accent" />
-      </div>
-    );
-  }
+  const agentCounter = useCounter(stats.agents);
+  const signalCounter = useCounter(stats.signals);
 
   return (
-    <div className="slide-up space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-hive-muted mt-1">Autonomous AI hedge fund — {activeAgents.length} agents across {teams.length} teams</p>
+    <div className="-mt-8 -mx-4 sm:-mx-6 lg:-mx-8">
+      <style jsx global>{`
+        @keyframes wordReveal {
+          from { opacity: 0; transform: translateY(20px); filter: blur(8px); }
+          to { opacity: 1; transform: translateY(0); filter: blur(0); }
+        }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(30px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes shimmer {
+          0% { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
+        @keyframes gridPulse {
+          0%, 100% { opacity: 0.03; }
+          50% { opacity: 0.06; }
+        }
+      `}</style>
+
+      {/* Hero */}
+      <section className="relative min-h-[90vh] flex flex-col items-center justify-center text-center px-6 overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-amber-500/[0.07] rounded-full blur-[120px]" />
+          <div className="absolute bottom-[-10%] left-[20%] w-[400px] h-[400px] bg-purple-500/[0.05] rounded-full blur-[100px]" />
+          <div className="absolute top-[30%] right-[10%] w-[300px] h-[300px] bg-cyan-500/[0.04] rounded-full blur-[80px]" />
         </div>
-        <div className="flex items-center gap-2">
-          <div className="glass-card flex items-center gap-2 px-3 py-1.5">
+        <div className="absolute inset-0 pointer-events-none" style={{
+          backgroundImage: 'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)',
+          backgroundSize: '60px 60px',
+          animation: 'gridPulse 4s ease-in-out infinite',
+        }} />
+
+        <div className="relative z-10 max-w-4xl">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.05] ring-1 ring-white/[0.08] mb-8 animate-[fadeUp_0.6s_ease-out]">
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
             </span>
-            <span className="text-xs font-medium text-emerald-400">LIVE</span>
+            <span className="text-xs font-medium text-white/60">Live — {stats.agents} agents active</span>
           </div>
-          {lastCycle && (
-            <div className="glass-card flex items-center gap-1.5 px-3 py-1.5">
-              <Clock size={12} className="text-hive-muted" />
-              <span className="text-xs text-hive-muted">{new Date(lastCycle.started_at).toLocaleTimeString()}</span>
-            </div>
-          )}
-        </div>
-      </div>
 
-      {/* Hero Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="glass-card p-5">
-          <div className="flex items-start justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted">Portfolio</p>
-            <Wallet size={16} className="text-hive-muted/40" />
-          </div>
-          <p className={`mt-2 text-2xl font-bold tracking-tight ${returnPct >= 0 ? 'text-hive-text' : 'text-hive-red'}`}>
-            ${totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[1.1] mb-6">
+            <RevealText text="Autonomous AI" className="block" delay={200} />
+            <span className="block mt-2">
+              <RevealText text="Hedge" className="" delay={500} />
+              <span className="inline-block overflow-hidden mr-[0.3em]">
+                <span className="inline-block animate-[wordReveal_0.6s_ease-out_forwards] opacity-0 text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500" style={{ animationDelay: '580ms' }}>Fund</span>
+              </span>
+            </span>
+          </h1>
+
+          <div className="w-32 h-[2px] mx-auto mb-6 rounded-full" style={{
+            background: 'linear-gradient(90deg, transparent, #f59e0b, transparent)',
+            backgroundSize: '200% 100%',
+            animation: 'shimmer 3s linear infinite',
+          }} />
+
+          <p className="text-lg sm:text-xl text-white/40 max-w-2xl mx-auto mb-10 animate-[fadeUp_0.8s_ease-out_0.4s_both]">
+            {stats.agents} AI agents analyze crypto markets every 4 hours. They debate, reach consensus, and trade — autonomously. No human in the loop.
           </p>
-          <div className={`mt-1.5 flex items-center gap-1 text-xs font-medium ${returnPct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-            {returnPct >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-            {returnPct >= 0 ? '+' : ''}{returnPct.toFixed(2)}% (${returnUsd >= 0 ? '+' : ''}${returnUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })})
+
+          <div className="flex items-center justify-center gap-4 animate-[fadeUp_0.8s_ease-out_0.6s_both]">
+            <a href="/dashboard" className="group inline-flex items-center gap-2 px-7 py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold rounded-xl hover:shadow-lg hover:shadow-amber-500/20 transition-all hover:scale-[1.02]">
+              Launch Dashboard <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+            </a>
+            <a href="/register" className="inline-flex items-center gap-2 px-7 py-3.5 bg-white/[0.06] text-white font-semibold rounded-xl ring-1 ring-white/[0.1] hover:bg-white/[0.1] transition-all">
+              Contribute Agents
+            </a>
           </div>
         </div>
 
-        <div className="glass-card p-5">
-          <div className="flex items-start justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted">Active Agents</p>
-            <Bot size={16} className="text-hive-muted/40" />
-          </div>
-          <p className="mt-2 text-2xl font-bold tracking-tight">{activeAgents.length}</p>
-          <p className="mt-1.5 text-xs text-hive-muted">{teams.length} teams · {agents.length - activeAgents.length} pending</p>
+        <div className="absolute bottom-8 animate-bounce">
+          <ChevronDown size={20} className="text-white/20" />
         </div>
+      </section>
 
-        <div className="glass-card p-5">
-          <div className="flex items-start justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted">Signals Produced</p>
-            <Zap size={16} className="text-hive-muted/40" />
+      {/* Live Metrics */}
+      <section className="relative border-y border-white/[0.06] bg-white/[0.02]">
+        <div className="max-w-6xl mx-auto px-6 py-6 grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div ref={agentCounter.ref} className="text-center">
+            <p className="text-3xl font-black tabular-nums">{agentCounter.count}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30 mt-1">Active Agents</p>
           </div>
-          <p className="mt-2 text-2xl font-bold tracking-tight">{totalSignals.toLocaleString()}</p>
-          <p className="mt-1.5 text-xs text-hive-muted">{totalOrders} trades executed</p>
-        </div>
-
-        <div className="glass-card p-5">
-          <div className="flex items-start justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted">Deployed Capital</p>
-            <BarChart3 size={16} className="text-hive-muted/40" />
+          <div className="text-center">
+            <p className="text-3xl font-black tabular-nums">{stats.teams}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30 mt-1">Analysis Teams</p>
           </div>
-          <p className="mt-2 text-2xl font-bold tracking-tight">${invested.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-          <p className="mt-1.5 text-xs text-hive-muted">${cash.toLocaleString(undefined, { maximumFractionDigits: 0 })} available</p>
+          <div ref={signalCounter.ref} className="text-center">
+            <p className="text-3xl font-black tabular-nums">{signalCounter.count.toLocaleString()}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30 mt-1">Signals Produced</p>
+          </div>
+          <div className="text-center">
+            <p className="text-3xl font-black tabular-nums text-emerald-400">${stats.portfolioValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30 mt-1">Portfolio Value</p>
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* Team Overview */}
-      <div className="glass-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted">Analysis Teams</p>
-          <a href="/org" className="text-xs text-hive-accent hover:text-amber-300 transition-colors flex items-center gap-1">
-            Org Chart <ArrowRight size={12} />
-          </a>
+      {/* How It Works */}
+      <section className="max-w-6xl mx-auto px-6 py-24">
+        <div className="text-center mb-16">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-3">How It Works</p>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Every 4 hours, the fund thinks.</h2>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          {teams.map((team) => (
-            <div key={team.id} className="glass-card-hover p-3 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <span className={`h-2 w-2 rounded-full ${team.active_agent_count > 0 ? 'bg-emerald-400' : 'bg-white/10'}`} />
-                <span className="text-xs font-semibold capitalize truncate">{team.name}</span>
+        <div className="grid md:grid-cols-3 gap-6">
+          {[
+            { icon: Eye, title: 'Gather Intelligence', desc: 'CEO reads 11 data sources: Binance, Reddit, Fear & Greed, CoinGecko, DeFiLlama, Polymarket, whale flows, derivatives, and more.', step: '01' },
+            { icon: Brain, title: 'Agents Analyze & Debate', desc: '12 specialized agents across 5 teams independently analyze each coin. Technical, Sentiment, Fundamental, Macro, On-Chain — each with a different lens.', step: '02' },
+            { icon: Zap, title: 'Consensus & Execute', desc: 'Bayesian aggregator combines all signals. Risk manager enforces limits. If consensus is strong enough — the fund trades. Autonomously.', step: '03' },
+          ].map((item) => (
+            <div key={item.step} className="glass-card p-6 group hover:bg-white/[0.05] transition-all duration-300">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-[10px] font-bold text-amber-400/40">{item.step}</span>
+                <item.icon size={20} className="text-amber-400/60 group-hover:text-amber-400 transition-colors" />
               </div>
-              <div className="flex items-end justify-between">
-                <span className="text-lg font-bold">{team.active_agent_count}</span>
-                <span className="text-[10px] text-hive-muted">{team.weight.toFixed(1)}x</span>
-              </div>
+              <h3 className="text-lg font-bold mb-2">{item.title}</h3>
+              <p className="text-sm text-white/40 leading-relaxed">{item.desc}</p>
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* Positions + Regime side by side */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Open Positions - 2/3 width */}
-        <div className="lg:col-span-2 glass-card overflow-hidden">
-          <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Signal size={14} className="text-hive-accent" />
-              <h2 className="text-sm font-semibold">Open Positions</h2>
-            </div>
-            {positions.length > 0 && (
-              <span className="text-xs text-hive-muted">${invested.toLocaleString(undefined, { maximumFractionDigits: 0 })} invested</span>
-            )}
-          </div>
-          {positions.length === 0 ? (
-            <div className="px-5 py-10 text-center">
-              <BarChart3 size={28} className="mx-auto text-white/10 mb-3" />
-              <p className="text-sm text-hive-muted">No open positions</p>
-              <p className="text-xs text-hive-muted/50 mt-1">Next cycle will analyze markets and generate trades</p>
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted border-b border-white/[0.06]">
-                  <th className="text-left px-4 py-2.5">Symbol</th>
-                  <th className="text-left px-4 py-2.5">Side</th>
-                  <th className="text-right px-4 py-2.5">Size</th>
-                  <th className="text-right px-4 py-2.5">Entry</th>
-                  <th className="text-right px-4 py-2.5">Live Price</th>
-                  <th className="text-right px-4 py-2.5">SL</th>
-                  <th className="text-right px-4 py-2.5">TP</th>
-                  <th className="text-right px-4 py-2.5">P&L</th>
-                </tr>
-              </thead>
-              <tbody>
-                {positions.map((pos, i) => {
-                  const live = livePrices[pos.symbol] || pos.current_price;
-                  const size = pos.quantity * live;
-                  const pnlUsd = pos.side === 'BUY'
-                    ? (live - pos.entry_price) * pos.quantity
-                    : (pos.entry_price - live) * pos.quantity;
-                  const pnlPct = pos.entry_price > 0
-                    ? ((live - pos.entry_price) / pos.entry_price * 100) * (pos.side === 'BUY' ? 1 : -1)
-                    : 0;
-                  const trade = openTradesBySymbol[pos.symbol];
-                  const sl = trade?.stop_loss ?? 0;
-                  const tp = trade?.take_profit_1 ?? 0;
-                  const conviction = trade?.conviction;
-                  const riskAmt = trade?.risk_amount ?? 0;
-                  const flash = priceFlash[pos.symbol];
-                  return (
-                    <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
-                      <td className="px-4 py-3">
-                        <span className="font-semibold text-sm">{pos.symbol.replace('USDT', '')}</span>
-                        {conviction != null && (
-                          <span className="ml-1.5 text-[10px] text-hive-muted">{conviction}/10</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                          pos.side === 'BUY' ? 'bg-emerald-500/10 text-emerald-400 ring-1 ring-inset ring-emerald-500/20'
-                            : 'bg-red-500/10 text-red-400 ring-1 ring-inset ring-red-500/20'
-                        }`}>{pos.side}</span>
-                      </td>
-                      <td className="px-4 py-3 text-right text-sm">${size.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                      <td className="px-4 py-3 text-right text-sm text-hive-muted">${pos.entry_price.toLocaleString()}</td>
-                      <td className={`px-4 py-3 text-right text-sm font-mono tabular-nums transition-colors duration-300 ${
-                        flash === 'up' ? 'text-emerald-400 bg-emerald-400/5' :
-                        flash === 'down' ? 'text-red-400 bg-red-400/5' : 'text-hive-text'
-                      }`}>
-                        ${live.toLocaleString()}
-                        <span className="ml-1 text-[9px] text-hive-muted/50">LIVE</span>
-                      </td>
-                      <td className="px-4 py-3 text-right text-sm text-red-400/70">
-                        {sl > 0 ? `$${sl.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '\u2014'}
-                        {riskAmt > 0 && <span className="block text-[10px] text-hive-muted">-${riskAmt.toFixed(0)} risk</span>}
-                      </td>
-                      <td className="px-4 py-3 text-right text-sm text-emerald-400/70">
-                        {tp > 0 ? `$${tp.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '\u2014'}
-                      </td>
-                      <td className={`px-4 py-3 text-right text-sm font-semibold ${pnlUsd >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {pnlUsd >= 0 ? '+' : ''}${pnlUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                        <span className="text-[10px] ml-1 opacity-60">({pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(1)}%)</span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
+      {/* Live Terminal */}
+      <section className="max-w-6xl mx-auto px-6 pb-24">
+        <div className="text-center mb-10">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-3">Live Feed</p>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Watch the agents work.</h2>
         </div>
-
-        {/* Right sidebar - Market Regime + Cycle info */}
-        <div className="space-y-4">
-          <div className="glass-card p-5">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted mb-3">Market Regime</p>
-            {lastCycle?.regime ? (
-              <>
-                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold ${
-                  lastCycle.regime === 'bull' ? 'bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20' :
-                  lastCycle.regime === 'bear' ? 'bg-red-500/10 text-red-400 ring-1 ring-red-500/20' :
-                  lastCycle.regime === 'crisis' ? 'bg-red-900/20 text-red-300 ring-1 ring-red-500/30' :
-                  'bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/20'
-                }`}>
-                  {lastCycle.regime === 'bull' ? <TrendingUp size={14} /> : lastCycle.regime === 'bear' ? <TrendingDown size={14} /> : <Shield size={14} />}
-                  {lastCycle.regime.toUpperCase()}
-                </div>
-                <p className="text-xs text-hive-muted mt-2">Set by CEO agent each cycle</p>
-              </>
-            ) : (
-              <p className="text-sm text-hive-muted">Awaiting first cycle</p>
-            )}
-          </div>
-
-          <div className="glass-card p-5">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted mb-3">Cycle Pipeline</p>
-            <div className="space-y-2">
-              {['Intelligence', 'CEO Directive', 'Coin Selection', 'Agent Analysis', 'Aggregation', 'Risk Check', 'Execution'].map((step, i) => (
-                <div key={step} className="flex items-center gap-2">
-                  <span className="w-5 text-[10px] text-hive-muted/40 text-right">{i + 1}</span>
-                  <div className={`flex-1 text-xs py-1 px-2 rounded ${
-                    lastCycle ? 'bg-emerald-500/5 text-emerald-400/60 ring-1 ring-inset ring-emerald-500/10'
-                      : 'bg-white/[0.02] text-hive-muted/40 ring-1 ring-inset ring-white/[0.04]'
-                  }`}>{step}</div>
-                </div>
-              ))}
-            </div>
-            <p className="text-[10px] text-hive-muted mt-3">Runs every 4h on UTC boundaries</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Cycles */}
-      {cycles.length > 0 && (
         <div className="glass-card overflow-hidden">
-          <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Activity size={14} className="text-hive-accent" />
-              <h2 className="text-sm font-semibold">Recent Cycles</h2>
-            </div>
-            <a href="/cycles" className="text-xs text-hive-accent hover:text-amber-300 transition-colors flex items-center gap-1">
-              View all <ArrowRight size={12} />
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06]">
+            <span className="h-3 w-3 rounded-full bg-red-500/60" />
+            <span className="h-3 w-3 rounded-full bg-yellow-500/60" />
+            <span className="h-3 w-3 rounded-full bg-green-500/60" />
+            <span className="text-[10px] text-white/20 ml-2 font-mono">syndicate — cycle output</span>
+            <span className="ml-auto relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+            </span>
+          </div>
+          <div className="p-4 font-mono text-[12px] leading-relaxed h-[280px] overflow-hidden bg-[#0c0c14]">
+            {terminalLines.map((line, i) => (
+              <div key={`${i}-${line}`} className="animate-[fadeUp_0.3s_ease-out] py-0.5">
+                <span className={
+                  line.includes('[CEO]') ? 'text-amber-400' :
+                  line.includes('[TECHNICAL]') ? 'text-blue-400' :
+                  line.includes('[SENTIMENT]') ? 'text-purple-400' :
+                  line.includes('[MACRO]') ? 'text-cyan-400' :
+                  line.includes('[AGGREGATOR]') ? 'text-emerald-400' :
+                  line.includes('[RISK]') ? 'text-orange-400' :
+                  line.includes('[EXECUTION]') ? 'text-green-400' :
+                  line.includes('[MONITOR]') ? 'text-teal-400' :
+                  line.includes('[CYCLE]') ? 'text-white/60' : 'text-white/40'
+                }>{line}</span>
+              </div>
+            ))}
+            <span className="inline-block w-2 h-4 bg-amber-400/80 animate-pulse" />
+          </div>
+        </div>
+      </section>
+
+      {/* Organization */}
+      <section className="border-t border-white/[0.06] bg-white/[0.01]">
+        <div className="max-w-6xl mx-auto px-6 py-24">
+          <div className="text-center mb-16">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-3">The Organization</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">A complete autonomous fund.</h2>
+            <p className="text-white/40 mt-3 max-w-lg mx-auto">CEO sets strategy. Teams analyze. Aggregator decides. Risk manager enforces. All AI.</p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {[
+              { name: 'CEO', role: 'Strategy', color: 'from-amber-500 to-orange-500' },
+              { name: 'Technical', role: '3 Agents', color: 'from-blue-500 to-cyan-500' },
+              { name: 'Sentiment', role: '3 Agents', color: 'from-purple-500 to-pink-500' },
+              { name: 'Fundamental', role: '2 Agents', color: 'from-yellow-500 to-amber-500' },
+              { name: 'Macro', role: '2 Agents', color: 'from-cyan-500 to-teal-500' },
+              { name: 'On-Chain', role: '2 Agents', color: 'from-emerald-500 to-green-500' },
+            ].map((team) => (
+              <div key={team.name} className="glass-card p-4 text-center group hover:bg-white/[0.05] transition-all">
+                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${team.color} mx-auto mb-3 flex items-center justify-center text-white text-xs font-bold opacity-80 group-hover:opacity-100 transition-opacity`}>
+                  {team.name[0]}
+                </div>
+                <p className="text-sm font-bold">{team.name}</p>
+                <p className="text-[10px] text-white/30 mt-0.5">{team.role}</p>
+              </div>
+            ))}
+          </div>
+          <div className="text-center mt-8">
+            <a href="/org" className="text-xs text-amber-400 hover:text-amber-300 transition-colors inline-flex items-center gap-1">
+              View full org chart <ArrowRight size={12} />
             </a>
           </div>
-          <table className="w-full">
-            <thead>
-              <tr className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted border-b border-white/[0.06]">
-                <th className="text-left px-5 py-2.5">#</th>
-                <th className="text-left px-5 py-2.5">Time</th>
-                <th className="text-left px-5 py-2.5">Regime</th>
-                <th className="text-right px-5 py-2.5">Coins</th>
-                <th className="text-right px-5 py-2.5">Signals</th>
-                <th className="text-right px-5 py-2.5">Trades</th>
-                <th className="text-right px-5 py-2.5">Duration</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cycles.map((c) => (
-                <tr key={c.id} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
-                  <td className="px-5 py-3 text-sm text-hive-muted">{c.id}</td>
-                  <td className="px-5 py-3 text-sm">{new Date(c.started_at).toLocaleString()}</td>
-                  <td className="px-5 py-3">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                      c.regime === 'bull' ? 'bg-emerald-500/10 text-emerald-400 ring-1 ring-inset ring-emerald-500/20' :
-                      c.regime === 'bear' ? 'bg-red-500/10 text-red-400 ring-1 ring-inset ring-red-500/20' :
-                      'bg-white/[0.04] text-hive-muted ring-1 ring-inset ring-white/[0.06]'
-                    }`}>{(c.regime ?? 'N/A').toUpperCase()}</span>
-                  </td>
-                  <td className="px-5 py-3 text-right text-sm">{c.coins_analyzed}</td>
-                  <td className="px-5 py-3 text-right text-sm">{c.signals_produced}</td>
-                  <td className="px-5 py-3 text-right text-sm">{c.orders_executed}</td>
-                  <td className="px-5 py-3 text-right text-sm text-hive-muted">{c.duration_secs ? `${Math.round(c.duration_secs)}s` : '\u2014'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
-      )}
+      </section>
 
       {/* CTA */}
-      <div className="glass-card p-6 border-hive-accent/10 bg-gradient-to-r from-amber-500/[0.04] to-orange-500/[0.04]">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-bold mb-1">Contribute your API key to expand the hive</h3>
-            <p className="text-xs text-hive-muted">More agents = more coins scanned, deeper analysis, better signals. Your key, your agents.</p>
-          </div>
-          <a href="/register" className="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 bg-hive-accent text-black text-xs font-bold rounded-lg hover:bg-amber-400 transition-all">
-            Contribute <ArrowRight size={14} />
-          </a>
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-amber-500/[0.08] rounded-full blur-[120px]" />
         </div>
-      </div>
+        <div className="relative z-10 max-w-4xl mx-auto px-6 py-24 text-center">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">Contribute your API key.<br />Expand the syndicate.</h2>
+          <p className="text-white/40 mb-8 max-w-lg mx-auto">
+            More agents means more coins scanned, deeper analysis, and better signals. Your key powers your agents. Full transparency.
+          </p>
+          <div className="flex items-center justify-center gap-4">
+            <a href="/register" className="group inline-flex items-center gap-2 px-7 py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold rounded-xl hover:shadow-lg hover:shadow-amber-500/20 transition-all hover:scale-[1.02]">
+              Start Contributing <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+            </a>
+            <a href="/blog" className="text-sm text-white/40 hover:text-white/60 transition-colors">Read the CEO blog</a>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-white/[0.06] py-8 px-6">
+        <div className="max-w-6xl mx-auto flex items-center justify-between text-xs text-white/20">
+          <span>Syndicate.ai — Autonomous AI Hedge Fund</span>
+          <div className="flex gap-4">
+            <a href="/dashboard" className="hover:text-white/40 transition-colors">Dashboard</a>
+            <a href="/org" className="hover:text-white/40 transition-colors">Organization</a>
+            <a href="/blog" className="hover:text-white/40 transition-colors">Blog</a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
