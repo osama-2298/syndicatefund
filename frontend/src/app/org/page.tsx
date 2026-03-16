@@ -383,6 +383,26 @@ export default function OrgPage() {
         </p>
       </div>
 
+      {/* ── Pipeline flow legend ── */}
+      <div className="bg-[#0d0d15] border border-white/[0.06] rounded-xl px-6 py-3.5 mb-4">
+        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/20 mb-2">Pipeline flow per cycle</p>
+        <div className="flex items-center gap-2 flex-wrap text-[11px]">
+          <span className="text-amber-400/80 font-medium">CEO</span>
+          <span className="text-white/10">→</span>
+          <span className="text-blue-400/80 font-medium">COO</span>
+          <span className="text-white/10">→</span>
+          <span className="text-emerald-400/80 font-medium">Analysis</span>
+          <span className="text-white/10">→</span>
+          <span className="text-cyan-400/80 font-medium">Aggregator</span>
+          <span className="text-white/10">→</span>
+          <span className="text-red-400/80 font-medium">Risk</span>
+          <span className="text-white/10">→</span>
+          <span className="text-purple-400/80 font-medium">Portfolio</span>
+          <span className="text-white/10">→</span>
+          <span className="text-orange-400/80 font-medium">Execution</span>
+        </div>
+      </div>
+
       {/* ── Org chart ── */}
       <div className="bg-[#0d0d15] border border-white/[0.06] rounded-xl p-6 md:p-8">
         {/* Tier 1: CEO */}
@@ -411,7 +431,9 @@ export default function OrgPage() {
             <ExecCard
               title="Chief Operating Officer"
               name="Elena Vasquez"
-              subtitle="Coin selection — picks which assets to analyze each cycle based on volume, momentum, and CEO strategy"
+              subtitle="Selects which coins to analyze each cycle — her picks flow down to the Analysis Division"
+              badge="STEP 1"
+              badgeColor="bg-blue-400/10 text-blue-400 ring-blue-400/20"
             />
           </div>
 
@@ -420,11 +442,11 @@ export default function OrgPage() {
             <ExecCard
               title="Chief Risk Officer"
               name="Tobias Richter"
-              subtitle="Risk management — position limits, drawdown thresholds, and confidence minimums"
+              subtitle="Sets risk rules per cycle — enforced by the Risk Manager in Operations below"
             >
               <SubRoleCard
                 name="James Hartley — Risk Manager"
-                subtitle="Position sizing (quarter-Kelly), drawdown halt, confidence gates"
+                subtitle="Enforces CRO rules in Operations: position sizing, drawdown halt, confidence gates"
               />
             </ExecCard>
           </div>
@@ -454,12 +476,21 @@ export default function OrgPage() {
           </div>
         </div>
 
+        {/* Flow: COO → Analysis */}
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <div className="text-[10px] text-blue-400/40 font-medium">COO selected coins</div>
+          <div className="text-white/10">↓</div>
+        </div>
+
         {/* ── Section: Analysis teams ── */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
             <div className="h-px flex-1 bg-white/[0.04]" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-400/60">
               Analysis Division
+            </span>
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded ring-1 ring-inset bg-emerald-400/10 text-emerald-400 ring-emerald-400/20">
+              STEP 2
             </span>
             <div className="h-px flex-1 bg-white/[0.04]" />
           </div>
@@ -471,41 +502,80 @@ export default function OrgPage() {
           </div>
         </div>
 
+        {/* Flow: Analysis → Operations */}
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <div className="text-[10px] text-emerald-400/40 font-medium">Team signals per coin</div>
+          <div className="text-white/10">↓</div>
+        </div>
+
         {/* ── Section: Operations ── */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
             <div className="h-px flex-1 bg-white/[0.04]" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-400/60">
               Operations
+            </span>
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded ring-1 ring-inset bg-cyan-400/10 text-cyan-400 ring-cyan-400/20">
+              STEPS 3–6
             </span>
             <div className="h-px flex-1 bg-white/[0.04]" />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <ExecCard
-              title="Head of Portfolio"
-              name="Diana Frost"
-              subtitle="Segment allocation across L1s, DeFi, L2s, Memes, AI, Infrastructure"
-            />
-            <ExecCard
-              title="Head of Execution"
-              name="Kai Nakamura"
-              subtitle="Trade lifecycle — paper trading, monitoring, SL/TP/trailing stops"
-            >
-              <SubRoleCard name="Paper Trader" subtitle="Executes orders" />
-              <SubRoleCard name="Trade Monitor" subtitle="SL / TP / trailing stops" />
-              <SubRoleCard name="Trade Ledger" subtitle="P&L tracking and calibration" />
-            </ExecCard>
-            <ExecCard
-              title="Signal Aggregator"
-              name="Soren Lindqvist"
-              subtitle="Deterministic (no LLM) — Bayesian log-odds combination with gates and detection"
-            >
-              <SubRoleCard name="Bayesian log-odds" subtitle="Signal combination" />
-              <SubRoleCard name="Macro & Technical gates" subtitle="Override thresholds" />
-              <SubRoleCard name="Polarization detection" subtitle="Team disagreement flagging" />
-              <SubRoleCard name="Close-call detection" subtitle="Marginal signal alerting" />
-            </ExecCard>
+          <div className="space-y-3">
+            {/* Step 3: Aggregator */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <ExecCard
+                title="Signal Aggregator"
+                name="Soren Lindqvist"
+                subtitle="Combines all team signals into one recommendation per coin — deterministic, no LLM"
+                badge="STEP 3"
+                badgeColor="bg-cyan-400/10 text-cyan-400 ring-cyan-400/20"
+              >
+                <SubRoleCard name="Bayesian log-odds" subtitle="Weighted signal combination by team accuracy" />
+                <SubRoleCard name="Macro & Technical gates" subtitle="Bearish macro suppresses buys fund-wide" />
+                <SubRoleCard name="Polarization detection" subtitle="Flags team disagreement" />
+                <SubRoleCard name="Close-call detection" subtitle="Flags marginal signals" />
+              </ExecCard>
+
+              {/* Step 4: Risk — enforces CRO rules */}
+              <ExecCard
+                title="Risk Manager"
+                name="James Hartley"
+                subtitle="Enforces CRO Tobias Richter's rules on aggregated signals — gates, sizes, and halts"
+                badge="STEP 4"
+                badgeColor="bg-red-400/10 text-red-400 ring-red-400/20"
+              >
+                <SubRoleCard name="Confidence & consensus gates" subtitle="Kills signals below CRO thresholds" />
+                <SubRoleCard name="Position sizing" subtitle="Quarter-Kelly allocation per trade" />
+                <SubRoleCard name="Drawdown halt" subtitle="Blocks all trading if daily loss exceeded" />
+                <SubRoleCard name="Open positions cap" subtitle="Max concurrent positions enforced" />
+              </ExecCard>
+            </div>
+
+            {/* Step 5-6: Portfolio & Execution */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <ExecCard
+                title="Head of Portfolio"
+                name="Diana Frost"
+                subtitle="Reviews risk-approved orders against segment allocation limits — CEO sector weights applied"
+                badge="STEP 5"
+                badgeColor="bg-purple-400/10 text-purple-400 ring-purple-400/20"
+              >
+                <SubRoleCard name="L1s / DeFi / L2s" subtitle="Segment allocation" />
+                <SubRoleCard name="Memes / AI / Infrastructure" subtitle="Segment allocation" />
+              </ExecCard>
+              <ExecCard
+                title="Head of Execution"
+                name="Kai Nakamura"
+                subtitle="Executes final portfolio-approved orders and monitors live positions"
+                badge="STEP 6"
+                badgeColor="bg-orange-400/10 text-orange-400 ring-orange-400/20"
+              >
+                <SubRoleCard name="Paper Trader" subtitle="Executes buy/sell against virtual portfolio" />
+                <SubRoleCard name="Trade Monitor" subtitle="SL / TP / trailing stops between cycles" />
+                <SubRoleCard name="Trade Ledger" subtitle="P&L, holding time, exit reason tracking" />
+              </ExecCard>
+            </div>
           </div>
         </div>
 
