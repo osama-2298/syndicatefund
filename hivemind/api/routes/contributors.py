@@ -18,6 +18,79 @@ from hivemind.db.session import get_db
 router = APIRouter(prefix="/contributors", tags=["contributors"])
 
 
+async def _validate_api_key(
+    provider: ProviderType,
+    api_key_anthropic: str | None = None,
+    api_key_openai: str | None = None,
+    api_key_google: str | None = None,
+) -> str | None:
+    """Validate an API key by making a minimal real call. Returns error message or None if valid."""
+    import httpx
+
+    async with httpx.AsyncClient(timeout=15.0) as http:
+        try:
+            if provider == ProviderType.ANTHROPIC and api_key_anthropic:
+                resp = await http.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={
+                        "x-api-key": api_key_anthropic,
+                        "anthropic-version": "2023-06-01",
+                        "content-type": "application/json",
+                    },
+                    json={
+                        "model": "claude-haiku-4-5-20251001",
+                        "max_tokens": 1,
+                        "messages": [{"role": "user", "content": "hi"}],
+                    },
+                )
+                if resp.status_code == 401:
+                    return "Invalid Anthropic API key. Please check and try again."
+                if resp.status_code == 403:
+                    return "Anthropic API key is disabled or lacks permissions."
+                if resp.status_code not in (200, 429):
+                    return f"Anthropic API error: {resp.status_code}"
+
+            elif provider == ProviderType.OPENAI and api_key_openai:
+                resp = await http.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {api_key_openai}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": "gpt-4o-mini",
+                        "max_tokens": 1,
+                        "messages": [{"role": "user", "content": "hi"}],
+                    },
+                )
+                if resp.status_code == 401:
+                    return "Invalid OpenAI API key. Please check and try again."
+                if resp.status_code == 403:
+                    return "OpenAI API key is disabled or lacks permissions."
+                if resp.status_code not in (200, 429):
+                    return f"OpenAI API error: {resp.status_code}"
+
+            elif provider == ProviderType.GOOGLE and api_key_google:
+                resp = await http.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key_google}",
+                    headers={"Content-Type": "application/json"},
+                    json={"contents": [{"parts": [{"text": "hi"}]}]},
+                )
+                if resp.status_code == 400 and "API_KEY_INVALID" in resp.text:
+                    return "Invalid Google API key. Please check and try again."
+                if resp.status_code == 403:
+                    return "Google API key lacks permissions for Gemini."
+                if resp.status_code not in (200, 429):
+                    return f"Google API error: {resp.status_code}"
+
+        except httpx.TimeoutException:
+            return None  # Timeout is not a key validity issue, let it through
+        except Exception as e:
+            return f"Key validation failed: {str(e)[:100]}"
+
+    return None  # Valid
+
+
 class RegisterRequest(BaseModel):
     display_name: str = Field(..., min_length=1, max_length=100)
     email: str | None = None
@@ -54,6 +127,16 @@ async def register(
         provider = ProviderType.OPENAI
     else:
         provider = ProviderType.GOOGLE
+
+    # Validate the API key by making a real call
+    validation_error = await _validate_api_key(
+        provider=provider,
+        api_key_anthropic=req.api_key_anthropic,
+        api_key_openai=req.api_key_openai,
+        api_key_google=req.api_key_google,
+    )
+    if validation_error:
+        raise HTTPException(status_code=400, detail=validation_error)
 
     # Generate bearer token
     token, token_hash = generate_api_token()
