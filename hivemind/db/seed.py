@@ -18,6 +18,7 @@ from hivemind.db.models import (
     AgentRow,
     AgentStatusDB,
     ActivationMode,
+    CeoPostRow,
     ProviderType,
     TeamRow,
     TeamStatus,

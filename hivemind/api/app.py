@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 import structlog
 from fastapi import FastAPI
 
-from hivemind.api.routes import agents, backtest, contributors, cycles, portfolio, signals, teams
+from hivemind.api.routes import agents, backtest, ceo_posts, contributors, cycles, portfolio, signals, teams
 from hivemind.config import settings
 
 logger = structlog.get_logger()
@@ -213,6 +213,224 @@ async def _price_monitor(shutdown_event: asyncio.Event):
     print("[MONITOR] Price monitor stopped.", flush=True)
 
 
+async def _daily_briefing_task(shutdown_event: asyncio.Event):
+    """Runs daily at 08:00 UTC — CEO reads the market and writes a briefing."""
+    print("[CEO] Daily briefing task starting...", flush=True)
+
+    while not shutdown_event.is_set():
+        try:
+            # Wait until 08:00 UTC
+            now = datetime.now(timezone.utc)
+            next_run = now.replace(hour=8, minute=0, second=0, microsecond=0)
+            if now.hour >= 8:
+                next_run += timedelta(days=1)
+            wait_secs = (next_run - now).total_seconds()
+
+            print(f"[CEO] Next briefing at {next_run.isoformat()} ({int(wait_secs)}s)", flush=True)
+
+            try:
+                await asyncio.wait_for(shutdown_event.wait(), timeout=wait_secs)
+                break
+            except asyncio.TimeoutError:
+                pass
+
+            # Gather market data
+            import httpx
+            ctx = {}
+            async with httpx.AsyncClient(timeout=15) as http:
+                try:
+                    r = await http.get("https://data-api.binance.vision/api/v3/ticker/24hr?symbol=BTCUSDT")
+                    d = r.json()
+                    ctx["btc_price"] = float(d.get("lastPrice", 0))
+                    ctx["btc_24h_change"] = float(d.get("priceChangePercent", 0))
+                except Exception:
+                    pass
+                try:
+                    r = await http.get("https://api.alternative.me/fng/?limit=1")
+                    fg = r.json().get("data", [{}])[0]
+                    ctx["fear_greed"] = f"{fg.get('value', '?')}/100 ({fg.get('value_classification', '?')})"
+                except Exception:
+                    pass
+
+            # Get portfolio state
+            from pathlib import Path
+            import json
+            portfolio_path = Path(settings.portfolio_state_path)
+            if portfolio_path.exists():
+                pf = json.loads(portfolio_path.read_text())
+                positions = pf.get("positions", [])
+                ctx["open_positions"] = ", ".join(
+                    f"{p['symbol'].replace('USDT','')} ({p['side']})" for p in positions
+                ) or "None"
+
+            # Write briefing
+            from hivemind.executive.ceo_writer import CEOWriter
+            writer = CEOWriter(
+                api_key=settings.get_active_llm_key(),
+                provider=settings.default_llm_provider,
+                model=settings.default_llm_model,
+            )
+            result = writer.write_briefing(ctx)
+
+            # Save to DB
+            from hivemind.db.session import async_session_factory
+            from hivemind.db.models import CeoPostRow
+            async with async_session_factory() as session:
+                post = CeoPostRow(
+                    post_type="briefing",
+                    title=result.get("title", "Daily Brief"),
+                    content=result.get("content", ""),
+                    summary=result.get("summary", ""),
+                    market_context=ctx,
+                )
+                session.add(post)
+                await session.commit()
+
+            print(f"[CEO] Daily briefing written: {result.get('title', '?')}", flush=True)
+
+        except Exception as e:
+            logger.error("daily_briefing_failed", error=str(e))
+
+        # Small delay before next loop iteration
+        await asyncio.sleep(60)
+
+    print("[CEO] Daily briefing task stopped.", flush=True)
+
+
+async def _weekly_blog_task(shutdown_event: asyncio.Event):
+    """Runs weekly on Sunday at 10:00 UTC — CEO writes a blog post."""
+    print("[CEO] Weekly blog task starting...", flush=True)
+
+    while not shutdown_event.is_set():
+        try:
+            # Wait until Sunday 10:00 UTC
+            now = datetime.now(timezone.utc)
+            days_until_sunday = (6 - now.weekday()) % 7
+            if days_until_sunday == 0 and now.hour >= 10:
+                days_until_sunday = 7
+            next_run = (now + timedelta(days=days_until_sunday)).replace(
+                hour=10, minute=0, second=0, microsecond=0
+            )
+            wait_secs = (next_run - now).total_seconds()
+
+            print(f"[CEO] Next blog at {next_run.isoformat()} ({int(wait_secs)}s)", flush=True)
+
+            try:
+                await asyncio.wait_for(shutdown_event.wait(), timeout=wait_secs)
+                break
+            except asyncio.TimeoutError:
+                pass
+
+            # Gather weekly context
+            from pathlib import Path
+            import json
+
+            ctx = {}
+
+            # BTC price
+            import httpx
+            async with httpx.AsyncClient(timeout=15) as http:
+                try:
+                    r = await http.get("https://data-api.binance.vision/api/v3/ticker/24hr?symbol=BTCUSDT")
+                    d = r.json()
+                    ctx["btc_price"] = float(d.get("lastPrice", 0))
+                except Exception:
+                    pass
+                try:
+                    r = await http.get("https://api.alternative.me/fng/?limit=1")
+                    fg = r.json().get("data", [{}])[0]
+                    ctx["fear_greed"] = f"{fg.get('value', '?')}/100"
+                except Exception:
+                    pass
+
+            # Portfolio
+            portfolio_path = Path(settings.portfolio_state_path)
+            if portfolio_path.exists():
+                pf = json.loads(portfolio_path.read_text())
+                positions = pf.get("positions", [])
+                cash = pf.get("cash", 100000)
+                invested = sum(p["quantity"] * p.get("current_price", p["entry_price"]) for p in positions)
+                ctx["portfolio_value"] = cash + invested
+                ctx["return_pct"] = ((cash + invested - 100000) / 100000) * 100
+
+            # Cycle stats from DB
+            try:
+                from hivemind.db.session import async_session_factory
+                from hivemind.db.models import CycleRow
+                from sqlalchemy import select, func
+                async with async_session_factory() as session:
+                    week_ago = now - timedelta(days=7)
+                    result = await session.execute(
+                        select(
+                            func.count(CycleRow.id),
+                            func.sum(CycleRow.signals_produced),
+                            func.sum(CycleRow.orders_executed),
+                        ).where(CycleRow.started_at >= week_ago)
+                    )
+                    row = result.one_or_none()
+                    if row:
+                        ctx["cycles_this_week"] = row[0] or 0
+                        ctx["signals_this_week"] = row[1] or 0
+                        ctx["trades_this_week"] = row[2] or 0
+            except Exception:
+                pass
+
+            # Agent count
+            try:
+                from hivemind.db.models import AgentRow, AgentStatusDB
+                async with async_session_factory() as session:
+                    result = await session.execute(
+                        select(func.count(AgentRow.id)).where(
+                            AgentRow.status.in_([AgentStatusDB.FOUNDING, AgentStatusDB.ACTIVE, AgentStatusDB.ASSIGNED])
+                        )
+                    )
+                    ctx["active_agents"] = result.scalar() or 0
+            except Exception:
+                pass
+
+            # Write blog
+            from hivemind.executive.ceo_writer import CEOWriter
+            writer = CEOWriter(
+                api_key=settings.get_active_llm_key(),
+                provider=settings.default_llm_provider,
+                model=settings.default_llm_model,
+            )
+            result = writer.write_blog(ctx)
+
+            # Also write a memo after the blog
+            memo_result = writer.write_memo(ctx)
+
+            # Save both to DB
+            from hivemind.db.models import CeoPostRow
+            async with async_session_factory() as session:
+                blog_post = CeoPostRow(
+                    post_type="blog",
+                    title=result.get("title", "Weekly Update"),
+                    content=result.get("content", ""),
+                    summary=result.get("summary", ""),
+                    market_context=ctx,
+                )
+                memo_post = CeoPostRow(
+                    post_type="memo",
+                    title=memo_result.get("title", "Strategy Update"),
+                    content=memo_result.get("content", ""),
+                    market_context=ctx,
+                )
+                session.add(blog_post)
+                session.add(memo_post)
+                await session.commit()
+
+            print(f"[CEO] Weekly blog written: {result.get('title', '?')}", flush=True)
+            print(f"[CEO] Memo written: {memo_result.get('title', '?')}", flush=True)
+
+        except Exception as e:
+            logger.error("weekly_blog_failed", error=str(e))
+
+        await asyncio.sleep(60)
+
+    print("[CEO] Weekly blog task stopped.", flush=True)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan — startup and shutdown."""
@@ -221,6 +439,8 @@ async def lifespan(app: FastAPI):
     # Start background tasks
     cycle_task = asyncio.create_task(_background_cycle_loop(shutdown_event))
     monitor_task = asyncio.create_task(_price_monitor(shutdown_event))
+    briefing_task = asyncio.create_task(_daily_briefing_task(shutdown_event))
+    blog_task = asyncio.create_task(_weekly_blog_task(shutdown_event))
 
     yield
 
@@ -228,12 +448,22 @@ async def lifespan(app: FastAPI):
     shutdown_event.set()
     cycle_task.cancel()
     monitor_task.cancel()
+    briefing_task.cancel()
+    blog_task.cancel()
     try:
         await cycle_task
     except asyncio.CancelledError:
         pass
     try:
         await monitor_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await briefing_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await blog_task
     except asyncio.CancelledError:
         pass
 
@@ -271,6 +501,7 @@ app.include_router(cycles.router, prefix="/api/v1")
 app.include_router(portfolio.router, prefix="/api/v1")
 app.include_router(backtest.router, prefix="/api/v1")
 app.include_router(signals.router, prefix="/api/v1")
+app.include_router(ceo_posts.router, prefix="/api/v1")
 
 
 @app.get("/health")

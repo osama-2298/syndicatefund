@@ -224,3 +224,15 @@ class BoardDecisionRow(Base):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
+
+
+class CeoPostRow(Base):
+    __tablename__ = "ceo_posts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    post_type = Column(String, nullable=False)  # "blog", "memo", "briefing"
+    title = Column(String, nullable=False)
+    content = Column(Text, nullable=False)
+    summary = Column(Text, nullable=True)  # Short summary for previews
+    market_context = Column(JSONB, nullable=True)  # Regime, F&G, BTC price at time of writing
+    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
