@@ -63,9 +63,6 @@ class Settings(BaseSettings):
     twilio_auth_token: str = ""
     twilio_whatsapp_from: str = ""
 
-    # ── Whale Alert ──
-    whale_alert_api_key: str = ""
-
     # ── CryptoPanic ──
     cryptopanic_api_key: str = ""
 

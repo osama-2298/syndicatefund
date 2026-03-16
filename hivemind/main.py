@@ -612,16 +612,6 @@ def run_pipeline(
             finally:
                 lm.close()
 
-        def _fetch_whale_alert():
-            from hivemind.data.whale_alert import WhaleAlertClient
-            wa = WhaleAlertClient(api_key=getattr(settings, 'whale_alert_api_key', ''))
-            try:
-                btc = wa.get_recent_transactions(currency="bitcoin", min_value_usd=1_000_000)
-                eth = wa.get_recent_transactions(currency="ethereum", min_value_usd=500_000)
-                return "whale_alert", {"btc": btc, "eth": eth}
-            finally:
-                wa.close()
-
         def _fetch_news_sentiment():
             from hivemind.data.news_sentiment import NewsSentimentClient
             nc = NewsSentimentClient(auth_token=getattr(settings, 'cryptopanic_api_key', ''))
@@ -639,7 +629,6 @@ def run_pipeline(
                 intel_executor.submit(_fetch_defillama),
                 intel_executor.submit(_fetch_polymarket),
                 intel_executor.submit(_fetch_liquidations),
-                intel_executor.submit(_fetch_whale_alert),
                 intel_executor.submit(_fetch_news_sentiment),
             ]
 
@@ -699,11 +688,6 @@ def run_pipeline(
             liq = intel["liquidations"]
             if liq["intensity"] != "LOW":
                 print(f"    {dim('Liquidations')}   {liq['intensity']} — ${liq['total_long_liquidated_usd']/1e6:.1f}M longs, ${liq['total_short_liquidated_usd']/1e6:.1f}M shorts ({liq['net_direction']})")
-        if intel.get("whale_alert"):
-            wa = intel["whale_alert"]
-            btc_wa = wa.get("btc", {})
-            if btc_wa.get("count", 0) > 0:
-                print(f"    {dim('Whale Alert')}    BTC: {btc_wa['count']} large txs, ${btc_wa['exchange_inflows_usd']/1e6:.1f}M in / ${btc_wa['exchange_outflows_usd']/1e6:.1f}M out ({btc_wa['net_flow_direction']})")
         if intel.get("news_sentiment"):
             ns = intel["news_sentiment"]
             if ns["overall_sentiment"] != "UNKNOWN":
