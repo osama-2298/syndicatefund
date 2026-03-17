@@ -75,18 +75,20 @@ export default function LandingPage() {
 
   useEffect(() => {
     const lines = [
-      '> [08:00 UTC] CEO daily briefing: BTC holding $71.4K, F&G 45/100',
-      '> [CYCLE] Intelligence gathering... 5 sources in parallel',
-      '> [CEO] Regime: RANGING — risk multiplier 0.9',
-      '> [COO] Selected 8 coins: BTC, ETH, SOL, AAVE, LINK, DOT, AVAX, ADA',
+      '> [CEO] Marcus Blackwell: Regime RANGING — risk multiplier 0.85',
+      '> [COO] Elena Vasquez selected 8 coins: BTC, ETH, SOL, AAVE, LINK, DOT, AVAX, ADA',
+      '> [CRO] Tobias Richter: max position 6%, confidence threshold 0.60',
       '> [TECHNICAL] Lena Karlsson analyzing BTC... BULLISH 7/10',
-      '> [SENTIMENT] Priya Sharma scanning Reddit... BEARISH 3/10',
-      '> [MACRO] Lucas Weber reading Fed signals... BULLISH 5/10',
-      '> [AGGREGATOR] Bayesian consensus: BUY @ 64% confidence',
-      '> [RISK] Position sized: $7,000 (7% of portfolio)',
-      '> [EXECUTION] BUY 0.098 BTC @ $71,459 — SL: $70,124 TP: $75,418',
-      '> [MONITOR] Checking SL/TP every 2s... all positions healthy',
-      '> [CEO] Weekly blog published: "Navigating the Range"',
+      '> [SENTIMENT] Priya Sharma scanning Reddit... BEARISH 4/10',
+      '> [DISAGREEMENT] Technical vs Sentiment on BTC — polarization score 0.72',
+      '> [MACRO] Lucas Weber: Fed holding rates, crypto decoupling. BULLISH 5/10',
+      '> [AGGREGATOR] Bayesian log-odds: BUY @ 64% confidence, consensus 3/5',
+      '> [RISK] James Hartley approved: $7,200 position (7.2% of portfolio)',
+      '> [EXECUTION] BUY 0.098 BTC @ $73,459 — SL: $71,824 TP1: $76,418 TP2: $79,100',
+      '> [MONITOR] TP1 hit on SOL @ $187.40 — sold 33%, trailing stop active',
+      '> [RESEARCH] Dr. Moretti: Signal decay detected in SocialSentimentAgent (-12%)',
+      '> [BOARD] Agent accuracy below 40% for 20 signals — probation initiated',
+      '> [CEO] Blog published: "Why We Sold SOL Early — And Why We\'d Do It Again"',
     ];
     let i = 0;
     const interval = setInterval(() => {
@@ -164,8 +166,8 @@ export default function LandingPage() {
             <a href="/dashboard" className="group inline-flex items-center gap-2 px-7 py-3.5 bg-syn-accent text-white font-bold rounded-xl hover:bg-syn-accent-hover hover:shadow-lg hover:shadow-violet-500/20 transition-all hover:scale-[1.02]">
               Launch Dashboard <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
             </a>
-            <a href="/register" className="inline-flex items-center gap-2 px-7 py-3.5 bg-syn-surface text-syn-text font-semibold rounded-xl ring-1 ring-syn-border hover:bg-syn-elevated transition-all">
-              Contribute Agents
+            <a href="/org" className="inline-flex items-center gap-2 px-7 py-3.5 bg-syn-surface text-syn-text font-semibold rounded-xl ring-1 ring-syn-border hover:bg-syn-elevated transition-all">
+              See the Org Chart
             </a>
           </div>
         </div>
@@ -206,9 +208,9 @@ export default function LandingPage() {
         </div>
         <div className="grid md:grid-cols-3 gap-6">
           {[
-            { icon: Eye, title: 'Gather Intelligence', desc: 'CEO reads 11 data sources: Binance, Reddit, Fear & Greed, CoinGecko, DeFiLlama, Polymarket, whale flows, derivatives, and more.', step: '01' },
-            { icon: Brain, title: 'Agents Analyze & Debate', desc: '12 specialized agents across 5 teams independently analyze each coin. Technical says buy. Sentiment says sell. The aggregator resolves every disagreement mathematically.', step: '02' },
-            { icon: Zap, title: 'Consensus & Execute', desc: 'Bayesian log-odds combines 60+ signals into one decision. Risk manager enforces position limits. If consensus is strong enough — the fund trades. Autonomously.', step: '03' },
+            { icon: Eye, title: 'CEO Sets the Course', desc: 'Marcus Blackwell reads the market, classifies the regime, and issues a strategic directive. Elena Vasquez selects which coins to analyze. Tobias Richter sets risk limits. All AI.', step: '01' },
+            { icon: Brain, title: 'Teams Argue', desc: '12 agents across 5 teams independently analyze each coin. Technical says BUY 7/10. Sentiment says SELL 3/10. Macro is neutral. Each team has internal debates too — then the manager picks a side.', step: '02' },
+            { icon: Zap, title: 'Math Decides', desc: 'No voting. No averaging. Bayesian log-odds weighs each signal by track record. The risk manager kills anything too risky. If it survives all gates — the fund executes. Autonomously.', step: '03' },
           ].map((item) => (
             <div key={item.step} className="bg-syn-surface border border-syn-border rounded-lg p-6 group hover:bg-syn-elevated transition-all duration-300">
               <div className="flex items-center gap-3 mb-4">
@@ -244,19 +246,57 @@ export default function LandingPage() {
               <div key={`${i}-${line}`} className="animate-[fadeUp_0.3s_ease-out] py-0.5">
                 <span className={
                   line.includes('[CEO]') ? 'text-syn-accent' :
+                  line.includes('[COO]') ? 'text-blue-400' :
+                  line.includes('[CRO]') ? 'text-orange-400' :
                   line.includes('[TECHNICAL]') ? 'text-blue-400' :
                   line.includes('[SENTIMENT]') ? 'text-purple-400' :
                   line.includes('[MACRO]') ? 'text-cyan-400' :
+                  line.includes('[DISAGREEMENT]') ? 'text-red-400' :
                   line.includes('[AGGREGATOR]') ? 'text-emerald-400' :
-                  line.includes('[RISK]') ? 'text-violet-400' :
+                  line.includes('[RISK]') ? 'text-orange-400' :
                   line.includes('[EXECUTION]') ? 'text-green-400' :
                   line.includes('[MONITOR]') ? 'text-teal-400' :
+                  line.includes('[RESEARCH]') ? 'text-indigo-400' :
+                  line.includes('[BOARD]') ? 'text-red-400' :
                   line.includes('[CYCLE]') ? 'text-syn-text-secondary' : 'text-syn-muted'
                 }>{line}</span>
               </div>
             ))}
             <span className="inline-block w-2 h-4 bg-syn-accent/80 animate-pulse" />
           </div>
+        </div>
+      </section>
+
+      {/* Why Different */}
+      <section className="max-w-6xl mx-auto px-6 py-24">
+        <div className="text-center mb-16">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-accent/60 mb-3">Why This Is Different</p>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-syn-text">Everyone says &ldquo;AI trading.&rdquo;<br />We built something else.</h2>
+        </div>
+        <div className="grid md:grid-cols-2 gap-4">
+          {[
+            {
+              before: 'Signal bots send alerts.',
+              after: 'Syndicate has 12 analysts who debate each other before a single trade is placed.',
+            },
+            {
+              before: 'AI tools give you suggestions.',
+              after: 'Syndicate has a CEO who writes strategy, a CRO who sets risk limits, and a board that fires underperformers.',
+            },
+            {
+              before: 'Trading bots optimize parameters.',
+              after: 'Syndicate has a research division that audits whether its own analysts are getting worse over time.',
+            },
+            {
+              before: 'Most funds hide their trades.',
+              after: 'Every signal, every disagreement, every loss — visible to anyone. Full transparency.',
+            },
+          ].map((item, i) => (
+            <div key={i} className="bg-syn-surface border border-syn-border rounded-lg p-5 hover:bg-syn-elevated transition-all">
+              <p className="text-sm text-syn-muted line-through decoration-white/10 mb-2">{item.before}</p>
+              <p className="text-sm text-syn-text font-medium">{item.after}</p>
+            </div>
+          ))}
         </div>
       </section>
 
