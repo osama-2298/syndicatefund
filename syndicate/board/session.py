@@ -27,12 +27,16 @@ from syndicate.db.models import (
     AgentRow,
     AgentStatusDB,
     BoardDecisionRow,
+    ProviderType,
     TeamRow,
     TeamStatus,
     ActivationMode,
 )
 
 logger = structlog.get_logger()
+
+# Max platform-spawned agents (uses platform API key, not contributor keys)
+MAX_PLATFORM_AGENTS = 8
 
 
 class BoardSession:
@@ -86,6 +90,12 @@ class BoardSession:
 
         summary["cso"] = cso_result
         logger.info("cso_completed", new_teams=len(cso_result.get("new_teams", [])))
+
+        # ── Step 1.5: Spawn platform agents if teams are understaffed ──
+        spawned = await self._spawn_platform_agents()
+        if spawned:
+            summary["platform_agents_spawned"] = spawned
+            logger.info("platform_agents_spawned", count=spawned)
 
         # ── Step 2: CTO — Assign agents and write prompts ──
         cto = CTOAgent(api_key=api_key, provider=provider, model=model)
@@ -265,6 +275,76 @@ class BoardSession:
         return regime or "ranging"
 
     # ── Decision Executors ──
+
+    async def _spawn_platform_agents(self) -> int:
+        """
+        Spawn platform-owned agents to fill understaffed teams.
+
+        Platform agents use the platform's API key (not contributor keys).
+        Capped at MAX_PLATFORM_AGENTS total across all teams.
+        Returns the number of agents spawned.
+        """
+        # Count existing platform-spawned agents (non-founding, non-fired, no contributor)
+        existing_q = await self.db.execute(
+            select(func.count(AgentRow.id)).where(
+                AgentRow.contributor_id.is_(None),
+                AgentRow.status.notin_([AgentStatusDB.FOUNDING, AgentStatusDB.FIRED]),
+            )
+        )
+        existing_platform = existing_q.scalar() or 0
+        budget = MAX_PLATFORM_AGENTS - existing_platform
+
+        if budget <= 0:
+            return 0
+
+        # Find understaffed teams (fewer agents than min_agents)
+        teams = await self.db.execute(select(TeamRow))
+        understaffed = []
+        for team in teams.scalars().all():
+            count_q = await self.db.execute(
+                select(func.count(AgentRow.id)).where(
+                    AgentRow.team_id == team.id,
+                    AgentRow.status.notin_([AgentStatusDB.FIRED]),
+                )
+            )
+            current = count_q.scalar() or 0
+            deficit = team.min_agents - current
+            if deficit > 0:
+                understaffed.append((team, deficit))
+
+        if not understaffed:
+            return 0
+
+        spawned = 0
+        for team, deficit in understaffed:
+            to_spawn = min(deficit, budget - spawned)
+            if to_spawn <= 0:
+                break
+
+            for i in range(to_spawn):
+                agent = AgentRow(
+                    contributor_id=None,
+                    team_id=None,  # CTO will assign
+                    role=f"platform_analyst_{i + 1}",
+                    model=settings.default_llm_model,
+                    provider=ProviderType(settings.default_llm_provider.value),
+                    status=AgentStatusDB.REGISTERED,
+                    quarantine_signals_remaining=10,
+                )
+                self.db.add(agent)
+                spawned += 1
+
+            logger.info(
+                "platform_agents_created",
+                team=team.name,
+                count=to_spawn,
+                deficit=deficit,
+            )
+
+        if spawned:
+            await self.db.flush()
+
+        return spawned
 
     async def _create_team(self, team_data: dict) -> None:
         """Create a new team proposed by the CSO."""
