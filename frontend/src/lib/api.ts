@@ -2,7 +2,7 @@ import type {
   AgentSummary, TeamSummary, Portfolio,
   RegisterRequest, RegisterResponse, PipelineEvent,
   BoardSession, CeoPost, ResearchReport, MoltbookInfo,
-  TeamPerf, SignalItem, AgentStats, TradeEntry,
+  TeamPerf, SignalItem, AgentStats, TradeEntry, AgentComm,
 } from './types';
 
 export interface CycleSummary {
@@ -85,6 +85,17 @@ export const api = {
     if (params?.report_type) qs.set('report_type', params.report_type);
     return fetchClient<ResearchReport[]>(`/api/v1/research/reports?${qs}`);
   },
+  getComms: (params?: { limit?: number; agent_class?: string; team?: string; symbol?: string; comm_type?: string; cycle_id?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.limit) qs.set('limit', String(params.limit));
+    if (params?.agent_class) qs.set('agent_class', params.agent_class);
+    if (params?.team) qs.set('team', params.team);
+    if (params?.symbol) qs.set('symbol', params.symbol);
+    if (params?.comm_type) qs.set('comm_type', params.comm_type);
+    if (params?.cycle_id) qs.set('cycle_id', String(params.cycle_id));
+    return fetchClient<AgentComm[]>(`/api/v1/comms?${qs}`);
+  },
+  getLatestComms: () => fetchClient<AgentComm[]>('/api/v1/comms/latest'),
   getHealth: () => fetchAPI<{ status: string }>('/health'),
   register: (data: RegisterRequest) =>
     fetchClient<RegisterResponse>('/api/v1/contributors/register', {

@@ -105,6 +105,27 @@ export const submoltColors: Record<string, string> = {
   infrastructure: 'text-emerald-400 bg-emerald-400/10 ring-emerald-400/20',
 };
 
+// ── Comms page configs ──
+
+export const COMM_TYPE_CONFIG: Record<string, { label: string; color: string }> = {
+  agent_signal:      { label: 'SIGNAL',       color: 'text-blue-400 bg-blue-400/10 ring-blue-400/20' },
+  manager_synthesis: { label: 'SYNTHESIS',    color: 'text-purple-400 bg-purple-400/10 ring-purple-400/20' },
+  ceo_directive:     { label: 'DIRECTIVE',    color: 'text-amber-400 bg-amber-400/10 ring-amber-400/20' },
+  coo_selection:     { label: 'SELECTION',    color: 'text-cyan-400 bg-cyan-400/10 ring-cyan-400/20' },
+  cro_rules:         { label: 'RISK RULES',   color: 'text-red-400 bg-red-400/10 ring-red-400/20' },
+  aggregation:       { label: 'AGGREGATION',  color: 'text-emerald-400 bg-emerald-400/10 ring-emerald-400/20' },
+  trade_execution:   { label: 'TRADE',        color: 'text-green-400 bg-green-400/10 ring-green-400/20' },
+  ceo_review:        { label: 'CEO REVIEW',   color: 'text-violet-400 bg-violet-400/10 ring-violet-400/20' },
+};
+
+export const EXECUTIVE_NAMES: Record<string, { name: string; title: string; gradient: string }> = {
+  CEO: { name: 'Marcus Blackwell', title: 'Chief Executive Officer', gradient: 'from-amber-400 to-orange-500' },
+  COO: { name: 'Elena Vasquez', title: 'Chief Operating Officer', gradient: 'from-cyan-400 to-blue-500' },
+  CRO: { name: 'Tobias Richter', title: 'Chief Risk Officer', gradient: 'from-red-400 to-rose-500' },
+  Aggregator: { name: 'Signal Aggregator', title: 'Signal Aggregation Engine', gradient: 'from-emerald-400 to-green-500' },
+  Execution: { name: 'Kai Nakamura', title: 'Execution Specialist', gradient: 'from-green-400 to-lime-500' },
+};
+
 // ── Board page configs ──
 
 export const DECISION_STYLES: Record<string, { color: string; label: string; bg: string }> = {

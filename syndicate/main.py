@@ -145,6 +145,8 @@ def _run_single_agent(agent_cls, team_type, symbol, data, api_key, provider):
     t0 = time.monotonic()
     signal = agent.analyze(data)
     elapsed = time.monotonic() - t0
+    # Tag signal with class name for comms generator (agent_id is a UUID)
+    signal.metadata["agent_class"] = agent_cls.__name__
     agent_name = agent_cls.__name__.replace("Agent", "").replace("Technical", "")
     return signal, agent_name, elapsed
 
@@ -159,7 +161,7 @@ def _run_team(
     api_key: str,
     provider,
     executor,
-) -> tuple[Signal, list[str]]:
+) -> tuple[Signal, list[Signal], list[str]]:
     """
     Run all agents in a team IN PARALLEL, then synthesize through the manager.
     Sub-agents are independent — they never see each other's output.
@@ -208,7 +210,7 @@ def _run_team(
         f"{dim(f'{agree_str}{tf_str}  {mgr_elapsed:.1f}s')}"
     )
 
-    return final_signal, [*display_lines, mgr_line]
+    return final_signal, agent_signals, [*display_lines, mgr_line]
 
 
 def _analyze_coin(
@@ -216,7 +218,7 @@ def _analyze_coin(
     snapshot: MarketSnapshot,
     api_key: str,
     provider,
-) -> tuple[list[Signal], dict[str, AgentProfile], float]:
+) -> tuple[list[Signal], list[Signal], dict[str, AgentProfile], float]:
     """
     Run all 5 agent teams for a single coin IN PARALLEL.
     Within each team, sub-agents also run in parallel.
@@ -230,7 +232,7 @@ def _analyze_coin(
 
     coin = snapshot.coins.get(symbol)
     if coin is None or coin.indicators is None:
-        return [], {}, 0.0
+        return [], [], {}, 0.0
 
     coin_header(symbol, coin.current_price, coin.stats_24h.get("price_change_pct", 0))
 
@@ -278,15 +280,19 @@ def _analyze_coin(
 
         # Collect results and display in order
         all_manager_signals = []
+        all_individual_signals = []
         agent_profiles = {}
 
         for team_name, team_type, fut in team_futures:
             try:
-                manager_signal, display_lines = fut.result()
+                manager_signal, agent_sigs, display_lines = fut.result()
 
                 # Display (buffered per team for clean output)
                 for line in display_lines:
                     print(line)
+
+                # Collect individual agent signals for comms
+                all_individual_signals.extend(agent_sigs)
 
                 # Set price metadata
                 manager_signal.metadata["current_price"] = coin.current_price
@@ -306,7 +312,7 @@ def _analyze_coin(
             except Exception as e:
                 logger.error("team_failed", team=team_name, symbol=symbol, error=str(e))
 
-    return all_manager_signals, agent_profiles, coin.current_price
+    return all_manager_signals, all_individual_signals, agent_profiles, coin.current_price
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -320,6 +326,8 @@ def _run_single_agent_dynamic(agent_def, registry, symbol, data):
     t0 = time.monotonic()
     sig = agent.analyze(data)
     elapsed = time.monotonic() - t0
+    # Tag signal with class/role for comms generator (agent_id is a DB UUID)
+    sig.metadata["agent_class"] = agent_def.agent_class or agent_def.role
     return sig, elapsed
 
 
@@ -354,7 +362,7 @@ def _run_team_dynamic(
             logger.error("agent_failed", agent=agent_def.role, error=str(e))
 
     if not agent_signals:
-        return None, display_lines
+        return None, [], display_lines
 
     # Manager synthesizes
     manager = registry.get_manager_for_team(team_name, team_manager_prompt)
@@ -374,7 +382,7 @@ def _run_team_dynamic(
         f"{dim(f'{agree_str}{tf_str}  {mgr_elapsed:.1f}s')}"
     )
 
-    return final_signal, [*display_lines, mgr_line]
+    return final_signal, agent_signals, [*display_lines, mgr_line]
 
 
 def _analyze_coin_dynamic(
@@ -387,7 +395,7 @@ def _analyze_coin_dynamic(
 
     coin = snapshot.coins.get(symbol)
     if coin is None or coin.indicators is None:
-        return [], {}, 0.0
+        return [], [], {}, 0.0
 
     coin_header(symbol, coin.current_price, coin.stats_24h.get("price_change_pct", 0))
 
@@ -429,6 +437,7 @@ def _analyze_coin_dynamic(
             team_futures.append((team_name, fut))
 
         all_manager_signals = []
+        all_individual_signals = []
         agent_profiles = {}
 
         for team_name, fut in team_futures:
@@ -436,12 +445,15 @@ def _analyze_coin_dynamic(
                 result = fut.result()
                 if result is None:
                     continue
-                final_signal, display_lines = result
+                final_signal, agent_sigs, display_lines = result
                 if final_signal is None:
                     continue
 
                 for line in display_lines:
                     print(line)
+
+                # Collect individual agent signals for comms
+                all_individual_signals.extend(agent_sigs)
 
                 final_signal.metadata["current_price"] = coin.current_price
                 final_signal.metadata["stats_24h"] = coin.stats_24h
@@ -461,7 +473,7 @@ def _analyze_coin_dynamic(
             except Exception as e:
                 logger.error("team_failed", team=team_name, symbol=symbol, error=str(e))
 
-    return all_manager_signals, agent_profiles, coin.current_price
+    return all_manager_signals, all_individual_signals, agent_profiles, coin.current_price
 
 
 def run_pipeline(
@@ -925,7 +937,8 @@ def run_pipeline(
         else:
             section(f"Agent Analysis — {len(selected_coins)} coins × 5 teams")
 
-        all_coin_signals: list[Signal] = []
+        all_coin_signals: list[Signal] = []        # manager signals (for aggregator, unchanged)
+        all_individual_signals: list[Signal] = []  # individual agent signals (for comms)
         all_agent_profiles: dict[str, AgentProfile] = {}
         coin_prices: dict[str, float] = {}
 
@@ -941,8 +954,9 @@ def run_pipeline(
         with _CoinPool(max_workers=2) as coin_pool:
             futs = {coin_pool.submit(_analyze_and_collect, s): s for s in selected_coins}
             for fut in as_completed(futs):
-                sym, (signals, profiles, price) = fut.result()
-                all_coin_signals.extend(signals)
+                sym, (manager_sigs, agent_sigs, profiles, price) = fut.result()
+                all_coin_signals.extend(manager_sigs)
+                all_individual_signals.extend(agent_sigs)
                 all_agent_profiles.update(profiles)
                 coin_prices[sym] = price
 
@@ -1109,6 +1123,7 @@ def run_pipeline(
         # ═══════════════════════════════════════
         # STEP 10: Execution
         # ═══════════════════════════════════════
+        results = []
         if final_orders:
             section("Execution")
             results = paper_trader.execute_batch(final_orders)
@@ -1269,6 +1284,32 @@ def run_pipeline(
         except Exception as e:
             logger.warning("snapshot_save_failed", error=str(e))
 
+        # Generate comms from cycle data
+        try:
+            import json
+            from syndicate.comms.generator import CommGenerator
+            comm_gen = CommGenerator()
+            _cycle_comms = comm_gen.generate_all(
+                directive=directive,
+                selection=selection,
+                risk_limits=risk_limits,
+                cro_reasoning=cro_reasoning,
+                individual_signals=all_individual_signals,
+                manager_signals=all_coin_signals,
+                aggregated=aggregated,
+                final_orders=final_orders,
+                results=results,
+                ceo_feedback=ceo_feedback,
+            )
+            # JSON fallback
+            comms_path = Path("data/latest_comms.json")
+            comms_path.parent.mkdir(parents=True, exist_ok=True)
+            comms_path.write_text(json.dumps(_cycle_comms, indent=2, default=str))
+            print(f"    {dim(f'Agent comms generated: {len(_cycle_comms)} messages')}")
+        except Exception as e:
+            logger.warning("comms_generation_failed", error=str(e))
+            _cycle_comms = []
+
         # Write a blog post about this cycle
         try:
             import json
@@ -1348,9 +1389,10 @@ def run_pipeline(
 
             _evt_collector = collector
             _blog_entry = blog_entry if 'blog_entry' in dir() else None
+            _comms_for_db = _cycle_comms
 
             async def _record():
-                from syndicate.db.models import CeoPostRow
+                from syndicate.db.models import CeoPostRow, AgentCommRow
                 async with async_session_factory() as session:
                     cycle_id = await record_cycle_to_db(
                         db_session=session,
@@ -1373,6 +1415,20 @@ def run_pipeline(
                             market_context=_blog_entry.get("market_context"),
                         )
                         session.add(post)
+                    # Save agent comms to DB
+                    for comm_data in _comms_for_db:
+                        session.add(AgentCommRow(
+                            cycle_id=cycle_id,
+                            comm_type=comm_data["comm_type"],
+                            agent_class=comm_data.get("agent_class"),
+                            agent_name=comm_data["agent_name"],
+                            team=comm_data.get("team"),
+                            symbol=comm_data.get("symbol"),
+                            direction=comm_data.get("direction"),
+                            conviction=comm_data.get("conviction"),
+                            content=comm_data["content"],
+                            metadata_=comm_data.get("metadata", {}),
+                        ))
                     await session.commit()
                     # Persist pipeline events
                     if _evt_collector:

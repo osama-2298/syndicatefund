@@ -190,6 +190,21 @@ export interface MoltbookInfo {
   total_posts: number;
 }
 
+export interface AgentComm {
+  id: string;
+  cycle_id: number | null;
+  comm_type: string;
+  agent_class: string | null;
+  agent_name: string;
+  team: string | null;
+  symbol: string | null;
+  direction: string | null;
+  conviction: number | null;
+  content: string;
+  metadata: Record<string, any> | null;
+  created_at: string;
+}
+
 export interface RegisterRequest {
   display_name: string;
   email?: string;

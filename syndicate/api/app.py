@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 import structlog
 from fastapi import FastAPI
 
-from syndicate.api.routes import agents, backtest, ceo_posts, contributors, cycles, moltbook, portfolio, research, signals, teams
+from syndicate.api.routes import agents, backtest, ceo_posts, comms, contributors, cycles, moltbook, portfolio, research, signals, teams
 from syndicate.config import settings
 
 logger = structlog.get_logger()
@@ -697,6 +697,7 @@ app.include_router(signals.router, prefix="/api/v1")
 app.include_router(ceo_posts.router, prefix="/api/v1")
 app.include_router(research.router, prefix="/api/v1")
 app.include_router(moltbook.router, prefix="/api/v1")
+app.include_router(comms.router, prefix="/api/v1")
 
 
 @app.get("/health")

@@ -12,6 +12,7 @@ from sqlalchemy import (
     Enum,
     Float,
     ForeignKey,
+    Index,
     Integer,
     LargeBinary,
     Numeric,
@@ -250,3 +251,26 @@ class ResearchReportRow(Base):
     recommendations = Column(JSONB, nullable=True)
     data_context = Column(JSONB, nullable=True)  # {period, sample_size, symbols_analyzed, etc.}
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+class AgentCommRow(Base):
+    __tablename__ = "agent_comms"
+    __table_args__ = (
+        Index("ix_agent_comms_cycle_id", "cycle_id"),
+        Index("ix_agent_comms_agent_class", "agent_class"),
+        Index("ix_agent_comms_team", "team"),
+        Index("ix_agent_comms_created_at", "created_at"),
+    )
+
+    id          = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    cycle_id    = Column(Integer, ForeignKey("cycles.id"), nullable=True)
+    comm_type   = Column(String, nullable=False)   # agent_signal, manager_synthesis, ceo_directive, etc.
+    agent_class = Column(String, nullable=True)     # "TechnicalTrendAgent", "CEO", "COO"
+    agent_name  = Column(String, nullable=False)    # "Lena Karlsson"
+    team        = Column(String, nullable=True)     # "technical", "sentiment", etc.
+    symbol      = Column(String, nullable=True)     # "BTCUSDT" (null for executive comms)
+    direction   = Column(String, nullable=True)     # "BULLISH"/"BEARISH"
+    conviction  = Column(Integer, nullable=True)    # 0-10
+    content     = Column(Text, nullable=False)      # Main message body
+    metadata_   = Column("metadata", JSONB, nullable=False, default=dict)
+    created_at  = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))

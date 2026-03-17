@@ -11,6 +11,7 @@ const jetbrains = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrai
 const navLinks = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/activity', label: 'Activity' },
+  { href: '/comms', label: 'Comms' },
   { href: '/agents', label: 'Agents' },
   { href: '/org', label: 'Org' },
   { href: '/blog', label: 'Blog' },
