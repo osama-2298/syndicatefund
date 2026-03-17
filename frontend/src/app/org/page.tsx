@@ -352,9 +352,7 @@ export default function OrgPage() {
       <div className="mb-10">
         <h1 className="text-2xl font-bold tracking-tight text-white">Org Chart</h1>
         <p className="text-sm text-white/40 mt-1">
-          <span className="font-mono tabular-nums">{teams.length}</span> teams,{' '}
-          <span className="font-mono tabular-nums">{agents.length}</span> agents. Click nodes to
-          expand.
+          A full corporate hierarchy. <span className="font-mono tabular-nums">{teams.length}</span> teams, <span className="font-mono tabular-nums">{agents.length}</span> analysts, 3 researchers, 6 executives. Zero humans. Click to expand.
         </p>
       </div>
 

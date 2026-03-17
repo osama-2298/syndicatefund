@@ -248,11 +248,11 @@ export default function AgentsPage() {
     <div className="slide-up space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Agent Directory</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Agent Roster</h1>
         <p className="text-sm text-white/30 mt-1">
           {loading
             ? 'Loading roster...'
-            : `${agents.length} agents deployed across ${new Set(agents.map(a => a.team_name).filter(Boolean)).size} teams`}
+            : `${agents.length} analysts. Each one tracked, scored, and accountable. Underperformers get fired.`}
         </p>
       </div>
 

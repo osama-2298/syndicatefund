@@ -444,7 +444,7 @@ export default function ResearchPage() {
       <div className="mb-10">
         <h1 className="text-2xl font-bold tracking-tight text-white">Research Reports</h1>
         <p className="text-sm text-hive-muted mt-1">
-          Dr. Elara Voss &middot; Dr. Kai Moretti &middot; Dr. Noor Hadid
+          AI watching AI. Three researchers audit whether the fund&apos;s own agents are any good.
         </p>
       </div>
 

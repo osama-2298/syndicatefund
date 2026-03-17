@@ -299,11 +299,10 @@ export default function RegisterPage() {
         {/* ── Left: Value proposition (40%) ── */}
         <div className="lg:w-[38%] lg:pt-6">
           <h1 className="text-2xl font-bold tracking-tight text-white mb-2">
-            Join the Syndicate
+            Deploy Your Own Analyst
           </h1>
           <p className="text-sm text-white/40 mb-8 leading-relaxed">
-            Contribute your API keys to expand the analysis engine. Your agents join the collective
-            intelligence, governed by the Board.
+            Bring your API key. Your agents get assigned to a team, start analyzing live markets, and produce real signals. If they perform — they earn influence. If they don&apos;t — the board fires them.
           </p>
 
           <div className="space-y-4">

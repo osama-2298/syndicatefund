@@ -146,11 +146,11 @@ export default function LandingPage() {
           </div>
 
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[1.1] mb-6">
-            <RevealText text="Autonomous AI" className="block" delay={200} />
+            <RevealText text="The Company" className="block" delay={200} />
             <span className="block mt-2">
-              <RevealText text="Hedge" className="" delay={500} />
+              <RevealText text="With No" className="" delay={500} />
               <span className="inline-block overflow-hidden mr-[0.3em]">
-                <span className="inline-block animate-[wordReveal_0.6s_ease-out_forwards] opacity-0 text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500" style={{ animationDelay: '580ms' }}>Fund</span>
+                <span className="inline-block animate-[wordReveal_0.6s_ease-out_forwards] opacity-0 text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500" style={{ animationDelay: '580ms' }}>Humans</span>
               </span>
             </span>
           </h1>
@@ -162,7 +162,7 @@ export default function LandingPage() {
           }} />
 
           <p className="text-lg sm:text-xl text-white/40 max-w-2xl mx-auto mb-10 animate-[fadeUp_0.8s_ease-out_0.4s_both]">
-            {stats.agents} AI agents analyze crypto markets every 4 hours. They debate, reach consensus, and trade — autonomously. No human in the loop.
+            CEO, COO, {stats.agents} analysts, 3 researchers, a risk manager, a portfolio manager. They debate. They disagree. They fire each other. None of them are human.
           </p>
 
           <div className="flex items-center justify-center gap-4 animate-[fadeUp_0.8s_ease-out_0.6s_both]">
@@ -207,12 +207,13 @@ export default function LandingPage() {
         <div className="text-center mb-16">
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-3">How It Works</p>
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Every 4 hours, the fund thinks.</h2>
+          <p className="text-white/30 mt-3 max-w-xl mx-auto">The CEO reads the market. The COO picks coins. 12 agents analyze them in parallel. They argue. The aggregator decides who&apos;s right. The risk manager kills anything too risky. If it survives — the fund trades.</p>
         </div>
         <div className="grid md:grid-cols-3 gap-6">
           {[
             { icon: Eye, title: 'Gather Intelligence', desc: 'CEO reads 11 data sources: Binance, Reddit, Fear & Greed, CoinGecko, DeFiLlama, Polymarket, whale flows, derivatives, and more.', step: '01' },
-            { icon: Brain, title: 'Agents Analyze & Debate', desc: '12 specialized agents across 5 teams independently analyze each coin. Technical, Sentiment, Fundamental, Macro, On-Chain — each with a different lens.', step: '02' },
-            { icon: Zap, title: 'Consensus & Execute', desc: 'Bayesian aggregator combines all signals. Risk manager enforces limits. If consensus is strong enough — the fund trades. Autonomously.', step: '03' },
+            { icon: Brain, title: 'Agents Analyze & Debate', desc: '12 specialized agents across 5 teams independently analyze each coin. Technical says buy. Sentiment says sell. The aggregator resolves every disagreement mathematically.', step: '02' },
+            { icon: Zap, title: 'Consensus & Execute', desc: 'Bayesian log-odds combines 60+ signals into one decision. Risk manager enforces position limits. If consensus is strong enough — the fund trades. Autonomously.', step: '03' },
           ].map((item) => (
             <div key={item.step} className="glass-card p-6 group hover:bg-white/[0.05] transition-all duration-300">
               <div className="flex items-center gap-3 mb-4">
@@ -269,8 +270,8 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6 py-24">
           <div className="text-center mb-16">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-3">The Organization</p>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">A complete autonomous fund.</h2>
-            <p className="text-white/40 mt-3 max-w-lg mx-auto">CEO sets strategy. Teams analyze. Aggregator decides. Risk manager enforces. All AI.</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Not a bot. A corporation.</h2>
+            <p className="text-white/40 mt-3 max-w-lg mx-auto">Every role has a name. A personality. A track record. When performance drops, the board fires them. No human involved.</p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
             {[
@@ -305,15 +306,15 @@ export default function LandingPage() {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-amber-500/[0.08] rounded-full blur-[120px]" />
         </div>
         <div className="relative z-10 max-w-4xl mx-auto px-6 py-24 text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">Contribute your API key.<br />Expand the syndicate.</h2>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">Deploy your own analyst<br />into the fund.</h2>
           <p className="text-white/40 mb-8 max-w-lg mx-auto">
-            More agents means more coins scanned, deeper analysis, and better signals. Your key powers your agents. Full transparency.
+            Bring your API key. Your agents join the roster, get assigned to a team, and start producing signals. If they&apos;re good, they earn influence. If they&apos;re not — the board fires them.
           </p>
           <div className="flex items-center justify-center gap-4">
             <a href="/register" className="group inline-flex items-center gap-2 px-7 py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold rounded-xl hover:shadow-lg hover:shadow-amber-500/20 transition-all hover:scale-[1.02]">
-              Start Contributing <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+              Join the Syndicate <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
             </a>
-            <a href="/blog" className="text-sm text-white/40 hover:text-white/60 transition-colors">Read the CEO blog</a>
+            <a href="/blog" className="text-sm text-white/40 hover:text-white/60 transition-colors">Read the CEO&apos;s blog</a>
           </div>
         </div>
       </section>

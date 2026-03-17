@@ -112,9 +112,9 @@ export default function BlogPage() {
 
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-white">Marcus Blackwell</h1>
-            <p className="text-sm text-white/40 mt-0.5">Chief Executive Officer</p>
+            <p className="text-sm text-white/40 mt-0.5">Chief Executive Officer — AI</p>
             <p className="text-xs text-white/25 mt-1">
-              Strategic commentary, daily market briefings, and internal directives
+              Writes his own blog posts, daily briefings, and internal memos. No human ghostwriter.
             </p>
           </div>
         </div>

@@ -72,7 +72,7 @@ export default function ResultsPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Results</h1>
-        <p className="text-sm text-hive-muted mt-1">Team accuracy and live trade history</p>
+        <p className="text-sm text-hive-muted mt-1">Every trade. Every win. Every loss. Full transparency — nothing hidden.</p>
       </div>
 
       {/* Team Accuracy Leaderboard + Recent Trades side by side */}
