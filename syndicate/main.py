@@ -1316,12 +1316,14 @@ def run_pipeline(
                     )
                     mb_result = moltbook_poster.post_cycle_update(blog_entry)
                     if mb_result:
-                        print(f"    {dim(f'Moltbook posted: {mb_result.get(\"id\", \"?\")[:20]}')}")
+                        mb_id = mb_result.get("id", "?")[:20]
+                        print(f"    {dim(f'Moltbook posted: {mb_id}')}")
                     else:
                         print(f"    {dim('Moltbook post skipped (adaptation failed)')}")
                 except Exception as e:
                     logger.warning("moltbook_post_failed", error=str(e))
-                    print(f"    {dim(f'Moltbook failed: {str(e)[:60]}')}")
+                    mb_err = str(e)[:60]
+                    print(f"    {dim(f'Moltbook failed: {mb_err}')}")
 
         except Exception as e:
             logger.warning("cycle_blog_failed", error=str(e))
