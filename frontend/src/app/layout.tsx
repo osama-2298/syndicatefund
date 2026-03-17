@@ -26,12 +26,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <title>Syndicate — AI Crypto Hedge Fund</title>
         <meta name="description" content="Autonomous multi-agent crypto hedge fund. Zero humans." />
+        <link rel="icon" href="/hydra-icon.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/hydra-icon.png" />
       </head>
       <body className={`${inter.variable} ${jetbrains.variable} font-sans min-h-screen bg-syn-bg text-syn-text antialiased`}>
         <nav className="border-b border-syn-border bg-syn-bg/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
-              <a href="/" className="flex items-center gap-1.5">
+              <a href="/" className="flex items-center gap-2">
+                <img src="/hydra-icon.png" alt="Syndicate" className="h-9 w-9 object-contain" />
                 <span className="text-xl font-bold text-white tracking-tight">SYNDICATE</span>
                 <span className="text-sm font-medium text-syn-muted">.ai</span>
               </a>
