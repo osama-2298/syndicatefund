@@ -11,12 +11,20 @@ Produces two types of reports:
 """
 
 from __future__ import annotations
+from pathlib import Path
 from typing import Any
 import structlog
 from syndicate.agents.base import BaseLLMCaller
 from syndicate.config import LLMProvider
 
 logger = structlog.get_logger()
+
+_KB_PATH = Path(__file__).parent.parent / "knowledge" / "quant_researcher_kb.md"
+_KNOWLEDGE_BASE = ""
+try:
+    _KNOWLEDGE_BASE = _KB_PATH.read_text()
+except Exception:
+    logger.warning("quant_researcher_kb_not_found", path=str(_KB_PATH))
 
 SIGNAL_HEALTH_TOOL = {
     "name": "produce_signal_health_report",
@@ -138,14 +146,17 @@ class QuantResearcher(BaseLLMCaller):
         "- Always report confidence intervals, not just point estimates.\n"
         "- Name specific agents, specific numbers, specific time periods. No vague language.\n\n"
         "WRITING STYLE: Dense, quantitative, opinionated. Like a CERN analysis note. "
-        "Every claim backed by a number. Don't hedge unless the data is genuinely ambiguous.\n"
+        "Every claim backed by a number. Don't hedge unless the data is genuinely ambiguous.\n\n"
+        "=== KNOWLEDGE BASE ===\n"
+        f"{_KNOWLEDGE_BASE}\n"
+        "=== END KNOWLEDGE BASE ===\n"
     )
 
     def analyze_signal_health(self, stats_data: dict[str, Any]) -> dict[str, Any]:
         """Produce a signal health report from statistical engine output."""
         prompt = self._build_signal_health_prompt(stats_data)
         try:
-            return self._call_llm_with_tool(self.SYSTEM_PROMPT, prompt, SIGNAL_HEALTH_TOOL)
+            return self._call_llm_with_tool(self.SYSTEM_PROMPT, prompt, SIGNAL_HEALTH_TOOL, max_tokens=4096)
         except Exception as e:
             logger.error("quant_researcher_signal_health_failed", error=str(e))
             return {"title": "Signal Health Report — Generation Failed", "overall_health": "unknown", "agents_flagged": [], "correlation_clusters": [], "decay_summary": f"Failed: {str(e)[:100]}", "key_metrics": {}}
@@ -154,7 +165,7 @@ class QuantResearcher(BaseLLMCaller):
         """Produce a data source evaluation report."""
         prompt = self._build_data_source_prompt(eval_data)
         try:
-            return self._call_llm_with_tool(self.SYSTEM_PROMPT, prompt, DATA_SOURCE_EVAL_TOOL)
+            return self._call_llm_with_tool(self.SYSTEM_PROMPT, prompt, DATA_SOURCE_EVAL_TOOL, max_tokens=4096)
         except Exception as e:
             logger.error("quant_researcher_data_eval_failed", error=str(e))
             return {"title": "Data Source Evaluation — Generation Failed", "ranked_sources": [], "sources_to_drop": [], "sources_to_investigate": [], "summary": f"Failed: {str(e)[:100]}"}

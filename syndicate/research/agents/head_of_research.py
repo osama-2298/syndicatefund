@@ -11,6 +11,7 @@ not opinions. Skeptical by default — if a signal looks too good, she suspects 
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import structlog
@@ -19,6 +20,13 @@ from syndicate.agents.base import BaseLLMCaller
 from syndicate.config import LLMProvider
 
 logger = structlog.get_logger()
+
+_KB_PATH = Path(__file__).parent.parent / "knowledge" / "head_of_research_kb.md"
+_KNOWLEDGE_BASE = ""
+try:
+    _KNOWLEDGE_BASE = _KB_PATH.read_text()
+except Exception:
+    logger.warning("head_of_research_kb_not_found", path=str(_KB_PATH))
 
 WEEKLY_DIGEST_TOOL = {
     "name": "produce_weekly_digest",
@@ -122,14 +130,17 @@ class HeadOfResearch(BaseLLMCaller):
         "- Reference specific numbers: accuracy percentages, p-values, sample sizes.\n"
         "- If sample size is too small to draw conclusions, say so explicitly.\n\n"
         "WRITING STYLE: Precise, data-dense, no fluff. Like a research paper executive summary, "
-        "not a blog post. Use specific numbers. Qualify uncertainty. End with clear action items.\n"
+        "not a blog post. Use specific numbers. Qualify uncertainty. End with clear action items.\n\n"
+        "=== KNOWLEDGE BASE ===\n"
+        f"{_KNOWLEDGE_BASE}\n"
+        "=== END KNOWLEDGE BASE ===\n"
     )
 
     def produce_digest(self, context: dict[str, Any]) -> dict[str, Any]:
         """Produce the weekly research digest."""
         prompt = self._build_digest_prompt(context)
         try:
-            return self._call_llm_with_tool(self.SYSTEM_PROMPT, prompt, WEEKLY_DIGEST_TOOL)
+            return self._call_llm_with_tool(self.SYSTEM_PROMPT, prompt, WEEKLY_DIGEST_TOOL, max_tokens=4096)
         except Exception as e:
             logger.error("head_of_research_digest_failed", error=str(e))
             return {
@@ -146,7 +157,7 @@ class HeadOfResearch(BaseLLMCaller):
         """Decide research priorities for next week."""
         prompt = self._build_priorities_prompt(context)
         try:
-            return self._call_llm_with_tool(self.SYSTEM_PROMPT, prompt, RESEARCH_PRIORITY_TOOL)
+            return self._call_llm_with_tool(self.SYSTEM_PROMPT, prompt, RESEARCH_PRIORITY_TOOL, max_tokens=4096)
         except Exception as e:
             logger.error("head_of_research_priorities_failed", error=str(e))
             return {"priorities": []}

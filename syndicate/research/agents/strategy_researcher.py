@@ -7,12 +7,20 @@ Writes actionable reports with clear "do this / don't do this" recommendations.
 """
 
 from __future__ import annotations
+from pathlib import Path
 from typing import Any
 import structlog
 from syndicate.agents.base import BaseLLMCaller
 from syndicate.config import LLMProvider
 
 logger = structlog.get_logger()
+
+_KB_PATH = Path(__file__).parent.parent / "knowledge" / "strategy_researcher_kb.md"
+_KNOWLEDGE_BASE = ""
+try:
+    _KNOWLEDGE_BASE = _KB_PATH.read_text()
+except Exception:
+    logger.warning("strategy_researcher_kb_not_found", path=str(_KB_PATH))
 
 ATTRIBUTION_REPORT_TOOL = {
     "name": "produce_attribution_report",
@@ -121,14 +129,17 @@ class StrategyResearcher(BaseLLMCaller):
         "- When you recommend 'deploy', quantify expected Sharpe. When you recommend 'reject', quantify the cost.\n"
         "- Be specific: 'reduce macro team weight from 1.0 to 0.7 in bear markets' not 'consider adjusting macro'.\n\n"
         "WRITING STYLE: Actionable and direct. Every paragraph ends with a 'do this' or 'don't do this'. "
-        "Reference specific trades, specific dates, specific numbers. Like a Goldman research note.\n"
+        "Reference specific trades, specific dates, specific numbers. Like a Goldman research note.\n\n"
+        "=== KNOWLEDGE BASE ===\n"
+        f"{_KNOWLEDGE_BASE}\n"
+        "=== END KNOWLEDGE BASE ===\n"
     )
 
     def analyze_attribution(self, attribution_data: dict[str, Any]) -> dict[str, Any]:
         """Produce a trade attribution report."""
         prompt = self._build_attribution_prompt(attribution_data)
         try:
-            return self._call_llm_with_tool(self.SYSTEM_PROMPT, prompt, ATTRIBUTION_REPORT_TOOL)
+            return self._call_llm_with_tool(self.SYSTEM_PROMPT, prompt, ATTRIBUTION_REPORT_TOOL, max_tokens=4096)
         except Exception as e:
             logger.error("strategy_researcher_attribution_failed", error=str(e))
             return {"title": "Attribution Report — Failed", "regime_insights": [], "conviction_calibration": f"Failed: {str(e)[:100]}", "worst_patterns": [], "overall_assessment": "Generation failed."}
@@ -137,7 +148,7 @@ class StrategyResearcher(BaseLLMCaller):
         """Report on a tested hypothesis."""
         prompt = self._build_hypothesis_prompt(hypothesis_data)
         try:
-            return self._call_llm_with_tool(self.SYSTEM_PROMPT, prompt, HYPOTHESIS_TEST_TOOL)
+            return self._call_llm_with_tool(self.SYSTEM_PROMPT, prompt, HYPOTHESIS_TEST_TOOL, max_tokens=4096)
         except Exception as e:
             logger.error("strategy_researcher_hypothesis_failed", error=str(e))
             return {"title": "Hypothesis Test — Failed", "hypothesis": "", "methodology": "", "results": {}, "statistical_significance": f"Failed: {str(e)[:100]}", "recommendation": "needs_more_data", "risks": []}
