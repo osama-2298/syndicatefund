@@ -1303,6 +1303,26 @@ def run_pipeline(
             blog_history_path.write_text(_json.dumps(history, indent=2, default=str))
             blog_title = blog_result.get("title", "?")[:60]
             print(f"    {dim(f'Blog posted: {blog_title}')}")
+
+            # ── Moltbook: autonomous post ──
+            if settings.moltbook_enabled and settings.moltbook_api_key:
+                try:
+                    from syndicate.moltbook.poster import MoltbookPoster
+                    moltbook_poster = MoltbookPoster(
+                        api_key=api_key,
+                        provider=provider,
+                        model=settings.default_llm_model,
+                        moltbook_api_key=settings.moltbook_api_key,
+                    )
+                    mb_result = moltbook_poster.post_cycle_update(blog_entry)
+                    if mb_result:
+                        print(f"    {dim(f'Moltbook posted: {mb_result.get(\"id\", \"?\")[:20]}')}")
+                    else:
+                        print(f"    {dim('Moltbook post skipped (adaptation failed)')}")
+                except Exception as e:
+                    logger.warning("moltbook_post_failed", error=str(e))
+                    print(f"    {dim(f'Moltbook failed: {str(e)[:60]}')}")
+
         except Exception as e:
             logger.warning("cycle_blog_failed", error=str(e))
 

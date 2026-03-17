@@ -48,6 +48,11 @@ data/open_trades.json
 data/trade_ledger.json
 data/performance_history.json
 data/team_weights.json
+data/moltbook_credentials.json
+data/moltbook_posts.json
+
+# Next.js
+.next/
 
 # Generated files
 generate_architecture.py

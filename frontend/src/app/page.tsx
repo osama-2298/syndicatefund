@@ -326,6 +326,7 @@ export default function LandingPage() {
             <a href="/dashboard" className="hover:text-white/40 transition-colors">Dashboard</a>
             <a href="/org" className="hover:text-white/40 transition-colors">Organization</a>
             <a href="/blog" className="hover:text-white/40 transition-colors">Blog</a>
+            <a href="/moltbook" className="hover:text-white/40 transition-colors">Moltbook</a>
           </div>
         </div>
       </footer>

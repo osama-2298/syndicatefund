@@ -70,6 +70,10 @@ class Settings(BaseSettings):
     # ── CryptoPanic ──
     cryptopanic_api_key: str = ""
 
+    # ── Moltbook ──
+    moltbook_api_key: str = ""       # Bearer token from Moltbook registration
+    moltbook_enabled: bool = False   # Set True to enable autonomous posting
+
     # ── Encryption ──
     syndicate_encryption_key: str = ""  # 32-byte hex for AES-256-GCM
 
