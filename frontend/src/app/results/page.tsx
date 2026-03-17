@@ -2,26 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import {
-  TrendingUp, TrendingDown, BarChart3, Activity,
-  Target, Shield, Zap, Trophy, ArrowRight,
+  TrendingUp, TrendingDown, Activity,
+  Target, Zap, Trophy, ArrowRight,
 } from 'lucide-react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
-interface BacktestResults {
-  status: string;
-  results: {
-    sharpe_ratio?: number;
-    max_drawdown_pct?: number;
-    total_return_pct?: number;
-    win_rate?: number;
-    total_trades?: number;
-    profit_factor?: number;
-    equity_curve?: number[];
-    start_date?: string;
-    end_date?: string;
-  } | null;
-}
 
 interface TeamPerf {
   [team: string]: {
@@ -47,18 +32,15 @@ interface TradeEntry {
 }
 
 export default function ResultsPage() {
-  const [backtest, setBacktest] = useState<BacktestResults | null>(null);
   const [teamPerf, setTeamPerf] = useState<TeamPerf | null>(null);
   const [trades, setTrades] = useState<TradeEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API_BASE}/api/v1/backtest/latest`).then(r => r.json()).catch(() => null),
       fetch(`${API_BASE}/api/v1/portfolio/team-performance`).then(r => r.json()).catch(() => null),
       fetch(`${API_BASE}/api/v1/portfolio/trades`).then(r => r.json()).catch(() => ({ trades: [] })),
-    ]).then(([bt, tp, tr]) => {
-      setBacktest(bt);
+    ]).then(([tp, tr]) => {
       setTeamPerf(tp);
       const rawTrades = Array.isArray(tr) ? tr : (tr?.trades ?? tr ?? []);
       const closedTrades = (Array.isArray(rawTrades) ? rawTrades : [])
@@ -79,9 +61,6 @@ export default function ResultsPage() {
     );
   }
 
-  const bt = backtest?.results;
-  const hasBacktest = backtest?.status === 'ok' && bt != null;
-
   const teamEntries = teamPerf
     ? Object.entries(teamPerf).sort((a, b) => b[1].signal_accuracy - a[1].signal_accuracy)
     : [];
@@ -93,90 +72,7 @@ export default function ResultsPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Results</h1>
-        <p className="text-sm text-hive-muted mt-1">Backtest performance, team accuracy, and live trade history</p>
-      </div>
-
-      {/* Backtest Key Metrics */}
-      <div className="glass-card p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <BarChart3 size={14} className="text-amber-400/60" />
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Backtest Summary</p>
-        </div>
-        {hasBacktest ? (
-          <>
-            <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-white/[0.06] mb-6">
-              <div className="p-4">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Sharpe Ratio</p>
-                <p className={`mt-1 text-2xl font-bold tracking-tight ${(bt.sharpe_ratio ?? 0) >= 1 ? 'text-emerald-400' : (bt.sharpe_ratio ?? 0) >= 0 ? 'text-white' : 'text-red-400'}`}>
-                  {(bt.sharpe_ratio ?? 0).toFixed(2)}
-                </p>
-              </div>
-              <div className="p-4">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Max Drawdown</p>
-                <p className="mt-1 text-2xl font-bold tracking-tight text-red-400">
-                  {(bt.max_drawdown_pct ?? 0).toFixed(1)}%
-                </p>
-              </div>
-              <div className="p-4">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Win Rate</p>
-                <p className={`mt-1 text-2xl font-bold tracking-tight ${(bt.win_rate ?? 0) >= 50 ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {(bt.win_rate ?? 0).toFixed(1)}%
-                </p>
-              </div>
-              <div className="p-4">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Total Return</p>
-                <p className={`mt-1 text-2xl font-bold tracking-tight ${(bt.total_return_pct ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {(bt.total_return_pct ?? 0) >= 0 ? '+' : ''}{(bt.total_return_pct ?? 0).toFixed(2)}%
-                </p>
-              </div>
-            </div>
-
-            {/* Equity Curve */}
-            {bt.equity_curve && bt.equity_curve.length > 0 && (
-              <div className="p-4 border-t border-white/[0.06]">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-3">Equity Curve</p>
-                <div className="flex items-end gap-[2px] h-32">
-                  {(() => {
-                    const curve = bt.equity_curve!;
-                    const min = Math.min(...curve);
-                    const max = Math.max(...curve);
-                    const range = max - min || 1;
-                    const step = Math.max(1, Math.floor(curve.length / 80));
-                    const sampled = curve.filter((_, i) => i % step === 0);
-                    return sampled.map((val, i) => {
-                      const height = ((val - min) / range) * 100;
-                      const isPositive = val >= (curve[0] ?? 100000);
-                      return (
-                        <div
-                          key={i}
-                          className={`flex-1 rounded-t-sm ${isPositive ? 'bg-emerald-500/60' : 'bg-red-500/60'}`}
-                          style={{ height: `${Math.max(2, height)}%` }}
-                          title={`$${val.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
-                        />
-                      );
-                    });
-                  })()}
-                </div>
-                <div className="flex justify-between mt-2 text-[10px] text-white/20">
-                  <span>{bt.start_date ?? 'Start'}</span>
-                  <span>{bt.end_date ?? 'End'}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Extra stats row */}
-            <div className="flex items-center gap-6 mt-4 text-xs text-white/30">
-              {bt.total_trades != null && <span>{bt.total_trades} total trades</span>}
-              {bt.profit_factor != null && <span>Profit factor: {bt.profit_factor.toFixed(2)}</span>}
-            </div>
-          </>
-        ) : (
-          <div className="text-center py-10">
-            <BarChart3 size={28} className="mx-auto text-white/10 mb-3" />
-            <p className="text-sm text-white/40">No backtest results available</p>
-            <p className="text-xs text-white/20 mt-1">Run a backtest to see performance metrics and equity curve</p>
-          </div>
-        )}
+        <p className="text-sm text-hive-muted mt-1">Team accuracy and live trade history</p>
       </div>
 
       {/* Team Accuracy Leaderboard + Recent Trades side by side */}
