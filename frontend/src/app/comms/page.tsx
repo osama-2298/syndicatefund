@@ -99,8 +99,12 @@ export default function CommsPage() {
     }
 
     fetch(`${API_BASE}/api/v1/comms?${qs}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`API ${r.status}`);
+        return r.json();
+      })
       .then((data) => {
+        if (!Array.isArray(data)) throw new Error('Invalid response');
         setComms(data);
         // Auto-expand latest cycle
         if (data.length > 0) {
