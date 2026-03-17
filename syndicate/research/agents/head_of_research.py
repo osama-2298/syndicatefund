@@ -17,7 +17,6 @@ from typing import Any
 import structlog
 
 from syndicate.agents.base import BaseLLMCaller
-from syndicate.config import LLMProvider
 
 logger = structlog.get_logger()
 

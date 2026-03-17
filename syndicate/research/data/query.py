@@ -14,6 +14,7 @@ Usage::
 
 from __future__ import annotations
 
+import json as _json
 from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
@@ -75,11 +76,31 @@ def get_candles(
         Empty DataFrame (with correct columns) when the file is missing.
     """
     cols = ["timestamp", "open", "high", "low", "close", "volume"]
-    path = DATA_DIR / symbol / f"{timeframe}.csv.gz"
-    if not path.exists():
-        return pd.DataFrame(columns=cols)
 
-    df = pd.read_csv(path, compression="gzip", parse_dates=["timestamp"])
+    # Support both JSON (primary) and gzipped CSV (legacy) formats
+    json_path = DATA_DIR / symbol / f"{timeframe}.json"
+    csv_path = DATA_DIR / symbol / f"{timeframe}.csv.gz"
+
+    if json_path.exists():
+        records = _json.loads(json_path.read_text())
+        if not records:
+            return pd.DataFrame(columns=cols)
+        df = pd.DataFrame(records)
+        if "timestamp" in df.columns:
+            df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", errors="coerce")
+            # Fall back to ISO parsing if ms conversion produced NaTs
+            if df["timestamp"].isna().all():
+                df["timestamp"] = pd.to_datetime(
+                    _json.loads(json_path.read_text()),
+                ).apply(lambda r: r.get("timestamp"))
+                df["timestamp"] = pd.to_datetime(df["timestamp"])
+        for col in ["open", "high", "low", "close", "volume"]:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
+    elif csv_path.exists():
+        df = pd.read_csv(csv_path, compression="gzip", parse_dates=["timestamp"])
+    else:
+        return pd.DataFrame(columns=cols)
 
     df = _filter_date_col(df, "timestamp", start_date, end_date)
     return df.sort_values("timestamp").reset_index(drop=True)
@@ -146,11 +167,20 @@ def get_fear_greed(
         DataFrame with columns: date, value, classification.
     """
     cols = ["date", "value", "classification"]
-    path = DATA_DIR / "sentiment" / "fear_greed.csv.gz"
-    if not path.exists():
-        return pd.DataFrame(columns=cols)
+    json_path = DATA_DIR / "sentiment" / "fear_greed.json"
+    csv_path = DATA_DIR / "sentiment" / "fear_greed.csv.gz"
 
-    df = pd.read_csv(path, compression="gzip", parse_dates=["date"])
+    if json_path.exists():
+        records = _json.loads(json_path.read_text())
+        if not records:
+            return pd.DataFrame(columns=cols)
+        df = pd.DataFrame(records)
+        if "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"])
+    elif csv_path.exists():
+        df = pd.read_csv(csv_path, compression="gzip", parse_dates=["date"])
+    else:
+        return pd.DataFrame(columns=cols)
 
     df = _filter_date_col(df, "date", start_date, end_date)
     return df.sort_values("date").reset_index(drop=True)
@@ -166,11 +196,20 @@ def get_btc_dominance(
         DataFrame with columns: date, market_cap_usd.
     """
     cols = ["date", "market_cap_usd"]
-    path = DATA_DIR / "sentiment" / "btc_market_cap.csv.gz"
-    if not path.exists():
-        return pd.DataFrame(columns=cols)
+    json_path = DATA_DIR / "sentiment" / "btc_market_cap.json"
+    csv_path = DATA_DIR / "sentiment" / "btc_market_cap.csv.gz"
 
-    df = pd.read_csv(path, compression="gzip", parse_dates=["date"])
+    if json_path.exists():
+        records = _json.loads(json_path.read_text())
+        if not records:
+            return pd.DataFrame(columns=cols)
+        df = pd.DataFrame(records)
+        if "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"])
+    elif csv_path.exists():
+        df = pd.read_csv(csv_path, compression="gzip", parse_dates=["date"])
+    else:
+        return pd.DataFrame(columns=cols)
 
     df = _filter_date_col(df, "date", start_date, end_date)
     return df.sort_values("date").reset_index(drop=True)
@@ -186,11 +225,20 @@ def get_global_market_cap(
         DataFrame with columns: date, total_market_cap_usd, source.
     """
     cols = ["date", "total_market_cap_usd", "source"]
-    path = DATA_DIR / "sentiment" / "global_market_cap.csv.gz"
-    if not path.exists():
-        return pd.DataFrame(columns=cols)
+    json_path = DATA_DIR / "sentiment" / "global_market_cap.json"
+    csv_path = DATA_DIR / "sentiment" / "global_market_cap.csv.gz"
 
-    df = pd.read_csv(path, compression="gzip", parse_dates=["date"])
+    if json_path.exists():
+        records = _json.loads(json_path.read_text())
+        if not records:
+            return pd.DataFrame(columns=cols)
+        df = pd.DataFrame(records)
+        if "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"])
+    elif csv_path.exists():
+        df = pd.read_csv(csv_path, compression="gzip", parse_dates=["date"])
+    else:
+        return pd.DataFrame(columns=cols)
 
     df = _filter_date_col(df, "date", start_date, end_date)
     return df.sort_values("date").reset_index(drop=True)
@@ -208,7 +256,7 @@ def get_available_symbols() -> list[str]:
 
     symbols: list[str] = []
     for d in sorted(DATA_DIR.iterdir()):
-        if d.is_dir() and d.name != "sentiment" and any(d.glob("*.csv.gz")):
+        if d.is_dir() and d.name != "sentiment" and (any(d.glob("*.json")) or any(d.glob("*.csv.gz"))):
             symbols.append(d.name)
     return symbols
 
@@ -251,9 +299,9 @@ def get_summary() -> dict:
     return {
         "symbols": symbols,
         "total_symbols": len(symbols),
-        "timeframes": ["1h", "4h", "1d", "1w"],
-        "has_fear_greed": (DATA_DIR / "sentiment" / "fear_greed.csv.gz").exists(),
-        "has_btc_market_cap": (DATA_DIR / "sentiment" / "btc_market_cap.csv.gz").exists(),
-        "has_global_market_cap": (DATA_DIR / "sentiment" / "global_market_cap.csv.gz").exists(),
+        "timeframes": ["1h", "4h", "1d"],
+        "has_fear_greed": (DATA_DIR / "sentiment" / "fear_greed.csv.gz").exists() or (DATA_DIR / "sentiment" / "fear_greed.json").exists(),
+        "has_btc_market_cap": (DATA_DIR / "sentiment" / "btc_market_cap.csv.gz").exists() or (DATA_DIR / "sentiment" / "btc_market_cap.json").exists(),
+        "has_global_market_cap": (DATA_DIR / "sentiment" / "global_market_cap.csv.gz").exists() or (DATA_DIR / "sentiment" / "global_market_cap.json").exists(),
         "sample_date_ranges": date_ranges,
     }
