@@ -236,3 +236,17 @@ class CeoPostRow(Base):
     summary = Column(Text, nullable=True)  # Short summary for previews
     market_context = Column(JSONB, nullable=True)  # Regime, F&G, BTC price at time of writing
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+class ResearchReportRow(Base):
+    __tablename__ = "research_reports"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    researcher = Column(String, nullable=False)  # head_of_research, quant_researcher, strategy_researcher
+    report_type = Column(String, nullable=False)  # signal_decay, performance_attribution, correlation_analysis, data_source_eval, hypothesis_test, weekly_digest, risk_analysis
+    title = Column(String, nullable=False)
+    summary = Column(Text, nullable=True)
+    findings = Column(JSONB, nullable=True)
+    recommendations = Column(JSONB, nullable=True)
+    data_context = Column(JSONB, nullable=True)  # {period, sample_size, symbols_analyzed, etc.}
+    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))

@@ -579,6 +579,37 @@ export default function OrgPage() {
           </div>
         </div>
 
+        {/* ── Section: Research Division ── */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-px flex-1 bg-white/[0.04]" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-400/60">
+              Research Division
+            </span>
+            <div className="h-px flex-1 bg-white/[0.04]" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <ExecCard
+              title="Head of Research"
+              name="Dr. Elara Voss"
+              subtitle="Orchestrates research, produces weekly digests"
+              badge="LEAD"
+              badgeColor="bg-indigo-400/10 text-indigo-400 ring-indigo-400/20"
+            />
+            <ExecCard
+              title="Quantitative Researcher"
+              name="Dr. Kai Moretti"
+              subtitle="Signal health, decay detection, data source evaluation"
+            />
+            <ExecCard
+              title="Strategy Researcher"
+              name="Dr. Noor Hadid"
+              subtitle="Trade attribution, regime analysis, hypothesis testing"
+            />
+          </div>
+        </div>
+
         {/* ── Section: Unassigned agents ── */}
         {unassigned.length > 0 && (
           <div>

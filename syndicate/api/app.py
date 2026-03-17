@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 import structlog
 from fastapi import FastAPI
 
-from syndicate.api.routes import agents, backtest, ceo_posts, contributors, cycles, portfolio, signals, teams
+from syndicate.api.routes import agents, backtest, ceo_posts, contributors, cycles, portfolio, research, signals, teams
 from syndicate.config import settings
 
 logger = structlog.get_logger()
@@ -431,6 +431,187 @@ async def _weekly_blog_task(shutdown_event: asyncio.Event):
     print("[CEO] Weekly blog task stopped.", flush=True)
 
 
+async def _daily_research_task(shutdown_event: asyncio.Event):
+    """Runs daily at 06:00 UTC — research team analyzes signal health and trade attribution."""
+    print("[RESEARCH] Daily research task starting...", flush=True)
+
+    while not shutdown_event.is_set():
+        try:
+            # Wait until 06:00 UTC
+            now = datetime.now(timezone.utc)
+            next_run = now.replace(hour=6, minute=0, second=0, microsecond=0)
+            if now.hour >= 6:
+                next_run += timedelta(days=1)
+            wait_secs = (next_run - now).total_seconds()
+
+            print(f"[RESEARCH] Next daily research at {next_run.isoformat()}", flush=True)
+
+            try:
+                await asyncio.wait_for(shutdown_event.wait(), timeout=wait_secs)
+                break
+            except asyncio.TimeoutError:
+                pass
+
+            print("[RESEARCH] Running daily analysis...", flush=True)
+
+            # 1. Run statistical engines
+            from syndicate.research.stats.agent_stats import full_report as agent_full_report
+            from syndicate.research.stats.trade_attribution import full_report as trade_full_report
+
+            loop = asyncio.get_event_loop()
+            agent_stats = await loop.run_in_executor(None, agent_full_report)
+            trade_attribution = await loop.run_in_executor(None, trade_full_report)
+
+            # 2. Feed to Quant Researcher
+            from syndicate.research.agents.quant_researcher import QuantResearcher
+
+            quant = QuantResearcher(
+                api_key=settings.get_active_llm_key(),
+                provider=settings.default_llm_provider,
+                model=settings.default_llm_model,
+            )
+            signal_health = await loop.run_in_executor(None, quant.analyze_signal_health, agent_stats)
+
+            # 3. Feed to Strategy Researcher
+            from syndicate.research.agents.strategy_researcher import StrategyResearcher
+
+            strategist = StrategyResearcher(
+                api_key=settings.get_active_llm_key(),
+                provider=settings.default_llm_provider,
+                model=settings.default_llm_model,
+            )
+            attribution_report = await loop.run_in_executor(None, strategist.analyze_attribution, trade_attribution)
+
+            # 4. Save both reports to DB
+            from syndicate.db.session import async_session_factory
+            from syndicate.db.models import ResearchReportRow
+
+            async with async_session_factory() as session:
+                session.add(ResearchReportRow(
+                    researcher="quant_researcher",
+                    report_type="signal_decay",
+                    title=signal_health.get("title", "Signal Health Report"),
+                    summary=signal_health.get("decay_summary", ""),
+                    findings=signal_health,
+                    recommendations=[a.get("recommendation", "") for a in signal_health.get("agents_flagged", [])],
+                    data_context={"source": "daily_automated", "agents_analyzed": len(agent_stats.get("agent_stats", {}))},
+                ))
+                session.add(ResearchReportRow(
+                    researcher="strategy_researcher",
+                    report_type="performance_attribution",
+                    title=attribution_report.get("title", "Attribution Report"),
+                    summary=attribution_report.get("overall_assessment", ""),
+                    findings=attribution_report,
+                    recommendations=[p for p in attribution_report.get("worst_patterns", [])],
+                    data_context={"source": "daily_automated"},
+                ))
+                await session.commit()
+
+            print(f"[RESEARCH] Daily reports saved: {signal_health.get('title', '?')}, {attribution_report.get('title', '?')}", flush=True)
+
+        except Exception as e:
+            import traceback
+            logger.error("daily_research_failed", error=str(e), traceback=traceback.format_exc())
+
+        await asyncio.sleep(60)
+
+    print("[RESEARCH] Daily research task stopped.", flush=True)
+
+
+async def _weekly_research_task(shutdown_event: asyncio.Event):
+    """Runs weekly on Saturday at 04:00 UTC — deep research including data source evaluation and Head of Research digest."""
+    print("[RESEARCH] Weekly research task starting...", flush=True)
+
+    while not shutdown_event.is_set():
+        try:
+            # Wait until Saturday 04:00 UTC
+            now = datetime.now(timezone.utc)
+            days_until_saturday = (5 - now.weekday()) % 7
+            if days_until_saturday == 0 and now.hour >= 4:
+                days_until_saturday = 7
+            next_run = (now + timedelta(days=days_until_saturday)).replace(
+                hour=4, minute=0, second=0, microsecond=0
+            )
+            wait_secs = (next_run - now).total_seconds()
+
+            print(f"[RESEARCH] Next weekly research at {next_run.isoformat()}", flush=True)
+
+            try:
+                await asyncio.wait_for(shutdown_event.wait(), timeout=wait_secs)
+                break
+            except asyncio.TimeoutError:
+                pass
+
+            print("[RESEARCH] Running weekly deep analysis...", flush=True)
+
+            loop = asyncio.get_event_loop()
+
+            # 1. Run all statistical engines
+            from syndicate.research.stats.agent_stats import full_report as agent_full_report
+            from syndicate.research.stats.trade_attribution import full_report as trade_full_report
+            from syndicate.research.stats.data_source_eval import full_report as data_source_full_report
+
+            agent_stats = await loop.run_in_executor(None, agent_full_report)
+            trade_attribution = await loop.run_in_executor(None, trade_full_report)
+            data_eval = await loop.run_in_executor(None, data_source_full_report)
+
+            # 2. Quant Researcher: signal health + data source eval
+            from syndicate.research.agents.quant_researcher import QuantResearcher
+            quant = QuantResearcher(api_key=settings.get_active_llm_key(), provider=settings.default_llm_provider, model=settings.default_llm_model)
+            signal_health = await loop.run_in_executor(None, quant.analyze_signal_health, agent_stats)
+            data_source_report = await loop.run_in_executor(None, quant.evaluate_data_sources, data_eval)
+
+            # 3. Strategy Researcher: attribution
+            from syndicate.research.agents.strategy_researcher import StrategyResearcher
+            strategist = StrategyResearcher(api_key=settings.get_active_llm_key(), provider=settings.default_llm_provider, model=settings.default_llm_model)
+            attribution_report = await loop.run_in_executor(None, strategist.analyze_attribution, trade_attribution)
+
+            # 4. Head of Research: weekly digest
+            from syndicate.research.agents.head_of_research import HeadOfResearch
+            head = HeadOfResearch(api_key=settings.get_active_llm_key(), provider=settings.default_llm_provider, model=settings.default_llm_model)
+            digest = await loop.run_in_executor(None, head.produce_digest, {
+                "quant_findings": signal_health,
+                "strategy_findings": attribution_report,
+                "agent_accuracy": {k: v.get("accuracy", 0) for k, v in agent_stats.get("agent_stats", {}).items()},
+                "signal_decay_alerts": agent_stats.get("decay_alerts", []),
+                "trade_attribution": trade_attribution.get("optimal_parameters", {}),
+                "data_source_evaluation": data_source_report,
+                "correlation_matrix": agent_stats.get("correlation", {}),
+            })
+
+            # 5. Save all reports to DB
+            from syndicate.db.session import async_session_factory
+            from syndicate.db.models import ResearchReportRow
+
+            async with async_session_factory() as session:
+                for report_data, researcher, rtype in [
+                    (signal_health, "quant_researcher", "signal_decay"),
+                    (data_source_report, "quant_researcher", "data_source_eval"),
+                    (attribution_report, "strategy_researcher", "performance_attribution"),
+                    (digest, "head_of_research", "weekly_digest"),
+                ]:
+                    session.add(ResearchReportRow(
+                        researcher=researcher,
+                        report_type=rtype,
+                        title=report_data.get("title", f"{rtype} report"),
+                        summary=report_data.get("executive_summary", report_data.get("overall_assessment", report_data.get("summary", ""))),
+                        findings=report_data,
+                        recommendations=report_data.get("recommendations_for_board", report_data.get("recommendations", [])),
+                        data_context={"source": "weekly_automated", "week_of": now.isoformat()},
+                    ))
+                await session.commit()
+
+            print(f"[RESEARCH] Weekly digest saved: {digest.get('title', '?')}", flush=True)
+
+        except Exception as e:
+            import traceback
+            logger.error("weekly_research_failed", error=str(e), traceback=traceback.format_exc())
+
+        await asyncio.sleep(60)
+
+    print("[RESEARCH] Weekly research task stopped.", flush=True)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan — startup and shutdown."""
@@ -441,6 +622,8 @@ async def lifespan(app: FastAPI):
     monitor_task = asyncio.create_task(_price_monitor(shutdown_event))
     briefing_task = asyncio.create_task(_daily_briefing_task(shutdown_event))
     blog_task = asyncio.create_task(_weekly_blog_task(shutdown_event))
+    daily_research_task = asyncio.create_task(_daily_research_task(shutdown_event))
+    weekly_research_task = asyncio.create_task(_weekly_research_task(shutdown_event))
 
     yield
 
@@ -450,6 +633,8 @@ async def lifespan(app: FastAPI):
     monitor_task.cancel()
     briefing_task.cancel()
     blog_task.cancel()
+    daily_research_task.cancel()
+    weekly_research_task.cancel()
     try:
         await cycle_task
     except asyncio.CancelledError:
@@ -464,6 +649,14 @@ async def lifespan(app: FastAPI):
         pass
     try:
         await blog_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await daily_research_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await weekly_research_task
     except asyncio.CancelledError:
         pass
 
@@ -502,6 +695,7 @@ app.include_router(portfolio.router, prefix="/api/v1")
 app.include_router(backtest.router, prefix="/api/v1")
 app.include_router(signals.router, prefix="/api/v1")
 app.include_router(ceo_posts.router, prefix="/api/v1")
+app.include_router(research.router, prefix="/api/v1")
 
 
 @app.get("/health")

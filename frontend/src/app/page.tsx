@@ -272,7 +272,7 @@ export default function LandingPage() {
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">A complete autonomous fund.</h2>
             <p className="text-white/40 mt-3 max-w-lg mx-auto">CEO sets strategy. Teams analyze. Aggregator decides. Risk manager enforces. All AI.</p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
             {[
               { name: 'CEO', role: 'Strategy', color: 'from-amber-500 to-orange-500' },
               { name: 'Technical', role: '3 Agents', color: 'from-blue-500 to-cyan-500' },
@@ -280,6 +280,7 @@ export default function LandingPage() {
               { name: 'Fundamental', role: '2 Agents', color: 'from-yellow-500 to-amber-500' },
               { name: 'Macro', role: '2 Agents', color: 'from-cyan-500 to-teal-500' },
               { name: 'On-Chain', role: '2 Agents', color: 'from-emerald-500 to-green-500' },
+              { name: 'Research', role: '3 Researchers', color: 'from-indigo-500 to-violet-500' },
             ].map((team) => (
               <div key={team.name} className="glass-card p-4 text-center group hover:bg-white/[0.05] transition-all">
                 <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${team.color} mx-auto mb-3 flex items-center justify-center text-white text-xs font-bold opacity-80 group-hover:opacity-100 transition-opacity`}>
