@@ -5,8 +5,7 @@ import {
   TrendingUp, TrendingDown, Activity,
   Target, Zap, Trophy, ArrowRight,
 } from 'lucide-react';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { API_BASE } from '@/lib/api';
 
 interface TeamPerf {
   [team: string]: {
@@ -54,7 +53,7 @@ export default function ResultsPage() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex items-center gap-3">
-          <div className="w-5 h-5 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
+          <div className="w-5 h-5 border-2 border-syn-accent/30 border-t-syn-accent rounded-full animate-spin" />
           <p className="text-sm text-white/30">Loading results...</p>
         </div>
       </div>
@@ -72,16 +71,16 @@ export default function ResultsPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Results</h1>
-        <p className="text-sm text-hive-muted mt-1">Every trade. Every win. Every loss. Full transparency — nothing hidden.</p>
+        <p className="text-sm text-syn-muted mt-1">Every trade. Every win. Every loss. Full transparency — nothing hidden.</p>
       </div>
 
       {/* Team Accuracy Leaderboard + Recent Trades side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Team Leaderboard - 1/3 */}
-        <div className="glass-card overflow-hidden">
-          <div className="px-5 py-4 border-b border-white/[0.06] flex items-center gap-2">
-            <Trophy size={14} className="text-amber-400/60" />
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Team Accuracy</p>
+        <div className="bg-syn-surface border border-syn-border rounded-lg overflow-hidden">
+          <div className="px-5 py-4 border-b border-syn-border flex items-center gap-2">
+            <Trophy size={14} className="text-syn-muted" />
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Team Accuracy</p>
           </div>
           {teamEntries.length === 0 ? (
             <div className="px-5 py-10 text-center">
@@ -99,7 +98,7 @@ export default function ResultsPage() {
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2">
                         <span className={`text-xs font-bold w-5 text-center ${
-                          i === 0 ? 'text-amber-400' : i === 1 ? 'text-gray-300' : i === 2 ? 'text-amber-700' : 'text-white/30'
+                          i === 0 ? 'text-syn-accent' : i === 1 ? 'text-gray-300' : i === 2 ? 'text-amber-700' : 'text-white/30'
                         }`}>
                           {i + 1}
                         </span>
@@ -134,11 +133,11 @@ export default function ResultsPage() {
         </div>
 
         {/* Recent Trades - 2/3 */}
-        <div className="lg:col-span-2 glass-card overflow-hidden">
-          <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between">
+        <div className="lg:col-span-2 bg-syn-surface border border-syn-border rounded-lg overflow-hidden">
+          <div className="px-5 py-4 border-b border-syn-border flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Zap size={14} className="text-amber-400/60" />
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Recent Closed Trades</p>
+              <Zap size={14} className="text-syn-muted" />
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Recent Closed Trades</p>
             </div>
             {trades.length > 20 && (
               <span className="text-[10px] text-white/20">Showing 20 of {trades.length}</span>
@@ -154,7 +153,7 @@ export default function ResultsPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 border-b border-white/[0.06]">
+                  <tr className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted border-b border-syn-border">
                     <th className="text-left px-4 py-2.5">Symbol</th>
                     <th className="text-left px-4 py-2.5">Side</th>
                     <th className="text-right px-4 py-2.5">Entry</th>
@@ -204,13 +203,13 @@ export default function ResultsPage() {
       </div>
 
       {/* CTA */}
-      <div className="glass-card p-6 border-amber-400/10 bg-gradient-to-r from-amber-500/[0.04] to-orange-500/[0.04]">
+      <div className="bg-syn-surface border border-syn-border rounded-lg p-6 border-syn-accent/10 bg-gradient-to-r from-violet-500/[0.04] to-purple-500/[0.04]">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold mb-1">Want deeper analysis and real-time signals?</h3>
             <p className="text-xs text-white/30">Contribute your API key to expand the hive and unlock full signal access.</p>
           </div>
-          <a href="/register" className="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-black text-xs font-bold rounded-lg hover:shadow-lg hover:shadow-amber-500/20 transition-all">
+          <a href="/register" className="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 bg-syn-accent text-white text-xs font-bold rounded-lg hover:shadow-lg hover:shadow-violet-500/20 transition-all">
             Contribute <ArrowRight size={14} />
           </a>
         </div>

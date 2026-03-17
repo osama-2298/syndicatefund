@@ -47,7 +47,7 @@ function FlowNode({ icon: Icon, label, value, color, active }: {
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${active ? color : 'bg-white/[0.03]'}`}>
         <Icon size={18} className={active ? 'text-white' : 'text-white/20'} />
       </div>
-      <span className="text-[10px] font-medium text-hive-muted">{label}</span>
+      <span className="text-[10px] font-medium text-syn-text-secondary">{label}</span>
       {value && <span className="text-xs font-bold">{value}</span>}
     </div>
   );
@@ -87,12 +87,12 @@ function CoinCard({ symbol, action, confidence, consensus, blocked, reason, bull
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-bold">{base}</span>
         {blocked ? (
-          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/[0.04] text-hive-muted ring-1 ring-inset ring-white/[0.06]">BLOCKED</span>
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/[0.04] text-syn-text-secondary ring-1 ring-inset ring-syn-border">BLOCKED</span>
         ) : (
           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ring-1 ring-inset ${
             action === 'BUY' ? 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/20' :
             action === 'SELL' || action === 'SHORT' ? 'bg-red-500/10 text-red-400 ring-red-500/20' :
-            'bg-white/[0.04] text-hive-muted ring-white/[0.06]'
+            'bg-white/[0.04] text-syn-text-secondary ring-syn-border'
           }`}>{action}</span>
         )}
       </div>
@@ -116,13 +116,13 @@ function CoinCard({ symbol, action, confidence, consensus, blocked, reason, bull
             }`} style={{ width: `${confPct}%` }} />
           </div>
           <div className="flex justify-between mt-1">
-            <span className="text-[10px] text-hive-muted">{confPct}% confidence</span>
+            <span className="text-[10px] text-syn-text-secondary">{confPct}% confidence</span>
           </div>
         </div>
       )}
 
       {blocked && reason && (
-        <p className="text-[10px] text-hive-muted/60 truncate">{reason}</p>
+        <p className="text-[10px] text-syn-text-secondary/60 truncate">{reason}</p>
       )}
       {polarization > 0.5 && (
         <div className="flex items-center gap-1 mt-1">
@@ -147,7 +147,7 @@ export default function CycleCard({ cycle, events, defaultOpen }: {
   const regimeColor = regime === 'bull' ? 'text-emerald-400 bg-emerald-500/10 ring-emerald-500/20'
     : regime === 'bear' ? 'text-red-400 bg-red-500/10 ring-red-500/20'
     : regime === 'crisis' ? 'text-red-300 bg-red-900/20 ring-red-500/30'
-    : 'text-amber-400 bg-amber-500/10 ring-amber-500/20';
+    : 'text-violet-400 bg-violet-500/10 ring-violet-500/20';
   const RegimeIcon = regime === 'bull' ? TrendingUp : regime === 'bear' ? TrendingDown : Shield;
 
   const ceoEvent = events.find(e => e.event_type === 'ceo_directive');
@@ -204,27 +204,27 @@ export default function CycleCard({ cycle, events, defaultOpen }: {
   const coins = Object.values(coinData);
 
   return (
-    <div className="glass-card overflow-hidden">
+    <div className="bg-syn-surface border border-syn-border rounded-lg overflow-hidden">
       <button
         onClick={() => setOpen(!open)}
         className="w-full px-6 py-5 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
       >
         <div className="flex items-center gap-4">
-          {open ? <ChevronDown size={16} className="text-hive-muted" /> : <ChevronRight size={16} className="text-hive-muted" />}
+          {open ? <ChevronDown size={16} className="text-syn-text-secondary" /> : <ChevronRight size={16} className="text-syn-text-secondary" />}
           <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold ring-1 ring-inset ${regimeColor}`}>
             <RegimeIcon size={12} />
             {regime.toUpperCase()}
           </div>
           <div className="text-left">
             <h3 className="text-sm font-bold">Cycle #{cycle.id}</h3>
-            <p className="text-[10px] text-hive-muted mt-0.5">
+            <p className="text-[10px] text-syn-text-secondary mt-0.5">
               {new Date(cycle.started_at).toLocaleDateString()} at {new Date(cycle.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               {cycle.duration_secs ? ` — ${Math.round(cycle.duration_secs / 60)}min` : ''}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] bg-white/[0.04] px-2 py-1 rounded text-hive-muted">{nCoins} coins</span>
+          <span className="text-[10px] bg-white/[0.04] px-2 py-1 rounded text-syn-text-secondary">{nCoins} coins</span>
           {nTrades > 0 && (
             <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded font-medium">{nTrades} trades</span>
           )}
@@ -235,15 +235,15 @@ export default function CycleCard({ cycle, events, defaultOpen }: {
       </button>
 
       {open && (
-        <div className="border-t border-white/[0.06]">
+        <div className="border-t border-syn-border">
           <div className="px-6 py-5 border-b border-white/[0.03]">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted mb-4">Pipeline Flow</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-syn-text-secondary mb-4">Pipeline Flow</p>
             <div className="flex items-start justify-between gap-2 overflow-x-auto">
               <FlowNode icon={Search} label="Intel" value={ceoEvent ? `F&G ${ceoEvent.detail?.regime || '?'}` : ''} color="bg-blue-500/20" active={true} />
               <FlowArrow />
-              <FlowNode icon={Brain} label="CEO" value={regime.toUpperCase()} color={regime === 'bull' ? 'bg-emerald-500/20' : regime === 'bear' ? 'bg-red-500/20' : 'bg-amber-500/20'} active={!!ceoEvent} />
+              <FlowNode icon={Brain} label="CEO" value={regime.toUpperCase()} color={regime === 'bull' ? 'bg-emerald-500/20' : regime === 'bear' ? 'bg-red-500/20' : 'bg-violet-500/20'} active={!!ceoEvent} />
               <FlowArrow />
-              <FlowNode icon={Target} label="Coins" value={`${nCoins}`} color="bg-amber-500/20" active={nCoins > 0} />
+              <FlowNode icon={Target} label="Coins" value={`${nCoins}`} color="bg-violet-500/20" active={nCoins > 0} />
               <FlowArrow />
               <FlowNode icon={Users} label="Teams" value={`${nSignals} sig`} color="bg-blue-500/20" active={nSignals > 0} />
               <FlowArrow />
@@ -257,7 +257,7 @@ export default function CycleCard({ cycle, events, defaultOpen }: {
 
           {coins.length > 0 && (
             <div className="px-6 py-5 border-b border-white/[0.03]">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted mb-3">Coin Decisions</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-syn-text-secondary mb-3">Coin Decisions</p>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                 {coins.map((coin) => (
                   <CoinCard key={coin.symbol} {...coin} />
@@ -268,7 +268,7 @@ export default function CycleCard({ cycle, events, defaultOpen }: {
 
           {tradesExecuted.length > 0 && (
             <div className="px-6 py-4 border-b border-white/[0.03]">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted mb-2">Trades Executed</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-syn-text-secondary mb-2">Trades Executed</p>
               <div className="space-y-2">
                 {tradesExecuted.map((t) => {
                   const sym = (t.detail?.symbol || '').replace('USDT', '');
@@ -280,7 +280,7 @@ export default function CycleCard({ cycle, events, defaultOpen }: {
                         side === 'BUY' ? 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/20' : 'bg-red-500/10 text-red-400 ring-red-500/20'
                       }`}>{side}</span>
                       <span className="text-sm font-semibold">{sym}</span>
-                      <span className="text-sm text-hive-muted">@ ${(t.detail?.price || 0).toLocaleString()}</span>
+                      <span className="text-sm text-syn-text-secondary">@ ${(t.detail?.price || 0).toLocaleString()}</span>
                     </div>
                   );
                 })}
@@ -289,7 +289,7 @@ export default function CycleCard({ cycle, events, defaultOpen }: {
           )}
 
           <div className="px-6 py-3 bg-white/[0.01]">
-            <a href={`/cycles/${cycle.id}`} className="inline-flex items-center gap-2 text-xs text-hive-accent hover:text-amber-300 transition-colors font-medium">
+            <a href={`/cycles/${cycle.id}`} className="inline-flex items-center gap-2 text-xs text-syn-accent hover:text-violet-300 transition-colors font-medium">
               <Play size={12} /> Watch full replay step by step
             </a>
           </div>

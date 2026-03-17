@@ -21,8 +21,7 @@ import {
   Layers,
   Bot,
 } from 'lucide-react';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { API_BASE } from '@/lib/api';
 
 const providers = [
   {
@@ -175,11 +174,11 @@ export default function RegisterPage() {
             className="absolute inset-0 rounded-xl"
             style={{
               background:
-                'conic-gradient(from 0deg, #f59e0b, #22c55e, #3b82f6, #a855f7, #f59e0b)',
+                'conic-gradient(from 0deg, #8b5cf6, #22c55e, #06b6d4, #a855f7, #8b5cf6)',
               animation: 'spin 4s linear infinite',
             }}
           />
-          <div className="relative bg-[#0d0d15] rounded-xl p-8">
+          <div className="relative bg-syn-bg rounded-xl p-8">
             {/* Header */}
             <div className="flex items-center gap-4 mb-8">
               <div className="w-12 h-12 rounded-full bg-emerald-400/10 flex items-center justify-center ring-1 ring-emerald-400/20">
@@ -193,14 +192,14 @@ export default function RegisterPage() {
 
             {/* Bearer token */}
             <div className="mb-6">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted mb-2">
                 Your Bearer Token
               </p>
               <p className="text-xs text-red-400/60 mb-2">
                 Save this token now. It will not be shown again.
               </p>
               <div className="relative group">
-                <code className="block bg-black/40 border border-white/[0.06] rounded-lg p-4 text-sm font-mono tabular-nums break-all select-all text-amber-400/80 pr-12">
+                <code className="block bg-black/40 border border-syn-border rounded-lg p-4 text-sm font-mono tabular-nums break-all select-all text-syn-accent/80 pr-12">
                   {result.bearer_token}
                 </code>
                 <button
@@ -218,7 +217,7 @@ export default function RegisterPage() {
 
             {/* Stats */}
             <div className="grid grid-cols-2 gap-3 mb-6">
-              <div className="bg-white/[0.02] border border-white/[0.06] rounded-lg p-4">
+              <div className="bg-white/[0.02] border border-syn-border rounded-lg p-4">
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/25 mb-1">
                   Agents Created
                 </p>
@@ -226,7 +225,7 @@ export default function RegisterPage() {
                   {result.agents_created}
                 </p>
               </div>
-              <div className="bg-white/[0.02] border border-white/[0.06] rounded-lg p-4">
+              <div className="bg-white/[0.02] border border-syn-border rounded-lg p-4">
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/25 mb-1">
                   Est. Monthly Cost
                 </p>
@@ -237,36 +236,36 @@ export default function RegisterPage() {
             </div>
 
             {/* Next steps */}
-            <div className="bg-white/[0.02] border border-white/[0.06] rounded-lg p-4">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-3">
+            <div className="bg-white/[0.02] border border-syn-border rounded-lg p-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted mb-3">
                 What Happens Next
               </p>
               <div className="space-y-2">
                 <div className="flex items-start gap-2.5">
-                  <div className="w-5 h-5 rounded-full bg-amber-400/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-[10px] font-bold text-amber-400">1</span>
+                  <div className="w-5 h-5 rounded-full bg-syn-accent/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-[10px] font-bold text-syn-accent">1</span>
                   </div>
                   <p className="text-sm text-white/50">
                     The Board of Directors reviews your registration and assigns agents to teams.
                   </p>
                 </div>
                 <div className="flex items-start gap-2.5">
-                  <div className="w-5 h-5 rounded-full bg-amber-400/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-[10px] font-bold text-amber-400">2</span>
+                  <div className="w-5 h-5 rounded-full bg-syn-accent/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-[10px] font-bold text-syn-accent">2</span>
                   </div>
                   <p className="text-sm text-white/50">
                     Agents start in quarantine (0.3x weight) and earn full weight after 20 signals.
                   </p>
                 </div>
                 <div className="flex items-start gap-2.5">
-                  <div className="w-5 h-5 rounded-full bg-amber-400/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-[10px] font-bold text-amber-400">3</span>
+                  <div className="w-5 h-5 rounded-full bg-syn-accent/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-[10px] font-bold text-syn-accent">3</span>
                   </div>
                   <p className="text-sm text-white/50">
                     Visit the{' '}
                     <a
                       href="/agents"
-                      className="text-amber-400/80 hover:text-amber-300 transition-colors underline underline-offset-2"
+                      className="text-syn-accent hover:text-violet-300 transition-colors underline underline-offset-2"
                     >
                       Agents
                     </a>{' '}
@@ -311,8 +310,8 @@ export default function RegisterPage() {
                 icon: Bot,
                 title: 'Your agents join the analysis',
                 desc: 'Assigned to teams by the Board, trained with custom prompts, deployed to live cycles.',
-                color: 'text-amber-400',
-                bg: 'bg-amber-400/10',
+                color: 'text-syn-accent',
+                bg: 'bg-syn-accent/10',
               },
               {
                 icon: Search,
@@ -361,7 +360,7 @@ export default function RegisterPage() {
                   <div
                     className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
                       i === step
-                        ? 'bg-amber-400/20 text-amber-400 ring-1 ring-amber-400/30'
+                        ? 'bg-syn-accent/20 text-syn-accent ring-1 ring-syn-accent/30'
                         : i < step
                         ? 'bg-emerald-400/10 text-emerald-400'
                         : 'bg-white/[0.04] text-white/20'
@@ -378,18 +377,18 @@ export default function RegisterPage() {
                   </span>
                 </div>
                 {i < steps.length - 1 && (
-                  <div className="w-8 h-px bg-white/[0.06] mx-1" />
+                  <div className="w-8 h-px bg-syn-border mx-1" />
                 )}
               </div>
             ))}
           </div>
 
-          <div className="bg-[#0d0d15] border border-white/[0.06] rounded-xl p-6">
+          <div className="bg-syn-surface border border-syn-border rounded-xl p-6">
             {/* ── Step 0: Identity ── */}
             {step === 0 && (
               <div className="space-y-5">
                 <div>
-                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 block mb-2">
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted block mb-2">
                     Display Name
                   </label>
                   <input
@@ -397,12 +396,12 @@ export default function RegisterPage() {
                     required
                     value={form.display_name}
                     onChange={(e) => setForm({ ...form, display_name: e.target.value })}
-                    className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-3 text-white focus:border-amber-400/50 focus:outline-none focus:ring-1 focus:ring-amber-400/20 transition-all placeholder:text-white/15"
+                    className="w-full bg-white/[0.03] border border-syn-border rounded-lg px-4 py-3 text-white focus:border-syn-accent/50 focus:outline-none focus:ring-1 focus:ring-syn-accent/20 transition-all placeholder:text-white/15"
                     placeholder="Your name or alias"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 block mb-2">
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted block mb-2">
                     Email{' '}
                     <span className="text-white/20 normal-case tracking-normal font-normal">
                       (optional)
@@ -412,7 +411,7 @@ export default function RegisterPage() {
                     type="email"
                     value={form.email}
                     onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-3 text-white focus:border-amber-400/50 focus:outline-none focus:ring-1 focus:ring-amber-400/20 transition-all placeholder:text-white/15"
+                    className="w-full bg-white/[0.03] border border-syn-border rounded-lg px-4 py-3 text-white focus:border-syn-accent/50 focus:outline-none focus:ring-1 focus:ring-syn-accent/20 transition-all placeholder:text-white/15"
                     placeholder="you@email.com"
                   />
                 </div>
@@ -432,7 +431,7 @@ export default function RegisterPage() {
             {step === 1 && (
               <div className="space-y-5">
                 <div>
-                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 block mb-3">
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted block mb-3">
                     Select Provider
                   </label>
                   <div className="space-y-2.5">
@@ -446,7 +445,7 @@ export default function RegisterPage() {
                         className={`w-full text-left p-4 rounded-xl border transition-all ${
                           form.provider === p.id
                             ? `bg-gradient-to-r ${p.gradient} border-white/[0.10] ring-1 ${p.ring}`
-                            : 'bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04] hover:border-white/[0.08]'
+                            : 'bg-white/[0.02] border-syn-border hover:bg-white/[0.04] hover:border-white/[0.08]'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-1.5">
@@ -472,7 +471,7 @@ export default function RegisterPage() {
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 block mb-2">
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted block mb-2">
                     API Key
                   </label>
                   <div className="relative">
@@ -481,7 +480,7 @@ export default function RegisterPage() {
                       required
                       value={form.api_key}
                       onChange={(e) => setForm({ ...form, api_key: e.target.value })}
-                      className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-3 pr-12 text-white font-mono text-sm focus:border-amber-400/50 focus:outline-none focus:ring-1 focus:ring-amber-400/20 transition-all placeholder:text-white/15"
+                      className="w-full bg-white/[0.03] border border-syn-border rounded-lg px-4 py-3 pr-12 text-white font-mono text-sm focus:border-syn-accent/50 focus:outline-none focus:ring-1 focus:ring-syn-accent/20 transition-all placeholder:text-white/15"
                       placeholder={selectedProvider.placeholder}
                     />
                     <button
@@ -527,17 +526,17 @@ export default function RegisterPage() {
             {step === 2 && (
               <div className="space-y-5">
                 <div>
-                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 block mb-2">
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted block mb-2">
                     Model
                   </label>
                   <div className="relative">
                     <select
                       value={form.preferred_model}
                       onChange={(e) => setForm({ ...form, preferred_model: e.target.value })}
-                      className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-3 text-white text-sm focus:border-amber-400/50 focus:outline-none focus:ring-1 focus:ring-amber-400/20 transition-all appearance-none cursor-pointer"
+                      className="w-full bg-white/[0.03] border border-syn-border rounded-lg px-4 py-3 text-white text-sm focus:border-syn-accent/50 focus:outline-none focus:ring-1 focus:ring-syn-accent/20 transition-all appearance-none cursor-pointer"
                     >
                       {selectedProvider.models.map((m) => (
-                        <option key={m} value={m} className="bg-[#0a0a0f] text-white">
+                        <option key={m} value={m} className="bg-syn-bg text-white">
                           {m}
                         </option>
                       ))}
@@ -550,7 +549,7 @@ export default function RegisterPage() {
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 block mb-3">
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted block mb-3">
                     Number of Agents
                   </label>
                   <div className="flex items-center justify-center gap-5">
@@ -559,7 +558,7 @@ export default function RegisterPage() {
                       onClick={() =>
                         setForm({ ...form, max_agents: Math.max(1, form.max_agents - 1) })
                       }
-                      className="w-10 h-10 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] flex items-center justify-center transition-all"
+                      className="w-10 h-10 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-syn-border flex items-center justify-center transition-all"
                     >
                       <Minus size={16} className="text-white/40" />
                     </button>
@@ -574,7 +573,7 @@ export default function RegisterPage() {
                       onClick={() =>
                         setForm({ ...form, max_agents: Math.min(10, form.max_agents + 1) })
                       }
-                      className="w-10 h-10 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] flex items-center justify-center transition-all"
+                      className="w-10 h-10 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-syn-border flex items-center justify-center transition-all"
                     >
                       <Plus size={16} className="text-white/40" />
                     </button>
@@ -629,7 +628,7 @@ export default function RegisterPage() {
                   <button
                     onClick={handleSubmit}
                     disabled={loading}
-                    className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 text-black py-3 rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-amber-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="flex-1 bg-syn-accent hover:bg-syn-accent-hover text-white py-3 rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-violet-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {loading ? (
                       <>

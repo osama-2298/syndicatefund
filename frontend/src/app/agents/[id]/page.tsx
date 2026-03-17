@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Activity, ArrowLeft, Flame, Snowflake, Target } from 'lucide-react';
-import { AGENT_NAMES } from '@/lib/constants';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { API_BASE } from '@/lib/api';
+import { AGENT_NAMES, STATUS_COLORS, OUTCOME_COLORS } from '@/lib/constants';
+import type { SignalItem, AgentStats } from '@/lib/types';
 
 interface AgentDetail {
   id: string;
@@ -21,39 +21,6 @@ interface AgentDetail {
   system_prompt?: string;
   metadata?: Record<string, any>;
 }
-
-interface SignalItem {
-  id: string;
-  symbol: string;
-  action: string;
-  confidence: number;
-  conviction: number | null;
-  reasoning: string | null;
-  outcome: string;
-  created_at: string;
-}
-
-interface AgentStats {
-  streak_count: number;
-  streak_type: string;
-  avg_conviction: number | null;
-  contrarian_rate: number | null;
-}
-
-const STATUS_COLORS: Record<string, string> = {
-  founding: 'bg-amber-500/10 text-amber-400 ring-amber-500/20',
-  active: 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/20',
-  assigned: 'bg-blue-500/10 text-blue-400 ring-blue-500/20',
-  registered: 'bg-white/[0.06] text-hive-muted ring-white/[0.08]',
-  probation: 'bg-orange-500/10 text-orange-400 ring-orange-500/20',
-  fired: 'bg-red-500/10 text-red-400 ring-red-500/20',
-};
-
-const OUTCOME_COLORS: Record<string, string> = {
-  correct: 'bg-emerald-500/10 text-emerald-400',
-  incorrect: 'bg-red-500/10 text-red-400',
-  pending: 'bg-white/[0.04] text-hive-muted',
-};
 
 export default function AgentProfilePage() {
   const params = useParams();
@@ -79,7 +46,7 @@ export default function AgentProfilePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Activity size={24} className="animate-spin text-hive-accent" />
+        <Activity size={24} className="animate-spin text-syn-accent" />
       </div>
     );
   }
@@ -87,8 +54,8 @@ export default function AgentProfilePage() {
   if (!agent) {
     return (
       <div className="text-center py-20">
-        <p className="text-hive-muted">Agent not found</p>
-        <a href="/agents" className="text-xs text-hive-accent mt-2 inline-block">Back to Agents</a>
+        <p className="text-syn-muted">Agent not found</p>
+        <a href="/agents" className="text-xs text-syn-accent mt-2 inline-block">Back to Agents</a>
       </div>
     );
   }
@@ -100,16 +67,16 @@ export default function AgentProfilePage() {
   return (
     <div className="slide-up space-y-6">
       {/* Back link */}
-      <a href="/agents" className="inline-flex items-center gap-1 text-xs text-hive-muted hover:text-hive-text transition-colors">
+      <a href="/agents" className="inline-flex items-center gap-1 text-xs text-syn-muted hover:text-syn-text transition-colors">
         <ArrowLeft size={12} /> Back to Agents
       </a>
 
       {/* Hero card */}
-      <div className="glass-card p-6">
+      <div className="bg-syn-surface border border-syn-border rounded-lg p-6">
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{personaName}</h1>
-            <p className="text-sm text-hive-muted mt-1">{agent.role}</p>
+            <p className="text-sm text-syn-muted mt-1">{agent.role}</p>
             <div className="flex items-center gap-3 mt-3">
               {agent.team_name && (
                 <span className="text-[10px] font-medium bg-blue-500/10 text-blue-400 ring-1 ring-inset ring-blue-500/20 px-2 py-0.5 rounded capitalize">
@@ -119,7 +86,7 @@ export default function AgentProfilePage() {
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded ring-1 ring-inset ${statusColor}`}>
                 {agent.status.toUpperCase()}
               </span>
-              <span className="text-[10px] text-hive-muted">{agent.model} / {agent.provider}</span>
+              <span className="text-[10px] text-syn-muted">{agent.model} / {agent.provider}</span>
             </div>
           </div>
           {stats && stats.streak_count >= 3 && (
@@ -130,26 +97,26 @@ export default function AgentProfilePage() {
                 <Snowflake size={20} className="text-blue-400" />
               )}
               <span className="text-lg font-bold">{stats.streak_count}</span>
-              <span className="text-[10px] text-hive-muted">{stats.streak_type} streak</span>
+              <span className="text-[10px] text-syn-muted">{stats.streak_type} streak</span>
             </div>
           )}
         </div>
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-white/[0.06] border border-white/[0.06] rounded-xl overflow-hidden">
+      <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-syn-border border border-syn-border rounded-xl overflow-hidden">
         <div className="p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted">Total Signals</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-syn-muted">Total Signals</p>
           <p className="mt-1 text-2xl font-bold">{agent.total_signals}</p>
         </div>
         <div className="p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted">Accuracy</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-syn-muted">Accuracy</p>
           <p className={`mt-1 text-2xl font-bold ${accuracyPct >= 60 ? 'text-emerald-400' : accuracyPct >= 40 ? 'text-amber-400' : 'text-red-400'}`}>
             {agent.total_signals >= 5 ? `${accuracyPct.toFixed(1)}%` : 'N/A'}
           </p>
         </div>
         <div className="p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted">Current Streak</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-syn-muted">Current Streak</p>
           <p className="mt-1 text-2xl font-bold flex items-center gap-1">
             {stats ? (
               <>
@@ -161,7 +128,7 @@ export default function AgentProfilePage() {
           </p>
         </div>
         <div className="p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted">Avg Conviction</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-syn-muted">Avg Conviction</p>
           <p className="mt-1 text-2xl font-bold">
             {stats?.avg_conviction != null ? `${stats.avg_conviction}/10` : 'N/A'}
           </p>
@@ -169,19 +136,19 @@ export default function AgentProfilePage() {
       </div>
 
       {/* Recent Signals */}
-      <div className="glass-card overflow-hidden">
-        <div className="px-5 py-4 border-b border-white/[0.06] flex items-center gap-2">
-          <Target size={14} className="text-hive-accent" />
+      <div className="bg-syn-surface border border-syn-border rounded-lg overflow-hidden">
+        <div className="px-5 py-4 border-b border-syn-border flex items-center gap-2">
+          <Target size={14} className="text-syn-accent" />
           <h2 className="text-sm font-semibold">Recent Signals</h2>
         </div>
         {signals.length === 0 ? (
           <div className="px-5 py-10 text-center">
-            <p className="text-sm text-hive-muted">No signals recorded yet</p>
+            <p className="text-sm text-syn-muted">No signals recorded yet</p>
           </div>
         ) : (
           <table className="w-full">
             <thead>
-              <tr className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted border-b border-white/[0.06]">
+              <tr className="text-[10px] font-semibold uppercase tracking-widest text-syn-muted border-b border-syn-border">
                 <th className="text-left px-4 py-2.5">Time</th>
                 <th className="text-left px-4 py-2.5">Symbol</th>
                 <th className="text-left px-4 py-2.5">Action</th>
@@ -195,10 +162,10 @@ export default function AgentProfilePage() {
                 const outcomeColor = OUTCOME_COLORS[sig.outcome] || OUTCOME_COLORS.pending;
                 const actionColor = sig.action === 'BUY' ? 'bg-emerald-500/10 text-emerald-400' :
                   sig.action === 'SELL' || sig.action === 'SHORT' ? 'bg-red-500/10 text-red-400' :
-                  'bg-white/[0.04] text-hive-muted';
+                  'bg-white/[0.04] text-syn-muted';
                 return (
-                  <tr key={sig.id} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
-                    <td className="px-4 py-3 text-xs text-hive-muted">
+                  <tr key={sig.id} className="border-b border-syn-border/30 hover:bg-white/[0.02] transition-colors">
+                    <td className="px-4 py-3 text-xs text-syn-muted">
                       {new Date(sig.created_at).toLocaleDateString()} {new Date(sig.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </td>
                     <td className="px-4 py-3 text-sm font-semibold">{sig.symbol.replace('USDT', '')}</td>
@@ -211,15 +178,15 @@ export default function AgentProfilePage() {
                       {sig.conviction != null ? (
                         <div className="flex items-center justify-end gap-1.5">
                           <div className="w-10 h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
-                            <div className="h-full bg-hive-accent rounded-full" style={{ width: `${(sig.conviction / 10) * 100}%` }} />
+                            <div className="h-full bg-syn-accent rounded-full" style={{ width: `${(sig.conviction / 10) * 100}%` }} />
                           </div>
                           <span className="text-xs">{sig.conviction}/10</span>
                         </div>
                       ) : (
-                        <span className="text-xs text-hive-muted">-</span>
+                        <span className="text-xs text-syn-muted">-</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-xs text-hive-muted max-w-[200px] truncate">
+                    <td className="px-4 py-3 text-xs text-syn-muted max-w-[200px] truncate">
                       {sig.reasoning || '-'}
                     </td>
                     <td className="px-4 py-3">

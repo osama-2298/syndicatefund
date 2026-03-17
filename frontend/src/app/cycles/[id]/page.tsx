@@ -8,8 +8,7 @@ import {
   DollarSign, LogOut, Star, Swords, BarChart3,
 } from 'lucide-react';
 import { humanizeEvent } from '@/lib/humanize-event';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { API_BASE } from '@/lib/api';
 
 interface PipelineEvent {
   id: string;
@@ -93,35 +92,35 @@ export default function CycleReplayPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Activity size={24} className="animate-spin text-hive-accent" />
+        <Activity size={24} className="animate-spin text-syn-accent" />
       </div>
     );
   }
 
   return (
     <div className="slide-up space-y-6">
-      <a href="/activity" className="inline-flex items-center gap-1 text-xs text-hive-muted hover:text-hive-text transition-colors">
+      <a href="/activity" className="inline-flex items-center gap-1 text-xs text-syn-muted hover:text-syn-text transition-colors">
         <ArrowLeft size={12} /> Back to Activity
       </a>
 
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Cycle #{cycleId} Replay</h1>
-        <p className="text-sm text-hive-muted mt-1">{events.length} steps — watch the AI analyze markets, debate, and trade</p>
+        <p className="text-sm text-syn-muted mt-1">{events.length} steps — watch the AI analyze markets, debate, and trade</p>
       </div>
 
       {/* Controls */}
-      <div className="glass-card p-4">
+      <div className="bg-syn-surface border border-syn-border rounded-lg p-4">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <button onClick={handleBack} className="p-2 rounded-lg hover:bg-white/[0.04] transition-colors">
               <SkipBack size={16} />
             </button>
             {playing ? (
-              <button onClick={handlePause} className="p-2 rounded-lg bg-hive-accent/10 text-hive-accent hover:bg-hive-accent/20 transition-colors">
+              <button onClick={handlePause} className="p-2 rounded-lg bg-syn-accent/10 text-syn-accent hover:bg-syn-accent/20 transition-colors">
                 <Pause size={16} />
               </button>
             ) : (
-              <button onClick={handlePlay} className="p-2 rounded-lg bg-hive-accent/10 text-hive-accent hover:bg-hive-accent/20 transition-colors">
+              <button onClick={handlePlay} className="p-2 rounded-lg bg-syn-accent/10 text-syn-accent hover:bg-syn-accent/20 transition-colors">
                 <Play size={16} />
               </button>
             )}
@@ -131,12 +130,12 @@ export default function CycleReplayPage() {
           </div>
 
           <div className="flex items-center gap-1">
-            <FastForward size={12} className="text-hive-muted" />
+            <FastForward size={12} className="text-syn-muted" />
             {SPEEDS.map(s => (
               <button
                 key={s}
                 onClick={() => setSpeed(s)}
-                className={`text-[10px] font-bold px-2 py-0.5 rounded ${speed === s ? 'bg-hive-accent/10 text-hive-accent' : 'text-hive-muted hover:text-hive-text'}`}
+                className={`text-[10px] font-bold px-2 py-0.5 rounded ${speed === s ? 'bg-syn-accent/10 text-syn-accent' : 'text-syn-muted hover:text-syn-text'}`}
               >
                 {s}x
               </button>
@@ -145,11 +144,11 @@ export default function CycleReplayPage() {
 
           <div className="flex-1">
             <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
-              <div className="h-full bg-hive-accent rounded-full transition-all duration-300" style={{ width: `${progressPct}%` }} />
+              <div className="h-full bg-syn-accent rounded-full transition-all duration-300" style={{ width: `${progressPct}%` }} />
             </div>
           </div>
 
-          <span className="text-xs text-hive-muted tabular-nums">{visibleCount}/{events.length}</span>
+          <span className="text-xs text-syn-muted tabular-nums">{visibleCount}/{events.length}</span>
         </div>
 
         {/* Stage indicators with labels */}
@@ -157,27 +156,27 @@ export default function CycleReplayPage() {
           {STAGES.map((stage, i) => (
             <div
               key={stage}
-              className={`flex-1 h-1 rounded-full transition-colors ${i <= stageIndex ? 'bg-hive-accent' : 'bg-white/[0.04]'}`}
+              className={`flex-1 h-1 rounded-full transition-colors ${i <= stageIndex ? 'bg-syn-accent' : 'bg-white/[0.04]'}`}
               title={STAGE_DISPLAY[i]}
             />
           ))}
         </div>
         <div className="flex justify-between mt-1">
           {STAGE_DISPLAY.filter((_, i) => i % 2 === 0 || i === STAGE_DISPLAY.length - 1).map(label => (
-            <span key={label} className="text-[10px] text-hive-muted">{label}</span>
+            <span key={label} className="text-[10px] text-syn-muted">{label}</span>
           ))}
         </div>
       </div>
 
       {/* Event list */}
-      <div className="glass-card p-5">
+      <div className="bg-syn-surface border border-syn-border rounded-lg p-5">
         {events.length === 0 ? (
           <div className="text-center py-10">
-            <p className="text-sm text-hive-muted">No events found for this cycle</p>
+            <p className="text-sm text-syn-muted">No events found for this cycle</p>
           </div>
         ) : visibleCount === 0 ? (
           <div className="text-center py-10">
-            <div className="animate-spin w-5 h-5 border-2 border-hive-accent border-t-transparent rounded-full mx-auto" />
+            <div className="animate-spin w-5 h-5 border-2 border-syn-accent border-t-transparent rounded-full mx-auto" />
           </div>
         ) : (
           <div className="space-y-0 divide-y divide-white/[0.03]">
@@ -192,9 +191,9 @@ export default function CycleReplayPage() {
                   key={event.id}
                   className={`flex items-start gap-3 py-2.5 transition-all ${isLatest ? 'bg-white/[0.03] slide-up' : ''}`}
                 >
-                  <span className="text-[10px] text-hive-muted/50 font-mono tabular-nums shrink-0 mt-0.5 w-16">{time}</span>
+                  <span className="text-[10px] text-syn-muted/50 font-mono tabular-nums shrink-0 mt-0.5 w-16">{time}</span>
                   <Icon size={14} className={`${color} shrink-0 mt-0.5`} />
-                  <span className="text-xs text-hive-text/90 break-words flex-1">{message}</span>
+                  <span className="text-xs text-syn-text/90 break-words flex-1">{message}</span>
                 </div>
               );
             })}

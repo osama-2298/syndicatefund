@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Activity, Clock } from 'lucide-react';
 import CycleCard, { type CycleData, type PipelineEvent } from '@/components/CycleCard';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { API_BASE } from '@/lib/api';
 
 export default function ActivityPage() {
   const [cycles, setCycles] = useState<CycleData[]>([]);
@@ -53,7 +52,7 @@ export default function ActivityPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Activity size={24} className="animate-spin text-hive-accent" />
+        <Activity size={24} className="animate-spin text-syn-accent" />
       </div>
     );
   }
@@ -66,7 +65,7 @@ export default function ActivityPage() {
     <div className="slide-up space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Activity</h1>
-        <p className="text-sm text-hive-muted mt-1">
+        <p className="text-sm text-syn-muted mt-1">
           Every decision the AI makes, organized by cycle. The latest cycle is expanded by default.
         </p>
       </div>
@@ -74,26 +73,26 @@ export default function ActivityPage() {
       {/* Summary stats strip */}
       {cyclesWithEvents.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-[#0d0d15] border border-white/[0.06] rounded-xl px-4 py-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Total Cycles</p>
+          <div className="bg-syn-surface border border-syn-border rounded-xl px-4 py-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Total Cycles</p>
             <p className="text-lg font-bold font-mono tabular-nums text-white/90">{cycles.length}</p>
           </div>
-          <div className="bg-[#0d0d15] border border-white/[0.06] rounded-xl px-4 py-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Signals</p>
+          <div className="bg-syn-surface border border-syn-border rounded-xl px-4 py-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Signals</p>
             <p className="text-lg font-bold font-mono tabular-nums text-white/90">{totalSignals.toLocaleString()}</p>
           </div>
-          <div className="bg-[#0d0d15] border border-white/[0.06] rounded-xl px-4 py-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Trades</p>
+          <div className="bg-syn-surface border border-syn-border rounded-xl px-4 py-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Trades</p>
             <p className="text-lg font-bold font-mono tabular-nums text-white/90">{totalTrades}</p>
           </div>
         </div>
       )}
 
       {cyclesWithEvents.length === 0 ? (
-        <div className="glass-card p-10 text-center">
+        <div className="bg-syn-surface border border-syn-border rounded-lg p-10 text-center">
           <Clock size={32} className="mx-auto text-white/10 mb-3" />
-          <p className="text-sm text-hive-muted">No cycle activity recorded yet.</p>
-          <p className="text-xs text-hive-muted/50 mt-1">The pipeline runs every 4 hours. Activity will appear here after the next cycle completes.</p>
+          <p className="text-sm text-syn-muted">No cycle activity recorded yet.</p>
+          <p className="text-xs text-syn-muted/50 mt-1">The pipeline runs every 4 hours. Activity will appear here after the next cycle completes.</p>
         </div>
       ) : (
         <div className="space-y-4">

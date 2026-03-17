@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { Activity, Gavel, Skull, AlertTriangle, UserPlus, Users, ChevronDown, ChevronRight } from 'lucide-react';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { API_BASE } from '@/lib/api';
+import { DECISION_STYLES } from '@/lib/constants';
 
 interface BoardDecision {
   id: string;
@@ -21,11 +21,11 @@ interface BoardSession {
   created_at: string;
 }
 
-const DECISION_STYLES: Record<string, { icon: typeof Skull; color: string; label: string; bg: string }> = {
-  agent_fire: { icon: Skull, color: 'text-red-400', label: 'FIRED', bg: 'bg-red-500/10 ring-red-500/20' },
-  agent_probation: { icon: AlertTriangle, color: 'text-amber-400', label: 'PROBATION', bg: 'bg-amber-500/10 ring-amber-500/20' },
-  agent_assigned: { icon: UserPlus, color: 'text-blue-400', label: 'ASSIGNED', bg: 'bg-blue-500/10 ring-blue-500/20' },
-  team_created: { icon: Users, color: 'text-emerald-400', label: 'NEW TEAM', bg: 'bg-emerald-500/10 ring-emerald-500/20' },
+const DECISION_ICONS: Record<string, typeof Skull> = {
+  agent_fire: Skull,
+  agent_probation: AlertTriangle,
+  agent_assigned: UserPlus,
+  team_created: Users,
 };
 
 export default function BoardPage() {
@@ -58,7 +58,7 @@ export default function BoardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Activity size={24} className="animate-spin text-hive-accent" />
+        <Activity size={24} className="animate-spin text-syn-accent" />
       </div>
     );
   }
@@ -67,16 +67,16 @@ export default function BoardPage() {
     <div className="slide-up space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Board Room</h1>
-        <p className="text-sm text-hive-muted mt-1">
+        <p className="text-sm text-syn-text-secondary mt-1">
           Governance decisions — agent firings, promotions, team restructuring.
         </p>
       </div>
 
       {sessions.length === 0 ? (
-        <div className="glass-card p-10 text-center">
+        <div className="bg-syn-surface border border-syn-border rounded-lg p-10 text-center">
           <Gavel size={32} className="mx-auto text-white/10 mb-3" />
-          <p className="text-sm text-hive-muted">No board sessions recorded yet</p>
-          <p className="text-xs text-hive-muted/50 mt-1">Board sessions occur after cycles to evaluate agent performance</p>
+          <p className="text-sm text-syn-text-secondary">No board sessions recorded yet</p>
+          <p className="text-xs text-syn-text-secondary/50 mt-1">Board sessions occur after cycles to evaluate agent performance</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -87,18 +87,18 @@ export default function BoardPage() {
             const probations = session.decisions.filter(d => d.decision_type === 'agent_probation').length;
 
             return (
-              <div key={session.session_id} className="glass-card overflow-hidden">
+              <div key={session.session_id} className="bg-syn-surface border border-syn-border rounded-lg overflow-hidden">
                 <button
                   onClick={() => toggleSession(session.session_id)}
                   className="w-full px-5 py-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    {isOpen ? <ChevronDown size={14} className="text-hive-muted" /> : <ChevronRight size={14} className="text-hive-muted" />}
+                    {isOpen ? <ChevronDown size={14} className="text-syn-text-secondary" /> : <ChevronRight size={14} className="text-syn-text-secondary" />}
                     <span className="text-sm font-semibold">Board Session</span>
-                    <span className="text-[10px] text-hive-muted">{time}</span>
+                    <span className="text-[10px] text-syn-text-secondary">{time}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-hive-muted">{session.decisions.length} decisions</span>
+                    <span className="text-[10px] text-syn-text-secondary">{session.decisions.length} decisions</span>
                     {fires > 0 && (
                       <span className="text-[10px] font-bold text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded ring-1 ring-inset ring-red-500/20">
                         {fires} fired
@@ -113,12 +113,12 @@ export default function BoardPage() {
                 </button>
 
                 {isOpen && (
-                  <div className="border-t border-white/[0.06] divide-y divide-white/[0.03]">
+                  <div className="border-t border-syn-border divide-y divide-white/[0.03]">
                     {session.decisions.map((decision) => {
                       const style = DECISION_STYLES[decision.decision_type] || {
-                        icon: Gavel, color: 'text-hive-muted', label: decision.decision_type.toUpperCase(), bg: 'bg-white/[0.04] ring-white/[0.06]',
+                        color: 'text-syn-text-secondary', label: decision.decision_type.toUpperCase(), bg: 'bg-white/[0.04] ring-white/[0.06]',
                       };
-                      const Icon = style.icon;
+                      const Icon = DECISION_ICONS[decision.decision_type] || Gavel;
 
                       return (
                         <div key={decision.id} className="px-5 py-3 flex items-start gap-3">
@@ -128,10 +128,10 @@ export default function BoardPage() {
                               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ring-1 ring-inset ${style.bg}`}>
                                 {style.label}
                               </span>
-                              <span className="text-[10px] text-hive-muted">by {decision.decided_by}</span>
+                              <span className="text-[10px] text-syn-text-secondary">by {decision.decided_by}</span>
                             </div>
                             {decision.reasoning && (
-                              <p className="text-xs text-hive-text/70">{decision.reasoning}</p>
+                              <p className="text-xs text-syn-text/70">{decision.reasoning}</p>
                             )}
                           </div>
                         </div>

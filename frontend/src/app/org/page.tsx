@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Loader2, ChevronDown, ChevronRight, Users, Cpu, Crown } from 'lucide-react';
 import { AGENT_NAMES, MANAGER_NAMES } from '@/lib/constants';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { API_BASE } from '@/lib/api';
 
 interface Agent {
   id: string;
@@ -31,9 +30,9 @@ interface Team {
 
 const teamGradients: Record<string, { border: string; dot: string; bg: string }> = {
   technical: {
-    border: 'border-l-amber-400',
-    dot: 'bg-gradient-to-br from-amber-400 to-orange-500',
-    bg: 'bg-amber-400/5',
+    border: 'border-l-blue-400',
+    dot: 'bg-gradient-to-br from-blue-400 to-cyan-500',
+    bg: 'bg-blue-400/5',
   },
   sentiment: {
     border: 'border-l-rose-400',
@@ -46,9 +45,9 @@ const teamGradients: Record<string, { border: string; dot: string; bg: string }>
     bg: 'bg-emerald-400/5',
   },
   macro: {
-    border: 'border-l-blue-400',
-    dot: 'bg-gradient-to-br from-blue-400 to-indigo-500',
-    bg: 'bg-blue-400/5',
+    border: 'border-l-cyan-400',
+    dot: 'bg-gradient-to-br from-cyan-400 to-indigo-500',
+    bg: 'bg-cyan-400/5',
   },
   onchain: {
     border: 'border-l-purple-400',
@@ -58,7 +57,7 @@ const teamGradients: Record<string, { border: string; dot: string; bg: string }>
 };
 
 const statusColors: Record<string, { dot: string; label: string }> = {
-  founding: { dot: 'bg-amber-400', label: 'text-amber-400' },
+  founding: { dot: 'bg-violet-400', label: 'text-violet-400' },
   active: { dot: 'bg-emerald-400', label: 'text-emerald-400' },
   assigned: { dot: 'bg-blue-400', label: 'text-blue-400' },
   registered: { dot: 'bg-gray-400', label: 'text-gray-400' },
@@ -95,16 +94,16 @@ function CeoNode() {
     <div className="flex justify-center mb-8">
       <div className="relative">
         {/* Glow */}
-        <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-amber-400/20 to-orange-500/20 blur-lg" />
-        <div className="relative bg-[#0d0d15] border-2 border-amber-400/30 rounded-2xl px-8 py-5 text-center min-w-[260px]">
+        <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-violet-400/20 to-purple-500/20 blur-lg" />
+        <div className="relative bg-syn-surface border-2 border-syn-accent/30 rounded-2xl px-8 py-5 text-center min-w-[260px]">
           <div className="flex items-center justify-center gap-2 mb-1">
-            <Crown size={14} className="text-amber-400" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">
+            <Crown size={14} className="text-syn-accent" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">
               Chief Executive Officer
             </span>
           </div>
           <p className="text-lg font-bold text-white">Marcus Blackwell</p>
-          <p className="text-xs text-white/30 mt-0.5">Strategic leadership & market direction</p>
+          <p className="text-xs text-syn-text-tertiary mt-0.5">Strategic leadership & market direction</p>
         </div>
       </div>
     </div>
@@ -114,13 +113,13 @@ function CeoNode() {
 function ConnectorVertical({ className = '' }: { className?: string }) {
   return (
     <div className={`flex justify-center ${className}`}>
-      <div className="w-px h-6 bg-white/[0.08]" />
+      <div className="w-px h-6 bg-syn-border" />
     </div>
   );
 }
 
 function ConnectorHorizontal() {
-  return <div className="flex-1 h-px bg-white/[0.08] self-center" />;
+  return <div className="flex-1 h-px bg-syn-border self-center" />;
 }
 
 function ExecCard({
@@ -145,18 +144,18 @@ function ExecCard({
     <div className="flex-1 min-w-0">
       <div
         onClick={() => hasChildren && setOpen(!open)}
-        className={`bg-[#0d0d15] border border-white/[0.06] rounded-xl p-4 ${
+        className={`bg-syn-surface border border-syn-border rounded-xl p-4 ${
           hasChildren ? 'cursor-pointer hover:border-white/[0.10]' : ''
         } transition-all`}
       >
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/25">
+          <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-syn-text-tertiary">
             {title}
           </span>
           {badge && (
             <span
               className={`text-[10px] font-bold px-1.5 py-0.5 rounded ring-1 ring-inset ${
-                badgeColor || 'bg-white/[0.04] text-white/30 ring-white/[0.08]'
+                badgeColor || 'bg-white/[0.04] text-syn-text-tertiary ring-syn-border'
               }`}
             >
               {badge}
@@ -164,16 +163,16 @@ function ExecCard({
           )}
         </div>
         <p className="text-sm font-bold text-white">{name}</p>
-        <p className="text-xs text-white/30 mt-0.5">{subtitle}</p>
+        <p className="text-xs text-syn-text-tertiary mt-0.5">{subtitle}</p>
         {hasChildren && (
-          <div className="flex items-center gap-1 mt-2 text-[10px] text-white/20">
+          <div className="flex items-center gap-1 mt-2 text-[10px] text-syn-text-tertiary">
             {open ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
             <span>{open ? 'Collapse' : 'Expand'}</span>
           </div>
         )}
       </div>
       {open && hasChildren && (
-        <div className="mt-2 space-y-1.5 pl-3 border-l border-white/[0.06] ml-4">{children}</div>
+        <div className="mt-2 space-y-1.5 pl-3 border-l border-syn-border ml-4">{children}</div>
       )}
     </div>
   );
@@ -182,8 +181,8 @@ function ExecCard({
 function SubRoleCard({ name, subtitle }: { name: string; subtitle: string }) {
   return (
     <div className="bg-white/[0.02] border border-white/[0.04] rounded-lg px-3 py-2">
-      <p className="text-xs font-medium text-white/60">{name}</p>
-      <p className="text-[10px] text-white/25">{subtitle}</p>
+      <p className="text-xs font-medium text-syn-text-secondary">{name}</p>
+      <p className="text-[10px] text-syn-text-tertiary">{subtitle}</p>
     </div>
   );
 }
@@ -203,7 +202,7 @@ function TeamCard({
     <div>
       <div
         onClick={() => setOpen(!open)}
-        className={`bg-[#0d0d15] border border-white/[0.06] rounded-xl p-4 cursor-pointer hover:border-white/[0.10] transition-all border-l-2 ${gradient.border}`}
+        className={`bg-syn-surface border border-syn-border rounded-xl p-4 cursor-pointer hover:border-white/[0.10] transition-all border-l-2 ${gradient.border}`}
       >
         <div className="flex items-center justify-between mb-1.5">
           <div className="flex items-center gap-2">
@@ -211,7 +210,7 @@ function TeamCard({
             <span
               className={`text-[10px] font-bold px-1.5 py-0.5 rounded ring-1 ring-inset ${
                 team.is_system
-                  ? 'bg-amber-400/10 text-amber-400 ring-amber-400/20'
+                  ? 'bg-syn-accent/10 text-syn-accent ring-syn-accent/20'
                   : 'bg-blue-400/10 text-blue-400 ring-blue-400/20'
               }`}
             >
@@ -219,18 +218,18 @@ function TeamCard({
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-[10px] font-mono tabular-nums text-white/25">
+            <span className="text-[10px] font-mono tabular-nums text-syn-text-tertiary">
               {team.weight.toFixed(1)}x
             </span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-white/[0.04] text-white/30 ring-1 ring-inset ring-white/[0.06]">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-white/[0.04] text-syn-text-tertiary ring-1 ring-inset ring-syn-border">
               {agents.length} agents
             </span>
           </div>
         </div>
-        <p className="text-xs text-white/25">
+        <p className="text-xs text-syn-text-tertiary">
           Managed by {managerName} — {team.discipline}
         </p>
-        <div className="flex items-center gap-1 mt-2 text-[10px] text-white/20">
+        <div className="flex items-center gap-1 mt-2 text-[10px] text-syn-text-tertiary">
           {open ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
           <span>{open ? 'Hide agents' : 'Show agents'}</span>
         </div>
@@ -247,8 +246,8 @@ function TeamCard({
               <Users size={12} className="text-white/80" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-white/70 truncate">{managerName}</p>
-              <p className="text-[10px] text-white/25 capitalize">{team.name} Manager</p>
+              <p className="text-xs font-semibold text-syn-text-secondary truncate">{managerName}</p>
+              <p className="text-[10px] text-syn-text-tertiary capitalize">{team.name} Manager</p>
             </div>
           </div>
 
@@ -268,10 +267,10 @@ function TeamCard({
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-xs font-medium text-white/60 truncate">{name}</p>
+                    <p className="text-xs font-medium text-syn-text-secondary truncate">{name}</p>
                     <span className={`w-1.5 h-1.5 rounded-full ${status.dot} flex-shrink-0`} />
                   </div>
-                  <p className="text-[10px] text-white/20 truncate">{role}</p>
+                  <p className="text-[10px] text-syn-text-tertiary truncate">{role}</p>
                 </div>
                 <div className="flex-shrink-0 text-right">
                   {agent.total_signals > 0 ? (
@@ -279,12 +278,12 @@ function TeamCard({
                       <p className="text-xs font-mono tabular-nums text-white/40">
                         {Math.round(agent.accuracy * 100)}%
                       </p>
-                      <p className="text-[10px] text-white/15 font-mono tabular-nums">
+                      <p className="text-[10px] text-syn-text-tertiary font-mono tabular-nums">
                         {agent.total_signals} sig
                       </p>
                     </div>
                   ) : (
-                    <p className="text-[10px] text-white/15">New</p>
+                    <p className="text-[10px] text-syn-text-tertiary">New</p>
                   )}
                 </div>
               </div>
@@ -293,7 +292,7 @@ function TeamCard({
 
           {agents.length === 0 && (
             <div className="col-span-2 bg-white/[0.01] border border-white/[0.03] rounded-lg px-3.5 py-3 text-center">
-              <p className="text-xs text-white/20">No agents assigned yet</p>
+              <p className="text-xs text-syn-text-tertiary">No agents assigned yet</p>
             </div>
           )}
         </div>
@@ -339,8 +338,8 @@ export default function OrgPage() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex items-center gap-3">
-          <Loader2 size={18} className="text-amber-400/60 animate-spin" />
-          <p className="text-sm text-white/30">Loading organization...</p>
+          <Loader2 size={18} className="text-syn-accent animate-spin" />
+          <p className="text-sm text-syn-text-tertiary">Loading organization...</p>
         </div>
       </div>
     );
@@ -351,33 +350,33 @@ export default function OrgPage() {
       {/* ── Header ── */}
       <div className="mb-10">
         <h1 className="text-2xl font-bold tracking-tight text-white">Org Chart</h1>
-        <p className="text-sm text-white/40 mt-1">
+        <p className="text-sm text-syn-text-secondary mt-1">
           A full corporate hierarchy. <span className="font-mono tabular-nums">{teams.length}</span> teams, <span className="font-mono tabular-nums">{agents.length}</span> analysts, 3 researchers, 6 executives. Zero humans. Click to expand.
         </p>
       </div>
 
       {/* ── Pipeline flow legend ── */}
-      <div className="bg-[#0d0d15] border border-white/[0.06] rounded-xl px-6 py-3.5 mb-4">
-        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/20 mb-2">Pipeline flow per cycle</p>
+      <div className="bg-syn-surface border border-syn-border rounded-xl px-6 py-3.5 mb-4">
+        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-syn-text-tertiary mb-2">Pipeline flow per cycle</p>
         <div className="flex items-center gap-2 flex-wrap text-xs">
-          <span className="text-amber-400/80 font-medium">CEO</span>
-          <span className="text-white/10">→</span>
+          <span className="text-syn-accent/80 font-medium">CEO</span>
+          <span className="text-syn-text-tertiary">→</span>
           <span className="text-blue-400/80 font-medium">COO</span>
-          <span className="text-white/10">→</span>
+          <span className="text-syn-text-tertiary">→</span>
           <span className="text-emerald-400/80 font-medium">Analysis</span>
-          <span className="text-white/10">→</span>
+          <span className="text-syn-text-tertiary">→</span>
           <span className="text-cyan-400/80 font-medium">Aggregator</span>
-          <span className="text-white/10">→</span>
+          <span className="text-syn-text-tertiary">→</span>
           <span className="text-red-400/80 font-medium">Risk</span>
-          <span className="text-white/10">→</span>
+          <span className="text-syn-text-tertiary">→</span>
           <span className="text-purple-400/80 font-medium">Portfolio</span>
-          <span className="text-white/10">→</span>
+          <span className="text-syn-text-tertiary">→</span>
           <span className="text-orange-400/80 font-medium">Execution</span>
         </div>
       </div>
 
       {/* ── Org chart ── */}
-      <div className="bg-[#0d0d15] border border-white/[0.06] rounded-xl p-6 md:p-8">
+      <div className="bg-syn-surface border border-syn-border rounded-xl p-6 md:p-8">
         {/* Tier 1: CEO */}
         <CeoNode />
 
@@ -387,13 +386,13 @@ export default function OrgPage() {
         {/* Horizontal rail */}
         <div className="flex items-stretch gap-0 mb-0">
           <div className="flex-1 flex flex-col items-center">
-            <div className="h-px w-1/2 bg-white/[0.08] self-end" />
+            <div className="h-px w-1/2 bg-syn-border self-end" />
           </div>
           <div className="flex-1">
-            <div className="h-px bg-white/[0.08]" />
+            <div className="h-px bg-syn-border" />
           </div>
           <div className="flex-1 flex flex-col items-center">
-            <div className="h-px w-1/2 bg-white/[0.08] self-start" />
+            <div className="h-px w-1/2 bg-syn-border self-start" />
           </div>
         </div>
 
@@ -452,7 +451,7 @@ export default function OrgPage() {
         {/* Flow: COO → Analysis */}
         <div className="flex items-center justify-center gap-2 mb-4">
           <div className="text-[10px] text-blue-400/40 font-medium">COO selected coins</div>
-          <div className="text-white/10">↓</div>
+          <div className="text-syn-text-tertiary">↓</div>
         </div>
 
         {/* ── Section: Analysis teams ── */}
@@ -478,7 +477,7 @@ export default function OrgPage() {
         {/* Flow: Analysis → Operations */}
         <div className="flex items-center justify-center gap-2 mb-4">
           <div className="text-[10px] text-emerald-400/40 font-medium">Team signals per coin</div>
-          <div className="text-white/10">↓</div>
+          <div className="text-syn-text-tertiary">↓</div>
         </div>
 
         {/* ── Section: Operations ── */}
@@ -582,7 +581,7 @@ export default function OrgPage() {
             />
           </div>
           <div className="mt-3 text-center">
-            <a href="/research" className="text-xs text-amber-400 hover:text-amber-300 transition-colors inline-flex items-center gap-1">
+            <a href="/research" className="text-xs text-syn-accent hover:text-violet-300 transition-colors inline-flex items-center gap-1">
               View research reports →
             </a>
           </div>
@@ -593,7 +592,7 @@ export default function OrgPage() {
           <div>
             <div className="flex items-center gap-3 mb-4">
               <div className="h-px flex-1 bg-white/[0.04]" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/25">
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-text-tertiary">
                 Unassigned — Awaiting Board Review
               </span>
               <div className="h-px flex-1 bg-white/[0.04]" />
@@ -612,12 +611,12 @@ export default function OrgPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="text-xs font-medium text-white/50 truncate">{agent.role}</p>
+                        <p className="text-xs font-medium text-syn-text-secondary truncate">{agent.role}</p>
                         <span
                           className={`w-1.5 h-1.5 rounded-full ${status.dot} flex-shrink-0`}
                         />
                       </div>
-                      <p className="text-[10px] text-white/20 truncate">
+                      <p className="text-[10px] text-syn-text-tertiary truncate">
                         {agent.model} / {agent.provider}
                       </p>
                     </div>

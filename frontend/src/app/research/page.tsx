@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { Loader2, Clock, FileText, CheckCircle2 } from 'lucide-react';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { API_BASE } from '@/lib/api';
+import { researcherConfig, reportTypeConfig } from '@/lib/constants';
+import { formatTimestamp, formatRelative } from '@/lib/format';
 
 /* ------------------------------------------------------------------ */
 /*  TYPES                                                              */
@@ -35,66 +36,6 @@ interface ResearchReport {
 }
 
 /* ------------------------------------------------------------------ */
-/*  RESEARCHER CONFIG                                                   */
-/* ------------------------------------------------------------------ */
-
-const researcherConfig: Record<string, { name: string; title: string; gradient: string; initial: string }> = {
-  head_of_research: {
-    name: 'Dr. Elara Voss',
-    title: 'Head of Research',
-    gradient: 'from-indigo-500 to-violet-500',
-    initial: 'E',
-  },
-  quant_researcher: {
-    name: 'Dr. Kai Moretti',
-    title: 'Quant Researcher',
-    gradient: 'from-cyan-500 to-blue-500',
-    initial: 'K',
-  },
-  strategy_researcher: {
-    name: 'Dr. Noor Hadid',
-    title: 'Strategy Researcher',
-    gradient: 'from-amber-500 to-orange-500',
-    initial: 'N',
-  },
-};
-
-/* ------------------------------------------------------------------ */
-/*  REPORT TYPE CONFIG                                                  */
-/* ------------------------------------------------------------------ */
-
-const reportTypeConfig: Record<string, { label: string; color: string }> = {
-  signal_decay: {
-    label: 'SIGNAL DECAY',
-    color: 'text-red-400 bg-red-400/10 ring-red-400/20',
-  },
-  performance_attribution: {
-    label: 'ATTRIBUTION',
-    color: 'text-emerald-400 bg-emerald-400/10 ring-emerald-400/20',
-  },
-  correlation_analysis: {
-    label: 'CORRELATION',
-    color: 'text-blue-400 bg-blue-400/10 ring-blue-400/20',
-  },
-  data_source_eval: {
-    label: 'DATA SOURCE',
-    color: 'text-purple-400 bg-purple-400/10 ring-purple-400/20',
-  },
-  hypothesis_test: {
-    label: 'HYPOTHESIS',
-    color: 'text-cyan-400 bg-cyan-400/10 ring-cyan-400/20',
-  },
-  weekly_digest: {
-    label: 'WEEKLY DIGEST',
-    color: 'text-amber-400 bg-amber-400/10 ring-amber-400/20',
-  },
-  risk_analysis: {
-    label: 'RISK ANALYSIS',
-    color: 'text-orange-400 bg-orange-400/10 ring-orange-400/20',
-  },
-};
-
-/* ------------------------------------------------------------------ */
 /*  FILTER TABS                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -115,32 +56,6 @@ const filterTabs: FilterTab[] = [
 /* ------------------------------------------------------------------ */
 /*  HELPERS                                                             */
 /* ------------------------------------------------------------------ */
-
-function formatTimestamp(dateStr: string): string {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }) + ' · ' + d.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }) + ' UTC';
-}
-
-function formatRelative(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diff = now - then;
-  const hours = Math.floor(diff / 3600000);
-  if (hours < 1) return 'Just now';
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return 'Yesterday';
-  if (days < 7) return `${days}d ago`;
-  return formatTimestamp(dateStr);
-}
 
 function severityDot(severity: string): string {
   switch (severity) {
@@ -188,7 +103,7 @@ function CriticalAlerts({ reports }: { reports: ResearchReport[] }) {
 
   return (
     <div className="mb-8 space-y-3">
-      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">
+      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">
         Critical Alerts
       </p>
       {critical.map((report) => {
@@ -200,24 +115,24 @@ function CriticalAlerts({ reports }: { reports: ResearchReport[] }) {
         return (
           <div
             key={`alert-${report.id}`}
-            className="bg-[#0d0d15] border border-red-500/30 rounded-xl p-4"
+            className="bg-syn-surface border border-red-500/30 rounded-xl p-4"
           >
             <div className="flex items-start gap-3">
               <div className="w-2 h-2 rounded-full bg-red-400 mt-1.5 flex-shrink-0 animate-pulse" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-sm font-bold text-white">{report.title}</span>
-                  <span className="text-[10px] font-mono tabular-nums text-white/25">
+                  <span className="text-[10px] font-mono tabular-nums text-syn-text-tertiary">
                     {formatRelative(report.created_at)}
                   </span>
                 </div>
                 {criticalFindings.map((finding, i) => (
-                  <p key={i} className="text-sm text-amber-400/80">
+                  <p key={i} className="text-sm text-red-400/80">
                     {finding.label || finding.detail || JSON.stringify(finding)}
                   </p>
                 ))}
                 {config && (
-                  <p className="text-[10px] text-white/25 mt-1 font-mono">{config.name}</p>
+                  <p className="text-[10px] text-syn-text-tertiary mt-1 font-mono">{config.name}</p>
                 )}
               </div>
             </div>
@@ -235,7 +150,7 @@ function FindingsSection({ findings }: { findings: Finding[] | Record<string, an
   if (isFindingsArray(findings)) {
     return (
       <div className="mt-4 space-y-2">
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-2">
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted mb-2">
           Findings
         </p>
         {findings.map((finding, i) => (
@@ -243,13 +158,13 @@ function FindingsSection({ findings }: { findings: Finding[] | Record<string, an
             <div className={`w-2 h-2 rounded-full ${severityDot(finding.severity || 'informational')} mt-1.5 flex-shrink-0`} />
             <div className="min-w-0">
               {finding.label && (
-                <span className="text-sm font-medium text-white/70">{finding.label}</span>
+                <span className="text-sm font-medium text-syn-text-secondary">{finding.label}</span>
               )}
               {finding.detail && (
-                <p className="text-sm text-white/40">{finding.detail}</p>
+                <p className="text-sm text-syn-text-secondary">{finding.detail}</p>
               )}
               {!finding.label && !finding.detail && (
-                <p className="text-sm text-white/40">{JSON.stringify(finding)}</p>
+                <p className="text-sm text-syn-text-secondary">{JSON.stringify(finding)}</p>
               )}
             </div>
           </div>
@@ -264,14 +179,14 @@ function FindingsSection({ findings }: { findings: Finding[] | Record<string, an
 
   return (
     <div className="mt-4">
-      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-2">
+      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted mb-2">
         Findings
       </p>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2">
         {entries.map(([key, value]) => (
           <div key={key} className="flex items-baseline gap-2">
-            <span className="text-xs text-white/30 font-mono">{key.replace(/_/g, ' ')}</span>
-            <span className="text-sm font-mono tabular-nums text-white/60">
+            <span className="text-xs text-syn-text-tertiary font-mono">{key.replace(/_/g, ' ')}</span>
+            <span className="text-sm font-mono tabular-nums text-syn-text-secondary">
               {typeof value === 'object' ? JSON.stringify(value) : String(value)}
             </span>
           </div>
@@ -286,14 +201,14 @@ function RecommendationsSection({ recommendations }: { recommendations: string[]
 
   return (
     <div className="mt-4">
-      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-2">
+      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted mb-2">
         Recommendations
       </p>
       <ol className="space-y-1.5">
         {recommendations.map((rec, i) => (
           <li key={i} className="flex items-start gap-2">
             <CheckCircle2 size={14} className="text-emerald-400/70 mt-0.5 flex-shrink-0" />
-            <span className="text-sm text-white/50">{rec}</span>
+            <span className="text-sm text-syn-text-secondary">{rec}</span>
           </li>
         ))}
       </ol>
@@ -313,7 +228,7 @@ function DataContextFooter({ context }: { context: DataContext | null }) {
         {entries.map(([key, value]) => (
           <span
             key={key}
-            className="text-[10px] font-mono tabular-nums font-medium text-white/30 bg-white/[0.03] px-2.5 py-1 rounded-full ring-1 ring-white/[0.06]"
+            className="text-[10px] font-mono tabular-nums font-medium text-syn-text-tertiary bg-white/[0.03] px-2.5 py-1 rounded-full ring-1 ring-syn-border"
           >
             {key.replace(/_/g, ' ')}: {String(value)}
           </span>
@@ -336,15 +251,15 @@ function ReportCard({ report }: { report: ResearchReport }) {
   };
 
   return (
-    <article className="bg-[#0d0d15] border border-white/[0.06] rounded-xl p-6 hover:border-white/[0.10] transition-colors">
+    <article className="bg-syn-surface border border-syn-border rounded-xl p-6 hover:border-white/[0.10] transition-colors">
       {/* Top row: researcher info + badge/timestamp */}
       <div className="flex items-start justify-between mb-4">
         {/* Left: researcher */}
         <div className="flex items-center gap-3">
           <ResearcherAvatar researcher={report.researcher} />
           <div>
-            <p className="text-sm font-semibold text-white/80">{researcher.name}</p>
-            <p className="text-xs text-white/30">{researcher.title}</p>
+            <p className="text-sm font-semibold text-syn-text">{researcher.name}</p>
+            <p className="text-xs text-syn-text-tertiary">{researcher.title}</p>
           </div>
         </div>
 
@@ -355,8 +270,8 @@ function ReportCard({ report }: { report: ResearchReport }) {
           >
             {reportType.label}
           </span>
-          <span className="flex items-center gap-1.5 text-xs text-white/25 font-mono tabular-nums">
-            <Clock size={10} className="text-white/15" />
+          <span className="flex items-center gap-1.5 text-xs text-syn-text-tertiary font-mono tabular-nums">
+            <Clock size={10} className="text-syn-text-tertiary" />
             {formatTimestamp(report.created_at)}
           </span>
         </div>
@@ -369,7 +284,7 @@ function ReportCard({ report }: { report: ResearchReport }) {
 
       {/* Summary */}
       {report.summary && (
-        <p className="text-sm text-white/40 italic leading-relaxed">
+        <p className="text-sm text-syn-text-secondary italic leading-relaxed">
           {report.summary}
         </p>
       )}
@@ -443,22 +358,22 @@ export default function ResearchPage() {
       {/* ── Header ── */}
       <div className="mb-10">
         <h1 className="text-2xl font-bold tracking-tight text-white">Research Reports</h1>
-        <p className="text-sm text-hive-muted mt-1">
+        <p className="text-sm text-syn-muted mt-1">
           AI watching AI. Three researchers audit whether the fund&apos;s own agents are any good.
         </p>
       </div>
 
       {/* ── Filter segmented control ── */}
       <div className="mb-8">
-        <div className="inline-flex bg-white/[0.03] rounded-full p-1 ring-1 ring-white/[0.06]">
+        <div className="inline-flex bg-white/[0.03] rounded-full p-1 ring-1 ring-syn-border">
           {filterTabs.map((tab) => (
             <button
               key={tab.key ?? 'all'}
               onClick={() => setActiveFilter(tab.key)}
               className={`text-xs font-semibold px-4 py-1.5 rounded-full transition-all duration-200 ${
                 activeFilter === tab.key
-                  ? 'bg-white/[0.08] text-white shadow-sm'
-                  : 'text-white/30 hover:text-white/50'
+                  ? 'bg-syn-accent/15 text-syn-accent shadow-sm'
+                  : 'text-syn-text-tertiary hover:text-syn-text-secondary'
               }`}
             >
               {tab.label}
@@ -471,20 +386,20 @@ export default function ResearchPage() {
       {loading && (
         <div className="flex items-center justify-center py-32">
           <div className="flex items-center gap-3">
-            <Loader2 size={18} className="text-amber-400/60 animate-spin" />
-            <p className="text-sm text-white/30">Loading research reports...</p>
+            <Loader2 size={18} className="text-syn-accent animate-spin" />
+            <p className="text-sm text-syn-text-tertiary">Loading research reports...</p>
           </div>
         </div>
       )}
 
       {/* ── Empty state ── */}
       {!loading && reports.length === 0 && (
-        <div className="bg-[#0d0d15] border border-white/[0.06] rounded-xl p-16 text-center">
-          <div className="w-12 h-12 rounded-full bg-white/[0.03] flex items-center justify-center mx-auto mb-4 ring-1 ring-white/[0.06]">
-            <FileText size={20} className="text-white/15" />
+        <div className="bg-syn-surface border border-syn-border rounded-xl p-16 text-center">
+          <div className="w-12 h-12 rounded-full bg-white/[0.03] flex items-center justify-center mx-auto mb-4 ring-1 ring-syn-border">
+            <FileText size={20} className="text-syn-text-tertiary" />
           </div>
-          <p className="text-sm text-white/50 font-medium mb-1">No research reports yet</p>
-          <p className="text-xs text-white/25 max-w-md mx-auto leading-relaxed">
+          <p className="text-sm text-syn-text-secondary font-medium mb-1">No research reports yet</p>
+          <p className="text-xs text-syn-text-tertiary max-w-md mx-auto leading-relaxed">
             The research team runs daily analysis at 06:00 UTC and weekly deep research on Saturdays. Reports will appear here.
           </p>
         </div>
@@ -502,7 +417,7 @@ export default function ResearchPage() {
               {idx > 0 && (
                 <div className="flex items-center gap-3 py-6">
                   <div className="flex-1 h-px bg-white/[0.04]" />
-                  <span className="text-[10px] text-white/15 font-mono tabular-nums">
+                  <span className="text-[10px] text-syn-text-tertiary font-mono tabular-nums">
                     {formatRelative(report.created_at)}
                   </span>
                   <div className="flex-1 h-px bg-white/[0.04]" />

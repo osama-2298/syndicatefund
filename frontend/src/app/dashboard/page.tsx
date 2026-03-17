@@ -7,14 +7,13 @@ import {
 } from 'lucide-react';
 import CycleCard, { type CycleData, type PipelineEvent } from '@/components/CycleCard';
 import { AGENT_COLORS, TEAM_COLORS } from '@/lib/constants';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { API_BASE } from '@/lib/api';
 
 interface Position { symbol: string; side: string; entry_price: number; quantity: number; current_price: number; }
 interface TradeEntry { symbol: string; side: string; entry_price: number; stop_loss: number; take_profit_1: number; conviction: number; confidence: number; risk_amount: number; exit_reason: string; asset_tier: string; }
 interface AgentData { id: string; team_name: string | null; role: string; agent_class: string | null; status: string; total_signals: number; accuracy: number; provider: string; }
 
-// ── Animated Number ──
+// -- Animated Number --
 
 function AnimatedNumber({ value, prefix = '$', decimals = 0 }: { value: number; prefix?: string; decimals?: number }) {
   const [display, setDisplay] = useState(value);
@@ -43,7 +42,7 @@ function AnimatedNumber({ value, prefix = '$', decimals = 0 }: { value: number; 
   );
 }
 
-// ── Sidebar: Disagreement Card ──
+// -- Sidebar: Disagreement Card --
 
 function DisagreementSidebar() {
   const [events, setEvents] = useState<any[]>([]);
@@ -57,10 +56,10 @@ function DisagreementSidebar() {
   if (events.length === 0) return null;
 
   return (
-    <div className="bg-[#0d0d15] border border-white/[0.06] rounded-xl p-4">
+    <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Recent Clashes</h3>
-        <a href="/disagreements" className="text-[10px] text-amber-400/50 hover:text-amber-400 transition-colors flex items-center gap-0.5">
+        <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Recent Clashes</h3>
+        <a href="/disagreements" className="text-[10px] text-syn-muted hover:text-syn-accent transition-colors flex items-center gap-0.5">
           All <ChevronRight size={10} />
         </a>
       </div>
@@ -82,17 +81,17 @@ function DisagreementSidebar() {
   );
 }
 
-// ── Sidebar: Leaderboard Card ──
+// -- Sidebar: Leaderboard Card --
 
 function LeaderboardSidebar({ agents }: { agents: AgentData[] }) {
   const topAgents = [...agents].sort((a, b) => b.total_signals - a.total_signals).slice(0, 5);
   if (topAgents.length === 0) return null;
 
   return (
-    <div className="bg-[#0d0d15] border border-white/[0.06] rounded-xl p-4">
+    <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Agent Leaderboard</h3>
-        <a href="/agents" className="text-[10px] text-amber-400/50 hover:text-amber-400 transition-colors flex items-center gap-0.5">
+        <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Agent Leaderboard</h3>
+        <a href="/agents" className="text-[10px] text-syn-muted hover:text-syn-accent transition-colors flex items-center gap-0.5">
           All <ChevronRight size={10} />
         </a>
       </div>
@@ -104,21 +103,21 @@ function LeaderboardSidebar({ agents }: { agents: AgentData[] }) {
           const maxSignals = Math.max(...topAgents.map(a => a.total_signals), 1);
           return (
             <div key={agent.id} className="flex items-center gap-2.5 py-1.5 group">
-              <span className="text-[10px] font-mono text-white/15 w-3 text-right">{i + 1}</span>
+              <span className="text-[10px] font-mono text-syn-text-tertiary w-3 text-right">{i + 1}</span>
               <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center shrink-0`}>
                 <span className="text-[10px] font-bold text-white/90">{initial}</span>
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-white truncate max-w-[120px]">
+                  <span className="text-xs font-semibold text-syn-text truncate max-w-[120px]">
                     {agentClass.replace('Agent', '')}
                   </span>
-                  <span className="text-[10px] font-mono tabular-nums text-white/40">
+                  <span className="text-[10px] font-mono tabular-nums text-syn-text-tertiary">
                     {agent.total_signals}
                   </span>
                 </div>
                 <div className="flex items-center justify-between mt-0.5">
-                  <span className="text-[10px] text-white/25 capitalize">{agent.team_name ?? 'unassigned'}</span>
+                  <span className="text-[10px] text-syn-text-tertiary capitalize">{agent.team_name ?? 'unassigned'}</span>
                   {agent.accuracy > 0 && (
                     <span className="text-[10px] font-mono text-emerald-400/50">{(agent.accuracy * 100).toFixed(0)}%</span>
                   )}
@@ -138,7 +137,7 @@ function LeaderboardSidebar({ agents }: { agents: AgentData[] }) {
   );
 }
 
-// ── Dashboard ──
+// -- Dashboard --
 
 export default function Dashboard() {
   const [portfolio, setPortfolio] = useState<any>(null);
@@ -247,7 +246,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Activity size={20} className="animate-spin text-amber-400" />
+        <Activity size={20} className="animate-spin text-syn-accent" />
       </div>
     );
   }
@@ -256,10 +255,10 @@ export default function Dashboard() {
     <div className="slide-up">
       {/* Portfolio Stats Strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <div className="bg-[#0d0d15] border border-white/[0.06] rounded-xl p-4 relative overflow-hidden">
-          <div className="absolute -top-8 -left-8 w-40 h-40 bg-amber-500/[0.04] rounded-full blur-3xl pointer-events-none" />
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-1">Portfolio Value</p>
-          <div className={`text-lg font-bold ${returnPct >= 0 ? 'text-white' : 'text-red-400'}`}>
+        <div className="bg-syn-surface border border-syn-border rounded-xl p-4 relative overflow-hidden">
+          <div className="absolute -top-8 -left-8 w-40 h-40 bg-syn-accent-muted rounded-full blur-3xl pointer-events-none" />
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted mb-1">Portfolio Value</p>
+          <div className={`text-lg font-bold ${returnPct >= 0 ? 'text-syn-text' : 'text-red-400'}`}>
             <AnimatedNumber value={totalValue} prefix="$" decimals={0} />
           </div>
           <div className={`mt-1 flex items-center gap-1 text-xs font-medium ${returnPct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -267,40 +266,40 @@ export default function Dashboard() {
             <span className="font-mono tabular-nums">{returnPct >= 0 ? '+' : ''}{returnPct.toFixed(2)}%</span>
           </div>
         </div>
-        <div className="bg-[#0d0d15] border border-white/[0.06] rounded-xl p-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-1">Agents</p>
+        <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted mb-1">Agents</p>
           <p className="text-lg font-bold font-mono tabular-nums">{activeAgents.length}</p>
-          <p className="text-[10px] text-white/25 mt-1">{totalSignals.toLocaleString()} signals</p>
+          <p className="text-[10px] text-syn-text-tertiary mt-1">{totalSignals.toLocaleString()} signals</p>
         </div>
-        <div className="bg-[#0d0d15] border border-white/[0.06] rounded-xl p-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-1">Regime</p>
+        <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted mb-1">Regime</p>
           {lastCycle?.regime ? (
             <div className="flex items-center gap-1.5">
               {lastCycle.regime === 'bull' ? <TrendingUp size={14} className="text-emerald-400" /> :
                lastCycle.regime === 'bear' ? <TrendingDown size={14} className="text-red-400" /> :
-               <Shield size={14} className="text-amber-400" />}
+               <Shield size={14} className="text-syn-accent" />}
               <span className={`text-lg font-bold ${
                 lastCycle.regime === 'bull' ? 'text-emerald-400' :
                 lastCycle.regime === 'bear' ? 'text-red-400' :
-                'text-amber-400'
+                'text-syn-accent'
               }`}>{lastCycle.regime.toUpperCase()}</span>
             </div>
           ) : (
-            <p className="text-xs text-white/25">Awaiting</p>
+            <p className="text-xs text-syn-text-tertiary">Awaiting</p>
           )}
         </div>
-        <div className="bg-[#0d0d15] border border-white/[0.06] rounded-xl p-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-1">Positions</p>
+        <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted mb-1">Positions</p>
           <p className="text-lg font-bold font-mono tabular-nums">{positions.length}</p>
-          <p className="text-[10px] text-white/25 mt-1">${invested.toLocaleString(undefined, { maximumFractionDigits: 0 })} deployed</p>
+          <p className="text-[10px] text-syn-text-tertiary mt-1">${invested.toLocaleString(undefined, { maximumFractionDigits: 0 })} deployed</p>
         </div>
       </div>
 
       {/* Welcome message when no data */}
       {!hasData && (
-        <div className="bg-[#0d0d15] border border-white/[0.06] rounded-xl p-10 text-center mb-6">
-          <p className="text-sm text-white/50 font-medium mb-1">Welcome to Syndicate</p>
-          <p className="text-xs text-white/25 max-w-md mx-auto">
+        <div className="bg-syn-surface border border-syn-border rounded-xl p-10 text-center mb-6">
+          <p className="text-sm text-syn-text-secondary font-medium mb-1">Welcome to Syndicate</p>
+          <p className="text-xs text-syn-text-tertiary max-w-md mx-auto">
             The pipeline runs every 4 hours. Once the first cycle completes, you&apos;ll see the latest analysis here with positions and trade activity.
           </p>
         </div>
@@ -315,8 +314,8 @@ export default function Dashboard() {
             {lastCycle && (
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-sm font-bold text-white/60">Latest Cycle</h2>
-                  <a href="/activity" className="text-[10px] text-amber-400/50 hover:text-amber-400 transition-colors flex items-center gap-0.5">
+                  <h2 className="text-sm font-bold text-syn-text-secondary">Latest Cycle</h2>
+                  <a href="/activity" className="text-[10px] text-syn-muted hover:text-syn-accent transition-colors flex items-center gap-0.5">
                     All activity <ChevronRight size={10} />
                   </a>
                 </div>
@@ -330,20 +329,20 @@ export default function Dashboard() {
 
             {/* Positions Table */}
             {hasPositions && (
-              <div className="bg-[#0d0d15] border border-white/[0.06] rounded-xl overflow-hidden">
-                <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
+              <div className="bg-syn-surface border border-syn-border rounded-xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-syn-border flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Open Positions</span>
+                    <div className="w-1.5 h-1.5 rounded-full bg-syn-accent" />
+                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Open Positions</span>
                   </div>
-                  <span className="text-[10px] font-mono text-white/25">
+                  <span className="text-[10px] font-mono text-syn-text-tertiary">
                     {positions.length} open / ${invested.toLocaleString(undefined, { maximumFractionDigits: 0 })} deployed
                   </span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/25 border-b border-white/[0.06]">
+                      <tr className="text-[10px] font-bold uppercase tracking-[0.15em] text-syn-text-tertiary border-b border-syn-border">
                         <th className="text-left pl-4 pr-2 py-2">Symbol</th>
                         <th className="text-left px-2 py-2">Side</th>
                         <th className="text-right px-2 py-2">Size</th>
@@ -380,7 +379,7 @@ export default function Dashboard() {
                             }`}
                           >
                             <td className="pl-4 pr-2 py-2.5">
-                              <span className="text-sm font-bold text-white">
+                              <span className="text-sm font-bold text-syn-text">
                                 {pos.symbol.replace('USDT', '')}
                               </span>
                             </td>
@@ -394,18 +393,18 @@ export default function Dashboard() {
                               </span>
                             </td>
                             <td className="px-2 py-2.5 text-right">
-                              <span className="text-xs font-mono tabular-nums text-white">
+                              <span className="text-xs font-mono tabular-nums text-syn-text">
                                 ${size.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                               </span>
                             </td>
                             <td className="px-2 py-2.5 text-right">
-                              <span className="text-xs font-mono tabular-nums text-white/40">
+                              <span className="text-xs font-mono tabular-nums text-syn-text-tertiary">
                                 ${pos.entry_price.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                               </span>
                             </td>
                             <td className={`px-2 py-2.5 text-right transition-colors duration-500 ${
                               flash === 'up' ? 'text-emerald-400' :
-                              flash === 'down' ? 'text-red-400' : 'text-white'
+                              flash === 'down' ? 'text-red-400' : 'text-syn-text'
                             }`}>
                               <span className="text-xs font-mono tabular-nums font-medium">
                                 ${live.toLocaleString(undefined, { maximumFractionDigits: 2 })}
@@ -433,11 +432,11 @@ export default function Dashboard() {
                               <div className="flex items-center justify-end gap-1.5">
                                 <div className="w-12 h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
                                   <div
-                                    className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all"
+                                    className="h-full rounded-full bg-syn-accent transition-all"
                                     style={{ width: `${(conviction / 10) * 100}%` }}
                                   />
                                 </div>
-                                <span className="text-[10px] font-mono text-white/25 w-4 text-right">{conviction}</span>
+                                <span className="text-[10px] font-mono text-syn-text-tertiary w-4 text-right">{conviction}</span>
                               </div>
                             </td>
                           </tr>
@@ -450,16 +449,16 @@ export default function Dashboard() {
             )}
 
             {/* CTA banner */}
-            <div className="bg-[#0d0d15] border border-amber-500/[0.08] rounded-xl p-3 bg-gradient-to-r from-amber-500/[0.03] to-orange-500/[0.03]">
+            <div className="bg-syn-surface border border-syn-accent/[0.15] rounded-xl p-3 bg-gradient-to-r from-syn-accent/[0.05] to-syn-secondary/[0.05]">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <Zap size={14} className="text-amber-400/60 shrink-0" />
+                  <Zap size={14} className="text-syn-accent shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold text-white/70 truncate">Contribute your API key to expand the hive</p>
-                    <p className="text-[10px] text-white/25 truncate">More agents = deeper analysis, better signals</p>
+                    <p className="text-xs font-semibold text-syn-text-secondary truncate">Contribute your API key to expand the hive</p>
+                    <p className="text-[10px] text-syn-text-tertiary truncate">More agents = deeper analysis, better signals</p>
                   </div>
                 </div>
-                <a href="/register" className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-black text-[10px] font-bold rounded-lg hover:shadow-lg hover:shadow-amber-500/20 transition-all">
+                <a href="/register" className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-syn-accent text-white text-[10px] font-bold rounded-lg hover:bg-syn-accent-hover hover:shadow-lg hover:shadow-syn-accent/20 transition-all">
                   Contribute <ArrowRight size={10} />
                 </a>
               </div>
