@@ -3,23 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Activity, ArrowLeft, Flame, Snowflake, Target } from 'lucide-react';
+import { AGENT_NAMES } from '@/lib/constants';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
-const AGENT_NAMES: Record<string, string> = {
-  TechnicalTrendAgent: 'Aria Chen',
-  TechnicalSignalAgent: 'Leo Tanaka',
-  TechnicalTimingAgent: 'Priya Sharma',
-  SocialSentimentAgent: 'Dante Morales',
-  MarketSentimentAgent: 'Zara Obi',
-  SmartMoneySentimentAgent: 'Felix Strand',
-  ValuationAgent: 'Mina Petrova',
-  CyclePositionAgent: 'Ravi Anand',
-  CryptoMacroAgent: 'Ingrid Holm',
-  ExternalMacroAgent: 'Tariq Nasseri',
-  NetworkHealthAgent: 'Yuki Sato',
-  CapitalFlowAgent: 'Emeka Osei',
-};
 
 interface AgentDetail {
   id: string;
@@ -151,18 +137,18 @@ export default function AgentProfilePage() {
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="glass-card p-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-white/[0.06] border border-white/[0.06] rounded-xl overflow-hidden">
+        <div className="p-4">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted">Total Signals</p>
           <p className="mt-1 text-2xl font-bold">{agent.total_signals}</p>
         </div>
-        <div className="glass-card p-4">
+        <div className="p-4">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted">Accuracy</p>
           <p className={`mt-1 text-2xl font-bold ${accuracyPct >= 60 ? 'text-emerald-400' : accuracyPct >= 40 ? 'text-amber-400' : 'text-red-400'}`}>
             {agent.total_signals >= 5 ? `${accuracyPct.toFixed(1)}%` : 'N/A'}
           </p>
         </div>
-        <div className="glass-card p-4">
+        <div className="p-4">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted">Current Streak</p>
           <p className="mt-1 text-2xl font-bold flex items-center gap-1">
             {stats ? (
@@ -174,7 +160,7 @@ export default function AgentProfilePage() {
             ) : '0'}
           </p>
         </div>
-        <div className="glass-card p-4">
+        <div className="p-4">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-hive-muted">Avg Conviction</p>
           <p className="mt-1 text-2xl font-bold">
             {stats?.avg_conviction != null ? `${stats.avg_conviction}/10` : 'N/A'}

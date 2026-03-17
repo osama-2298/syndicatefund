@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import {
   TrendingUp, TrendingDown, BarChart3, Activity,
-  Target, Shield, Zap, Trophy, ArrowRight, LineChart,
+  Target, Shield, Zap, Trophy, ArrowRight,
 } from 'lucide-react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -92,12 +92,8 @@ export default function ResultsPage() {
     <div className="slide-up space-y-6">
       {/* Header */}
       <div>
-        <div className="flex items-center gap-2.5 mb-3">
-          <LineChart size={18} className="text-amber-400/60" />
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Performance</p>
-        </div>
         <h1 className="text-2xl font-bold tracking-tight">Results</h1>
-        <p className="text-sm text-white/40 mt-1">Backtest performance, team accuracy, and live trade history</p>
+        <p className="text-sm text-hive-muted mt-1">Backtest performance, team accuracy, and live trade history</p>
       </div>
 
       {/* Backtest Key Metrics */}
@@ -108,26 +104,26 @@ export default function ResultsPage() {
         </div>
         {hasBacktest ? (
           <>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="glass-card p-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-white/[0.06] mb-6">
+              <div className="p-4">
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Sharpe Ratio</p>
                 <p className={`mt-1 text-2xl font-bold tracking-tight ${(bt.sharpe_ratio ?? 0) >= 1 ? 'text-emerald-400' : (bt.sharpe_ratio ?? 0) >= 0 ? 'text-white' : 'text-red-400'}`}>
                   {(bt.sharpe_ratio ?? 0).toFixed(2)}
                 </p>
               </div>
-              <div className="glass-card p-4">
+              <div className="p-4">
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Max Drawdown</p>
                 <p className="mt-1 text-2xl font-bold tracking-tight text-red-400">
                   {(bt.max_drawdown_pct ?? 0).toFixed(1)}%
                 </p>
               </div>
-              <div className="glass-card p-4">
+              <div className="p-4">
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Win Rate</p>
                 <p className={`mt-1 text-2xl font-bold tracking-tight ${(bt.win_rate ?? 0) >= 50 ? 'text-emerald-400' : 'text-red-400'}`}>
                   {(bt.win_rate ?? 0).toFixed(1)}%
                 </p>
               </div>
-              <div className="glass-card p-4">
+              <div className="p-4">
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60">Total Return</p>
                 <p className={`mt-1 text-2xl font-bold tracking-tight ${(bt.total_return_pct ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                   {(bt.total_return_pct ?? 0) >= 0 ? '+' : ''}{(bt.total_return_pct ?? 0).toFixed(2)}%
@@ -137,7 +133,7 @@ export default function ResultsPage() {
 
             {/* Equity Curve */}
             {bt.equity_curve && bt.equity_curve.length > 0 && (
-              <div className="glass-card p-4">
+              <div className="p-4 border-t border-white/[0.06]">
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-3">Equity Curve</p>
                 <div className="flex items-end gap-[2px] h-32">
                   {(() => {

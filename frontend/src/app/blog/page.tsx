@@ -101,10 +101,6 @@ export default function BlogPage() {
     <div className="max-w-3xl mx-auto slide-up">
       {/* ── Author header ── */}
       <div className="mb-10">
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-4">
-          CEO Communications
-        </p>
-
         <div className="flex items-start gap-4">
           {/* Avatar */}
           <div className="relative flex-shrink-0">
@@ -198,7 +194,7 @@ export default function BlogPage() {
                       {config.label}
                     </span>
 
-                    <span className="flex items-center gap-1.5 text-[11px] text-white/25 font-mono tabular-nums">
+                    <span className="flex items-center gap-1.5 text-xs text-white/25 font-mono tabular-nums">
                       <Clock size={10} className="text-white/15" />
                       {formatDate(post.created_at)}
                       <span className="text-white/10">|</span>

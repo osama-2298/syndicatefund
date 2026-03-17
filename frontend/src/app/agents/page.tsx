@@ -192,7 +192,7 @@ function AgentCard({ agent }: { agent: AgentSummary }) {
             <h3 className="text-sm font-bold text-white/90 truncate">{displayName}</h3>
             {agent.team_name && <TeamBadge teamName={agent.team_name} />}
           </div>
-          <p className="text-[11px] text-white/25 font-mono mt-1 truncate">
+          <p className="text-xs text-white/25 font-mono mt-1 truncate">
             {agent.provider}/{agent.model}
           </p>
         </div>

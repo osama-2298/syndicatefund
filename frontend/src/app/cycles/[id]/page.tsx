@@ -100,8 +100,8 @@ export default function CycleReplayPage() {
 
   return (
     <div className="slide-up space-y-6">
-      <a href="/cycles" className="inline-flex items-center gap-1 text-xs text-hive-muted hover:text-hive-text transition-colors">
-        <ArrowLeft size={12} /> Back to Cycles
+      <a href="/activity" className="inline-flex items-center gap-1 text-xs text-hive-muted hover:text-hive-text transition-colors">
+        <ArrowLeft size={12} /> Back to Activity
       </a>
 
       <div>
@@ -164,7 +164,7 @@ export default function CycleReplayPage() {
         </div>
         <div className="flex justify-between mt-1">
           {STAGE_DISPLAY.filter((_, i) => i % 2 === 0 || i === STAGE_DISPLAY.length - 1).map(label => (
-            <span key={label} className="text-[9px] text-hive-muted">{label}</span>
+            <span key={label} className="text-[10px] text-hive-muted">{label}</span>
           ))}
         </div>
       </div>

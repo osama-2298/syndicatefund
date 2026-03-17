@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Loader2, ChevronDown, ChevronRight, Users, Cpu, Crown } from 'lucide-react';
+import { AGENT_NAMES, MANAGER_NAMES } from '@/lib/constants';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -27,29 +28,6 @@ interface Team {
   agent_count: number;
   active_agent_count: number;
 }
-
-const agentNames: Record<string, string> = {
-  TechnicalTrendAgent: 'Lena Karlsson',
-  TechnicalSignalAgent: 'David Osei',
-  TechnicalTimingAgent: 'Mika Tanaka',
-  SocialSentimentAgent: 'Priya Sharma',
-  MarketSentimentAgent: 'Alexei Volkov',
-  SmartMoneySentimentAgent: 'Sofia Reyes',
-  ValuationAgent: 'Henrik Larsen',
-  CyclePositionAgent: 'Amara Obi',
-  CryptoMacroAgent: 'Lucas Weber',
-  ExternalMacroAgent: 'Fatima Al-Rashid',
-  NetworkHealthAgent: 'Jin Park',
-  CapitalFlowAgent: 'Camille Dubois',
-};
-
-const managerNames: Record<string, string> = {
-  technical: 'Oscar Brennan',
-  sentiment: 'Yara Haddad',
-  fundamental: 'Isaac Thornton',
-  macro: 'Zara Kimathi',
-  onchain: 'Nikolai Petrov',
-};
 
 const teamGradients: Record<string, { border: string; dot: string; bg: string }> = {
   technical: {
@@ -89,9 +67,9 @@ const statusColors: Record<string, { dot: string; label: string }> = {
 };
 
 function getAgentDisplayName(agent: Agent): { name: string; role: string } {
-  if (agent.agent_class && agentNames[agent.agent_class]) {
+  if (agent.agent_class && AGENT_NAMES[agent.agent_class]) {
     return {
-      name: agentNames[agent.agent_class],
+      name: AGENT_NAMES[agent.agent_class],
       role: agent.agent_class.replace(/([A-Z])/g, ' $1').trim(),
     };
   }
@@ -177,7 +155,7 @@ function ExecCard({
           </span>
           {badge && (
             <span
-              className={`text-[9px] font-bold px-1.5 py-0.5 rounded ring-1 ring-inset ${
+              className={`text-[10px] font-bold px-1.5 py-0.5 rounded ring-1 ring-inset ${
                 badgeColor || 'bg-white/[0.04] text-white/30 ring-white/[0.08]'
               }`}
             >
@@ -186,7 +164,7 @@ function ExecCard({
           )}
         </div>
         <p className="text-sm font-bold text-white">{name}</p>
-        <p className="text-[11px] text-white/30 mt-0.5">{subtitle}</p>
+        <p className="text-xs text-white/30 mt-0.5">{subtitle}</p>
         {hasChildren && (
           <div className="flex items-center gap-1 mt-2 text-[10px] text-white/20">
             {open ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
@@ -219,7 +197,7 @@ function TeamCard({
 }) {
   const [open, setOpen] = useState(false);
   const gradient = getTeamGradient(team.name);
-  const managerName = managerNames[team.name] || 'Manager';
+  const managerName = MANAGER_NAMES[team.name] || 'Manager';
 
   return (
     <div>
@@ -231,7 +209,7 @@ function TeamCard({
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-white capitalize">{team.name} Team</span>
             <span
-              className={`text-[9px] font-bold px-1.5 py-0.5 rounded ring-1 ring-inset ${
+              className={`text-[10px] font-bold px-1.5 py-0.5 rounded ring-1 ring-inset ${
                 team.is_system
                   ? 'bg-amber-400/10 text-amber-400 ring-amber-400/20'
                   : 'bg-blue-400/10 text-blue-400 ring-blue-400/20'
@@ -249,7 +227,7 @@ function TeamCard({
             </span>
           </div>
         </div>
-        <p className="text-[11px] text-white/25">
+        <p className="text-xs text-white/25">
           Managed by {managerName} — {team.discipline}
         </p>
         <div className="flex items-center gap-1 mt-2 text-[10px] text-white/20">
@@ -298,10 +276,10 @@ function TeamCard({
                 <div className="flex-shrink-0 text-right">
                   {agent.total_signals > 0 ? (
                     <div>
-                      <p className="text-[11px] font-mono tabular-nums text-white/40">
+                      <p className="text-xs font-mono tabular-nums text-white/40">
                         {Math.round(agent.accuracy * 100)}%
                       </p>
-                      <p className="text-[9px] text-white/15 font-mono tabular-nums">
+                      <p className="text-[10px] text-white/15 font-mono tabular-nums">
                         {agent.total_signals} sig
                       </p>
                     </div>
@@ -372,9 +350,6 @@ export default function OrgPage() {
     <div className="max-w-5xl mx-auto slide-up">
       {/* ── Header ── */}
       <div className="mb-10">
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-3">
-          Organization
-        </p>
         <h1 className="text-2xl font-bold tracking-tight text-white">Org Chart</h1>
         <p className="text-sm text-white/40 mt-1">
           <span className="font-mono tabular-nums">{teams.length}</span> teams,{' '}
@@ -386,7 +361,7 @@ export default function OrgPage() {
       {/* ── Pipeline flow legend ── */}
       <div className="bg-[#0d0d15] border border-white/[0.06] rounded-xl px-6 py-3.5 mb-4">
         <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/20 mb-2">Pipeline flow per cycle</p>
-        <div className="flex items-center gap-2 flex-wrap text-[11px]">
+        <div className="flex items-center gap-2 flex-wrap text-xs">
           <span className="text-amber-400/80 font-medium">CEO</span>
           <span className="text-white/10">→</span>
           <span className="text-blue-400/80 font-medium">COO</span>
@@ -489,7 +464,7 @@ export default function OrgPage() {
             <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-400/60">
               Analysis Division
             </span>
-            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded ring-1 ring-inset bg-emerald-400/10 text-emerald-400 ring-emerald-400/20">
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded ring-1 ring-inset bg-emerald-400/10 text-emerald-400 ring-emerald-400/20">
               STEP 2
             </span>
             <div className="h-px flex-1 bg-white/[0.04]" />
@@ -515,7 +490,7 @@ export default function OrgPage() {
             <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-400/60">
               Operations
             </span>
-            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded ring-1 ring-inset bg-cyan-400/10 text-cyan-400 ring-cyan-400/20">
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded ring-1 ring-inset bg-cyan-400/10 text-cyan-400 ring-cyan-400/20">
               STEPS 3–6
             </span>
             <div className="h-px flex-1 bg-white/[0.04]" />
@@ -607,6 +582,11 @@ export default function OrgPage() {
               name="Dr. Noor Hadid"
               subtitle="Trade attribution, regime analysis, hypothesis testing"
             />
+          </div>
+          <div className="mt-3 text-center">
+            <a href="/research" className="text-xs text-amber-400 hover:text-amber-300 transition-colors inline-flex items-center gap-1">
+              View research reports →
+            </a>
           </div>
         </div>
 

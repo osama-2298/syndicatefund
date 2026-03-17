@@ -27,7 +27,6 @@ export default function RootLayout({
                 <a href="/agents" className="text-sm text-hive-muted hover:text-hive-text transition-colors">Agents</a>
                 <a href="/org" className="text-sm text-hive-muted hover:text-hive-text transition-colors">Org</a>
                 <a href="/blog" className="text-sm text-hive-muted hover:text-hive-text transition-colors">Blog</a>
-                <a href="/research" className="text-sm text-hive-muted hover:text-hive-text transition-colors">Research</a>
                 <a href="/results" className="text-sm text-hive-muted hover:text-hive-text transition-colors">Results</a>
                 <a href="/register" className="text-sm bg-hive-accent text-black px-4 py-1.5 rounded-lg font-medium hover:bg-amber-400 transition-colors">
                   Contribute

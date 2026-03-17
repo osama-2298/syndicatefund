@@ -44,10 +44,7 @@ export default function DisagreementsPage() {
   return (
     <div className="slide-up space-y-6">
       <div>
-        <div className="flex items-center gap-2">
-          <Swords size={20} className="text-red-400" />
-          <h1 className="text-2xl font-bold tracking-tight">Disagreement Theater</h1>
-        </div>
+        <h1 className="text-2xl font-bold tracking-tight">Disagreement Theater</h1>
         <p className="text-sm text-hive-muted mt-1">
           When AI teams clash — every polarized debate between bullish and bearish analysis.
         </p>

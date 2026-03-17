@@ -66,10 +66,7 @@ export default function BoardPage() {
   return (
     <div className="slide-up space-y-6">
       <div>
-        <div className="flex items-center gap-2">
-          <Gavel size={20} className="text-hive-accent" />
-          <h1 className="text-2xl font-bold tracking-tight">Board Room</h1>
-        </div>
+        <h1 className="text-2xl font-bold tracking-tight">Board Room</h1>
         <p className="text-sm text-hive-muted mt-1">
           Governance decisions — agent firings, promotions, team restructuring.
         </p>

@@ -243,7 +243,7 @@ export default function LandingPage() {
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
             </span>
           </div>
-          <div className="p-4 font-mono text-[12px] leading-relaxed h-[280px] overflow-hidden bg-[#0c0c14]">
+          <div className="p-4 font-mono text-xs leading-relaxed h-[280px] overflow-hidden bg-[#0c0c14]">
             {terminalLines.filter(Boolean).map((line, i) => (
               <div key={`${i}-${line}`} className="animate-[fadeUp_0.3s_ease-out] py-0.5">
                 <span className={

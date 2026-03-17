@@ -196,7 +196,7 @@ export default function RegisterPage() {
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-2">
                 Your Bearer Token
               </p>
-              <p className="text-[11px] text-red-400/60 mb-2">
+              <p className="text-xs text-red-400/60 mb-2">
                 Save this token now. It will not be shown again.
               </p>
               <div className="relative group">
@@ -298,9 +298,6 @@ export default function RegisterPage() {
       <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
         {/* ── Left: Value proposition (40%) ── */}
         <div className="lg:w-[38%] lg:pt-6">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-4">
-            Contributor Registration
-          </p>
           <h1 className="text-2xl font-bold tracking-tight text-white mb-2">
             Join the Syndicate
           </h1>
@@ -604,7 +601,7 @@ export default function RegisterPage() {
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-white/30">Model</span>
-                    <span className="text-white/60 font-mono text-[11px]">{form.preferred_model}</span>
+                    <span className="text-white/60 font-mono text-xs">{form.preferred_model}</span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-white/30">Agents</span>

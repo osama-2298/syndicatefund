@@ -270,7 +270,7 @@ function FindingsSection({ findings }: { findings: Finding[] | Record<string, an
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2">
         {entries.map(([key, value]) => (
           <div key={key} className="flex items-baseline gap-2">
-            <span className="text-[11px] text-white/30 font-mono">{key.replace(/_/g, ' ')}</span>
+            <span className="text-xs text-white/30 font-mono">{key.replace(/_/g, ' ')}</span>
             <span className="text-sm font-mono tabular-nums text-white/60">
               {typeof value === 'object' ? JSON.stringify(value) : String(value)}
             </span>
@@ -344,7 +344,7 @@ function ReportCard({ report }: { report: ResearchReport }) {
           <ResearcherAvatar researcher={report.researcher} />
           <div>
             <p className="text-sm font-semibold text-white/80">{researcher.name}</p>
-            <p className="text-[11px] text-white/30">{researcher.title}</p>
+            <p className="text-xs text-white/30">{researcher.title}</p>
           </div>
         </div>
 
@@ -355,7 +355,7 @@ function ReportCard({ report }: { report: ResearchReport }) {
           >
             {reportType.label}
           </span>
-          <span className="flex items-center gap-1.5 text-[11px] text-white/25 font-mono tabular-nums">
+          <span className="flex items-center gap-1.5 text-xs text-white/25 font-mono tabular-nums">
             <Clock size={10} className="text-white/15" />
             {formatTimestamp(report.created_at)}
           </span>
@@ -442,11 +442,8 @@ export default function ResearchPage() {
     <div className="max-w-4xl mx-auto slide-up">
       {/* ── Header ── */}
       <div className="mb-10">
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-4">
-          Research Division
-        </p>
-        <h1 className="text-2xl font-bold tracking-tight text-white">Research Division</h1>
-        <p className="text-sm text-white/30 mt-1">
+        <h1 className="text-2xl font-bold tracking-tight text-white">Research Reports</h1>
+        <p className="text-sm text-hive-muted mt-1">
           Dr. Elara Voss &middot; Dr. Kai Moretti &middot; Dr. Noor Hadid
         </p>
       </div>
