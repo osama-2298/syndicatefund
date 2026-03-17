@@ -151,7 +151,7 @@ export default function ResultsPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-[600px]">
                 <thead>
                   <tr className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted border-b border-syn-border">
                     <th className="text-left px-4 py-2.5">Symbol</th>
@@ -204,7 +204,7 @@ export default function ResultsPage() {
 
       {/* CTA */}
       <div className="bg-syn-surface border border-syn-border rounded-lg p-6 border-syn-accent/10 bg-gradient-to-r from-violet-500/[0.04] to-purple-500/[0.04]">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:justify-between">
           <div>
             <h3 className="text-sm font-bold mb-1">Want deeper analysis and real-time signals?</h3>
             <p className="text-xs text-white/30">Contribute your API key to expand the hive and unlock full signal access.</p>

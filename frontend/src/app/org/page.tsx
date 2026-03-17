@@ -204,7 +204,7 @@ function TeamCard({
         onClick={() => setOpen(!open)}
         className={`bg-syn-surface border border-syn-border rounded-xl p-4 cursor-pointer hover:border-white/[0.10] transition-all border-l-2 ${gradient.border}`}
       >
-        <div className="flex items-center justify-between mb-1.5">
+        <div className="flex flex-wrap items-center justify-between gap-y-1 mb-1.5">
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-white capitalize">{team.name} Team</span>
             <span
@@ -291,7 +291,7 @@ function TeamCard({
           })}
 
           {agents.length === 0 && (
-            <div className="col-span-2 bg-white/[0.01] border border-white/[0.03] rounded-lg px-3.5 py-3 text-center">
+            <div className="col-span-full bg-white/[0.01] border border-white/[0.03] rounded-lg px-3.5 py-3 text-center">
               <p className="text-xs text-syn-text-tertiary">No agents assigned yet</p>
             </div>
           )}
@@ -356,9 +356,10 @@ export default function OrgPage() {
       </div>
 
       {/* ── Pipeline flow legend ── */}
-      <div className="bg-syn-surface border border-syn-border rounded-xl px-6 py-3.5 mb-4">
+      <div className="bg-syn-surface border border-syn-border rounded-xl px-4 sm:px-6 py-3.5 mb-4">
         <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-syn-text-tertiary mb-2">Pipeline flow per cycle</p>
-        <div className="flex items-center gap-2 flex-wrap text-xs">
+        {/* Full legend — hidden on very small screens */}
+        <div className="hidden sm:flex items-center gap-2 flex-wrap text-xs">
           <span className="text-syn-accent/80 font-medium">CEO</span>
           <span className="text-syn-text-tertiary">→</span>
           <span className="text-blue-400/80 font-medium">COO</span>
@@ -373,18 +374,34 @@ export default function OrgPage() {
           <span className="text-syn-text-tertiary">→</span>
           <span className="text-orange-400/80 font-medium">Execution</span>
         </div>
+        {/* Compact legend — shown only on very small screens */}
+        <div className="flex sm:hidden items-center gap-1.5 text-[10px] overflow-x-auto">
+          <span className="text-syn-accent/80 font-medium whitespace-nowrap">CEO</span>
+          <span className="text-syn-text-tertiary">→</span>
+          <span className="text-blue-400/80 font-medium whitespace-nowrap">COO</span>
+          <span className="text-syn-text-tertiary">→</span>
+          <span className="text-emerald-400/80 font-medium whitespace-nowrap">Analysis</span>
+          <span className="text-syn-text-tertiary">→</span>
+          <span className="text-cyan-400/80 font-medium whitespace-nowrap">Agg</span>
+          <span className="text-syn-text-tertiary">→</span>
+          <span className="text-red-400/80 font-medium whitespace-nowrap">Risk</span>
+          <span className="text-syn-text-tertiary">→</span>
+          <span className="text-purple-400/80 font-medium whitespace-nowrap">Port</span>
+          <span className="text-syn-text-tertiary">→</span>
+          <span className="text-orange-400/80 font-medium whitespace-nowrap">Exec</span>
+        </div>
       </div>
 
       {/* ── Org chart ── */}
-      <div className="bg-syn-surface border border-syn-border rounded-xl p-6 md:p-8">
+      <div className="bg-syn-surface border border-syn-border rounded-xl p-4 sm:p-6 md:p-8">
         {/* Tier 1: CEO */}
         <CeoNode />
 
         {/* Vertical connector from CEO */}
         <ConnectorVertical />
 
-        {/* Horizontal rail */}
-        <div className="flex items-stretch gap-0 mb-0">
+        {/* Horizontal rail — hidden on mobile where grid stacks vertically */}
+        <div className="hidden md:flex items-stretch gap-0 mb-0">
           <div className="flex-1 flex flex-col items-center">
             <div className="h-px w-1/2 bg-syn-border self-end" />
           </div>

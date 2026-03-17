@@ -70,13 +70,13 @@ export default function BlogPage() {
       </div>
 
       {/* ── Filter segmented control ── */}
-      <div className="mb-8">
+      <div className="mb-8 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
         <div className="inline-flex bg-white/[0.03] rounded-full p-1 ring-1 ring-syn-border">
           {filters.map((f) => (
             <button
               key={f.key ?? 'all'}
               onClick={() => setFilter(f.key)}
-              className={`text-xs font-semibold px-4 py-1.5 rounded-full transition-all duration-200 ${
+              className={`text-xs font-semibold px-3 sm:px-4 py-1.5 rounded-full transition-all duration-200 whitespace-nowrap ${
                 filter === f.key
                   ? 'bg-syn-accent/15 text-syn-accent shadow-sm'
                   : 'text-syn-text-tertiary hover:text-syn-text-secondary'
@@ -100,7 +100,7 @@ export default function BlogPage() {
 
       {/* ── Empty state ── */}
       {!loading && posts.length === 0 && (
-        <div className="bg-syn-surface border border-syn-border rounded-xl p-16 text-center">
+        <div className="bg-syn-surface border border-syn-border rounded-xl p-8 sm:p-16 text-center">
           <div className="w-12 h-12 rounded-full bg-white/[0.03] flex items-center justify-center mx-auto mb-4 ring-1 ring-syn-border">
             <FileText size={20} className="text-syn-text-tertiary" />
           </div>
@@ -133,9 +133,9 @@ export default function BlogPage() {
                 )}
 
                 {/* ── Article card ── */}
-                <article className="bg-syn-surface border border-syn-border rounded-xl p-6 hover:border-white/[0.10] transition-colors">
+                <article className="bg-syn-surface border border-syn-border rounded-xl p-4 sm:p-6 hover:border-white/[0.10] transition-colors">
                   {/* Meta row */}
-                  <div className="flex items-center gap-3 mb-4">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-4">
                     <span
                       className={`text-[10px] font-bold px-2 py-0.5 rounded ring-1 ring-inset ${config.color} inline-flex items-center gap-1.5`}
                     >
@@ -150,13 +150,13 @@ export default function BlogPage() {
                       {formatTime(post.created_at)}
                     </span>
 
-                    <span className="text-[10px] text-syn-text-tertiary ml-auto">
+                    <span className="text-[10px] text-syn-text-tertiary sm:ml-auto">
                       {readTime} min read
                     </span>
                   </div>
 
                   {/* Title */}
-                  <h2 className="text-xl font-bold tracking-tight text-white mb-2 leading-tight">
+                  <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white mb-2 leading-tight">
                     {post.title}
                   </h2>
 

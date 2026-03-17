@@ -72,18 +72,18 @@ export default function ActivityPage() {
 
       {/* Summary stats strip */}
       {cyclesWithEvents.length > 0 && (
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-syn-surface border border-syn-border rounded-xl px-4 py-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Total Cycles</p>
-            <p className="text-lg font-bold font-mono tabular-nums text-white/90">{cycles.length}</p>
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          <div className="bg-syn-surface border border-syn-border rounded-xl px-3 py-2.5 sm:px-4 sm:py-3">
+            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Total Cycles</p>
+            <p className="text-base sm:text-lg font-bold font-mono tabular-nums text-white/90">{cycles.length}</p>
           </div>
-          <div className="bg-syn-surface border border-syn-border rounded-xl px-4 py-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Signals</p>
-            <p className="text-lg font-bold font-mono tabular-nums text-white/90">{totalSignals.toLocaleString()}</p>
+          <div className="bg-syn-surface border border-syn-border rounded-xl px-3 py-2.5 sm:px-4 sm:py-3">
+            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Signals</p>
+            <p className="text-base sm:text-lg font-bold font-mono tabular-nums text-white/90">{totalSignals.toLocaleString()}</p>
           </div>
-          <div className="bg-syn-surface border border-syn-border rounded-xl px-4 py-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Trades</p>
-            <p className="text-lg font-bold font-mono tabular-nums text-white/90">{totalTrades}</p>
+          <div className="bg-syn-surface border border-syn-border rounded-xl px-3 py-2.5 sm:px-4 sm:py-3">
+            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Trades</p>
+            <p className="text-base sm:text-lg font-bold font-mono tabular-nums text-white/90">{totalTrades}</p>
           </div>
         </div>
       )}

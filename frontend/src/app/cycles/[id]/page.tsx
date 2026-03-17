@@ -104,55 +104,55 @@ export default function CycleReplayPage() {
       </a>
 
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Cycle #{cycleId} Replay</h1>
-        <p className="text-sm text-syn-muted mt-1">{events.length} steps — watch the AI analyze markets, debate, and trade</p>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Cycle #{cycleId} Replay</h1>
+        <p className="text-xs sm:text-sm text-syn-muted mt-1">{events.length} steps — watch the AI analyze markets, debate, and trade</p>
       </div>
 
       {/* Controls */}
-      <div className="bg-syn-surface border border-syn-border rounded-lg p-4">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <button onClick={handleBack} className="p-2 rounded-lg hover:bg-white/[0.04] transition-colors">
-              <SkipBack size={16} />
+      <div className="bg-syn-surface border border-syn-border rounded-lg p-3 sm:p-4">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            <button onClick={handleBack} className="p-1.5 sm:p-2 rounded-lg hover:bg-white/[0.04] transition-colors">
+              <SkipBack size={14} className="sm:w-4 sm:h-4" />
             </button>
             {playing ? (
-              <button onClick={handlePause} className="p-2 rounded-lg bg-syn-accent/10 text-syn-accent hover:bg-syn-accent/20 transition-colors">
-                <Pause size={16} />
+              <button onClick={handlePause} className="p-1.5 sm:p-2 rounded-lg bg-syn-accent/10 text-syn-accent hover:bg-syn-accent/20 transition-colors">
+                <Pause size={14} className="sm:w-4 sm:h-4" />
               </button>
             ) : (
-              <button onClick={handlePlay} className="p-2 rounded-lg bg-syn-accent/10 text-syn-accent hover:bg-syn-accent/20 transition-colors">
-                <Play size={16} />
+              <button onClick={handlePlay} className="p-1.5 sm:p-2 rounded-lg bg-syn-accent/10 text-syn-accent hover:bg-syn-accent/20 transition-colors">
+                <Play size={14} className="sm:w-4 sm:h-4" />
               </button>
             )}
-            <button onClick={handleForward} className="p-2 rounded-lg hover:bg-white/[0.04] transition-colors">
-              <SkipForward size={16} />
+            <button onClick={handleForward} className="p-1.5 sm:p-2 rounded-lg hover:bg-white/[0.04] transition-colors">
+              <SkipForward size={14} className="sm:w-4 sm:h-4" />
             </button>
           </div>
 
-          <div className="flex items-center gap-1">
-            <FastForward size={12} className="text-syn-muted" />
+          <div className="flex items-center gap-1 shrink-0">
+            <FastForward size={12} className="text-syn-muted hidden sm:block" />
             {SPEEDS.map(s => (
               <button
                 key={s}
                 onClick={() => setSpeed(s)}
-                className={`text-[10px] font-bold px-2 py-0.5 rounded ${speed === s ? 'bg-syn-accent/10 text-syn-accent' : 'text-syn-muted hover:text-syn-text'}`}
+                className={`text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded ${speed === s ? 'bg-syn-accent/10 text-syn-accent' : 'text-syn-muted hover:text-syn-text'}`}
               >
                 {s}x
               </button>
             ))}
           </div>
 
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
               <div className="h-full bg-syn-accent rounded-full transition-all duration-300" style={{ width: `${progressPct}%` }} />
             </div>
           </div>
 
-          <span className="text-xs text-syn-muted tabular-nums">{visibleCount}/{events.length}</span>
+          <span className="text-[10px] sm:text-xs text-syn-muted tabular-nums shrink-0">{visibleCount}/{events.length}</span>
         </div>
 
         {/* Stage indicators with labels */}
-        <div className="flex items-center gap-1 mt-3">
+        <div className="flex items-center gap-0.5 sm:gap-1 mt-3">
           {STAGES.map((stage, i) => (
             <div
               key={stage}
@@ -161,7 +161,7 @@ export default function CycleReplayPage() {
             />
           ))}
         </div>
-        <div className="flex justify-between mt-1">
+        <div className="hidden sm:flex justify-between mt-1">
           {STAGE_DISPLAY.filter((_, i) => i % 2 === 0 || i === STAGE_DISPLAY.length - 1).map(label => (
             <span key={label} className="text-[10px] text-syn-muted">{label}</span>
           ))}
@@ -169,7 +169,7 @@ export default function CycleReplayPage() {
       </div>
 
       {/* Event list */}
-      <div className="bg-syn-surface border border-syn-border rounded-lg p-5">
+      <div className="bg-syn-surface border border-syn-border rounded-lg p-3 sm:p-5">
         {events.length === 0 ? (
           <div className="text-center py-10">
             <p className="text-sm text-syn-muted">No events found for this cycle</p>
@@ -189,11 +189,11 @@ export default function CycleReplayPage() {
               return (
                 <div
                   key={event.id}
-                  className={`flex items-start gap-3 py-2.5 transition-all ${isLatest ? 'bg-white/[0.03] slide-up' : ''}`}
+                  className={`flex items-start gap-2 sm:gap-3 py-2 sm:py-2.5 transition-all ${isLatest ? 'bg-white/[0.03] slide-up' : ''}`}
                 >
-                  <span className="text-[10px] text-syn-muted/50 font-mono tabular-nums shrink-0 mt-0.5 w-16">{time}</span>
+                  <span className="text-[9px] sm:text-[10px] text-syn-muted/50 font-mono tabular-nums shrink-0 mt-0.5 w-[3.2rem] sm:w-16">{time}</span>
                   <Icon size={14} className={`${color} shrink-0 mt-0.5`} />
-                  <span className="text-xs text-syn-text/90 break-words flex-1">{message}</span>
+                  <span className="text-[11px] sm:text-xs text-syn-text/90 break-words min-w-0 flex-1">{message}</span>
                 </div>
               );
             })}

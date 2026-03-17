@@ -210,7 +210,7 @@ export default function AgentsPage() {
           {/* Founding Agents Section */}
           {founding.length > 0 && (
             <div>
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
                 <div className="flex items-center gap-3">
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Founding Agents</p>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded ring-1 ring-inset text-violet-400 bg-violet-400/10 ring-violet-400/30">
@@ -230,7 +230,7 @@ export default function AgentsPage() {
           {/* Contributor Agents Section */}
           {contributors.length > 0 && (
             <div>
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
                 <div className="flex items-center gap-3">
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Contributor Agents</p>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded ring-1 ring-inset text-blue-400 bg-blue-400/10 ring-blue-400/30">

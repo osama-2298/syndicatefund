@@ -353,12 +353,12 @@ export default function RegisterPage() {
         {/* ── Right: Form (60%) ── */}
         <div className="lg:flex-1">
           {/* Step indicator */}
-          <div className="flex items-center gap-2 mb-6">
+          <div className="flex items-center gap-1.5 sm:gap-2 mb-6">
             {steps.map((s, i) => (
-              <div key={s} className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5">
+              <div key={s} className="flex items-center gap-1.5 sm:gap-2">
+                <div className="flex items-center gap-1 sm:gap-1.5">
                   <div
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
+                    className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all flex-shrink-0 ${
                       i === step
                         ? 'bg-syn-accent/20 text-syn-accent ring-1 ring-syn-accent/30'
                         : i < step
@@ -377,7 +377,7 @@ export default function RegisterPage() {
                   </span>
                 </div>
                 {i < steps.length - 1 && (
-                  <div className="w-8 h-px bg-syn-border mx-1" />
+                  <div className="w-4 sm:w-8 h-px bg-syn-border mx-0.5 sm:mx-1" />
                 )}
               </div>
             ))}
@@ -589,17 +589,17 @@ export default function RegisterPage() {
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/25 mb-2">
                     Summary
                   </p>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-white/30">Name</span>
-                    <span className="text-white/60 font-medium">{form.display_name}</span>
+                  <div className="flex justify-between text-xs gap-2">
+                    <span className="text-white/30 shrink-0">Name</span>
+                    <span className="text-white/60 font-medium truncate">{form.display_name}</span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-white/30">Provider</span>
                     <span className="text-white/60 font-medium">{selectedProvider.name}</span>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-white/30">Model</span>
-                    <span className="text-white/60 font-mono text-xs">{form.preferred_model}</span>
+                  <div className="flex justify-between text-xs gap-2">
+                    <span className="text-white/30 shrink-0">Model</span>
+                    <span className="text-white/60 font-mono text-xs truncate">{form.preferred_model}</span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-white/30">Agents</span>

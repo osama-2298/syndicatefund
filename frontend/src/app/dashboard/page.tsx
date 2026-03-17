@@ -330,28 +330,28 @@ export default function Dashboard() {
             {/* Positions Table */}
             {hasPositions && (
               <div className="bg-syn-surface border border-syn-border rounded-xl overflow-hidden">
-                <div className="px-4 py-3 border-b border-syn-border flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                <div className="px-4 py-3 border-b border-syn-border flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <div className="w-1.5 h-1.5 rounded-full bg-syn-accent" />
                     <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Open Positions</span>
                   </div>
-                  <span className="text-[10px] font-mono text-syn-text-tertiary">
+                  <span className="text-[10px] font-mono text-syn-text-tertiary whitespace-nowrap">
                     {positions.length} open / ${invested.toLocaleString(undefined, { maximumFractionDigits: 0 })} deployed
                   </span>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full">
+                  <table className="w-full min-w-[700px]">
                     <thead>
-                      <tr className="text-[10px] font-bold uppercase tracking-[0.15em] text-syn-text-tertiary border-b border-syn-border">
-                        <th className="text-left pl-4 pr-2 py-2">Symbol</th>
-                        <th className="text-left px-2 py-2">Side</th>
-                        <th className="text-right px-2 py-2">Size</th>
-                        <th className="text-right px-2 py-2">Entry</th>
-                        <th className="text-right px-2 py-2">Price</th>
-                        <th className="text-right px-2 py-2">SL</th>
-                        <th className="text-right px-2 py-2">TP</th>
-                        <th className="text-right px-2 py-2">P&L</th>
-                        <th className="text-right pr-4 pl-2 py-2">Conv</th>
+                      <tr className="text-[11px] font-bold uppercase tracking-[0.15em] text-syn-text-tertiary border-b border-syn-border">
+                        <th className="text-left pl-4 pr-2 py-2 whitespace-nowrap">Symbol</th>
+                        <th className="text-left px-2 py-2 whitespace-nowrap">Side</th>
+                        <th className="text-right px-2 py-2 whitespace-nowrap">Size</th>
+                        <th className="text-right px-2 py-2 whitespace-nowrap">Entry</th>
+                        <th className="text-right px-2 py-2 whitespace-nowrap">Price</th>
+                        <th className="text-right px-2 py-2 whitespace-nowrap">SL</th>
+                        <th className="text-right px-2 py-2 whitespace-nowrap">TP</th>
+                        <th className="text-right px-2 py-2 whitespace-nowrap">P&L</th>
+                        <th className="text-right pr-4 pl-2 py-2 whitespace-nowrap">Conv</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -378,12 +378,12 @@ export default function Dashboard() {
                               flash === 'down' ? 'bg-red-500/[0.04]' : ''
                             }`}
                           >
-                            <td className="pl-4 pr-2 py-2.5">
+                            <td className="pl-4 pr-2 py-2.5 whitespace-nowrap">
                               <span className="text-sm font-bold text-syn-text">
                                 {pos.symbol.replace('USDT', '')}
                               </span>
                             </td>
-                            <td className="px-2 py-2.5">
+                            <td className="px-2 py-2.5 whitespace-nowrap">
                               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
                                 pos.side === 'BUY'
                                   ? 'bg-emerald-500/10 text-emerald-400 ring-1 ring-inset ring-emerald-500/20'
@@ -392,17 +392,17 @@ export default function Dashboard() {
                                 {pos.side}
                               </span>
                             </td>
-                            <td className="px-2 py-2.5 text-right">
+                            <td className="px-2 py-2.5 text-right whitespace-nowrap">
                               <span className="text-xs font-mono tabular-nums text-syn-text">
                                 ${size.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                               </span>
                             </td>
-                            <td className="px-2 py-2.5 text-right">
+                            <td className="px-2 py-2.5 text-right whitespace-nowrap">
                               <span className="text-xs font-mono tabular-nums text-syn-text-tertiary">
                                 ${pos.entry_price.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                               </span>
                             </td>
-                            <td className={`px-2 py-2.5 text-right transition-colors duration-500 ${
+                            <td className={`px-2 py-2.5 text-right whitespace-nowrap transition-colors duration-500 ${
                               flash === 'up' ? 'text-emerald-400' :
                               flash === 'down' ? 'text-red-400' : 'text-syn-text'
                             }`}>
@@ -410,17 +410,17 @@ export default function Dashboard() {
                                 ${live.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                               </span>
                             </td>
-                            <td className="px-2 py-2.5 text-right">
+                            <td className="px-2 py-2.5 text-right whitespace-nowrap">
                               <span className="text-xs font-mono tabular-nums text-red-400/60">
                                 {sl > 0 ? `$${sl.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '\u2014'}
                               </span>
                             </td>
-                            <td className="px-2 py-2.5 text-right">
+                            <td className="px-2 py-2.5 text-right whitespace-nowrap">
                               <span className="text-xs font-mono tabular-nums text-emerald-400/60">
                                 {tp > 0 ? `$${tp.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '\u2014'}
                               </span>
                             </td>
-                            <td className="px-2 py-2.5 text-right">
+                            <td className="px-2 py-2.5 text-right whitespace-nowrap">
                               <div className={`text-xs font-mono tabular-nums font-semibold ${pnlUsd >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                                 {pnlUsd >= 0 ? '+' : ''}{pnlUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                               </div>
@@ -428,7 +428,7 @@ export default function Dashboard() {
                                 {pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%
                               </div>
                             </td>
-                            <td className="pr-4 pl-2 py-2.5">
+                            <td className="pr-4 pl-2 py-2.5 whitespace-nowrap">
                               <div className="flex items-center justify-end gap-1.5">
                                 <div className="w-12 h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
                                   <div

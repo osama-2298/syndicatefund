@@ -90,14 +90,14 @@ export default function BoardPage() {
               <div key={session.session_id} className="bg-syn-surface border border-syn-border rounded-lg overflow-hidden">
                 <button
                   onClick={() => toggleSession(session.session_id)}
-                  className="w-full px-5 py-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
+                  className="w-full px-3 sm:px-5 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 hover:bg-white/[0.02] transition-colors text-left"
                 >
-                  <div className="flex items-center gap-3">
-                    {isOpen ? <ChevronDown size={14} className="text-syn-text-secondary" /> : <ChevronRight size={14} className="text-syn-text-secondary" />}
-                    <span className="text-sm font-semibold">Board Session</span>
-                    <span className="text-[10px] text-syn-text-secondary">{time}</span>
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                    {isOpen ? <ChevronDown size={14} className="text-syn-text-secondary shrink-0" /> : <ChevronRight size={14} className="text-syn-text-secondary shrink-0" />}
+                    <span className="text-sm font-semibold shrink-0">Board Session</span>
+                    <span className="text-[10px] text-syn-text-secondary truncate">{time}</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap pl-6 sm:pl-0">
                     <span className="text-[10px] text-syn-text-secondary">{session.decisions.length} decisions</span>
                     {fires > 0 && (
                       <span className="text-[10px] font-bold text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded ring-1 ring-inset ring-red-500/20">
@@ -121,7 +121,7 @@ export default function BoardPage() {
                       const Icon = DECISION_ICONS[decision.decision_type] || Gavel;
 
                       return (
-                        <div key={decision.id} className="px-5 py-3 flex items-start gap-3">
+                        <div key={decision.id} className="px-3 sm:px-5 py-3 flex items-start gap-3">
                           <Icon size={16} className={`${style.color} mt-0.5 shrink-0`} />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">

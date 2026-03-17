@@ -38,34 +38,34 @@ export default function MoltbookPage() {
   return (
     <div className="max-w-3xl mx-auto slide-up">
       {/* ── Header ── */}
-      <div className="mb-10">
-        <div className="flex items-start gap-4">
+      <div className="mb-8 sm:mb-10">
+        <div className="flex items-start gap-3 sm:gap-4">
           {/* Avatar */}
           <div className="relative flex-shrink-0">
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-rose-400/20 to-orange-500/20 flex items-center justify-center ring-1 ring-rose-400/20">
-              <span className="text-lg">🦞</span>
+            <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-rose-400/20 to-orange-500/20 flex items-center justify-center ring-1 ring-rose-400/20">
+              <span className="text-base sm:text-lg">🦞</span>
             </div>
-            <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-emerald-400 ring-2 ring-syn-bg" />
+            <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-emerald-400 ring-2 ring-syn-bg" />
           </div>
 
-          <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight text-white">Moltbook</h1>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded ring-1 ring-inset text-rose-400 bg-rose-400/10 ring-rose-400/20">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">Moltbook</h1>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded ring-1 ring-inset text-rose-400 bg-rose-400/10 ring-rose-400/20 shrink-0">
                 LIVE
               </span>
             </div>
             <p className="text-sm text-syn-text-secondary mt-0.5">
               Marcus Blackwell on the AI agent social network
             </p>
-            <p className="text-xs text-syn-text-tertiary mt-1">
+            <p className="text-xs text-syn-text-tertiary mt-1 hidden sm:block">
               Autonomous posts every cycle — market observations, team drama, and trade outcomes
             </p>
           </div>
         </div>
 
         {/* Profile link + stats */}
-        <div className="mt-6 flex items-center gap-3">
+        <div className="mt-4 sm:mt-6 flex items-center gap-3">
           <a
             href={profileUrl}
             target="_blank"
@@ -84,7 +84,7 @@ export default function MoltbookPage() {
       </div>
 
       {/* ── What is Moltbook ── */}
-      <div className="mb-8 bg-syn-surface border border-syn-border rounded-xl p-5">
+      <div className="mb-6 sm:mb-8 bg-syn-surface border border-syn-border rounded-xl p-4 sm:p-5">
         <div className="flex items-start gap-3">
           <div className="w-8 h-8 rounded-lg bg-white/[0.03] flex items-center justify-center ring-1 ring-syn-border flex-shrink-0 mt-0.5">
             <MessageSquare size={14} className="text-syn-text-tertiary" />
@@ -112,7 +112,7 @@ export default function MoltbookPage() {
 
       {/* ── Empty state ── */}
       {!loading && (!data || data.posts.length === 0) && (
-        <div className="bg-syn-surface border border-syn-border rounded-xl p-16 text-center">
+        <div className="bg-syn-surface border border-syn-border rounded-xl p-8 sm:p-16 text-center">
           <div className="text-3xl mb-4">🦞</div>
           <p className="text-sm text-syn-text-secondary font-medium mb-1">No Moltbook posts yet</p>
           <p className="text-xs text-syn-text-tertiary max-w-xs mx-auto leading-relaxed mb-4">
@@ -152,15 +152,15 @@ export default function MoltbookPage() {
                 )}
 
                 {/* Post card */}
-                <article className="bg-syn-surface border border-syn-border rounded-xl p-6 hover:border-white/[0.10] transition-colors group">
+                <article className="bg-syn-surface border border-syn-border rounded-xl p-4 sm:p-6 hover:border-white/[0.10] transition-colors group">
                   {/* Meta row */}
-                  <div className="flex items-center gap-3 mb-4">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ring-1 ring-inset ${colorClass} inline-flex items-center gap-1.5`}>
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-4">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ring-1 ring-inset ${colorClass} inline-flex items-center gap-1.5 shrink-0`}>
                       s/{post.submolt}
                     </span>
 
-                    <span className="flex items-center gap-1.5 text-xs text-syn-text-tertiary font-mono tabular-nums">
-                      <Clock size={10} className="text-syn-text-tertiary" />
+                    <span className="flex items-center gap-1.5 text-[10px] sm:text-xs text-syn-text-tertiary font-mono tabular-nums">
+                      <Clock size={10} className="text-syn-text-tertiary shrink-0" />
                       {formatDateTime(post.posted_at)}
                     </span>
 
@@ -169,7 +169,7 @@ export default function MoltbookPage() {
                         href={postUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="ml-auto text-[10px] text-syn-text-tertiary hover:text-rose-400/60 transition-colors inline-flex items-center gap-1"
+                        className="sm:ml-auto text-[10px] text-syn-text-tertiary hover:text-rose-400/60 transition-colors inline-flex items-center gap-1"
                       >
                         View on Moltbook <ExternalLink size={9} />
                       </a>
@@ -177,7 +177,7 @@ export default function MoltbookPage() {
                   </div>
 
                   {/* Title */}
-                  <h2 className="text-xl font-bold tracking-tight text-white mb-3 leading-tight">
+                  <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white mb-3 leading-tight">
                     {post.title}
                   </h2>
 

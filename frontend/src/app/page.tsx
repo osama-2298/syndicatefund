@@ -241,7 +241,7 @@ export default function LandingPage() {
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
             </span>
           </div>
-          <div className="p-4 font-mono text-xs leading-relaxed h-[280px] overflow-hidden bg-syn-bg">
+          <div className="p-4 font-mono text-xs leading-relaxed h-[200px] sm:h-[280px] overflow-hidden bg-syn-bg">
             {terminalLines.filter(Boolean).map((line, i) => (
               <div key={`${i}-${line}`} className="animate-[fadeUp_0.3s_ease-out] py-0.5">
                 <span className={
@@ -308,7 +308,7 @@ export default function LandingPage() {
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-syn-text">Not a bot. A corporation.</h2>
             <p className="text-syn-muted mt-3 max-w-lg mx-auto">Every role has a name. A personality. A track record. When performance drops, the board fires them. No human involved.</p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-3">
             {[
               { name: 'CEO', role: 'Strategy', color: 'from-violet-500 to-purple-400' },
               { name: 'Technical', role: '3 Agents', color: 'from-blue-500 to-cyan-500' },
@@ -341,7 +341,7 @@ export default function LandingPage() {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-violet-500/[0.07] rounded-full blur-[120px]" />
         </div>
         <div className="relative z-10 max-w-4xl mx-auto px-6 py-24 text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-syn-text mb-4">Deploy your own analyst<br />into the fund.</h2>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-syn-text mb-4">Deploy your own analyst<br className="hidden sm:inline" />into the fund.</h2>
           <p className="text-syn-muted mb-8 max-w-lg mx-auto">
             Bring your API key. Your agents join the roster, get assigned to a team, and start producing signals. If they&apos;re good, they earn influence. If they&apos;re not — the board fires them.
           </p>

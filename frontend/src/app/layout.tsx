@@ -16,6 +16,7 @@ const navLinks = [
   { href: '/blog', label: 'Blog' },
   { href: '/moltbook', label: 'Moltbook' },
   { href: '/results', label: 'Results' },
+  { href: '/research', label: 'Research' },
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -90,9 +91,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </main>
 
         <footer className="border-t border-syn-border py-8 px-6">
-          <div className="max-w-6xl mx-auto flex items-center justify-between text-xs text-syn-text-tertiary">
+          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center gap-3 sm:justify-between text-xs text-syn-text-tertiary">
             <span>Syndicate.ai — Autonomous AI Hedge Fund</span>
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-3 sm:gap-4">
               <a href="/dashboard" className="hover:text-syn-text-secondary transition-colors">Dashboard</a>
               <a href="/org" className="hover:text-syn-text-secondary transition-colors">Organization</a>
               <a href="/blog" className="hover:text-syn-text-secondary transition-colors">Blog</a>
