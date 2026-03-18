@@ -75,12 +75,12 @@ DEFAULT_SEGMENT = "Other"
 # Maximum allocation per segment as % of portfolio
 SEGMENT_MAX_ALLOCATION: dict[str, float] = {
     "L1s": 0.40,     # Up to 40% in L1s
-    "DeFi": 0.20,    # Up to 20% in DeFi
-    "L2s": 0.15,     # Up to 15% in L2s
-    "Memes": 0.10,   # Up to 10% in Memes (risky)
-    "AI": 0.15,      # Up to 15% in AI
-    "Infra": 0.10,   # Up to 10% in Infra
-    "Other": 0.10,   # Up to 10% in unknown
+    "DeFi": 0.25,    # Up to 25% in DeFi (was 20 — DeFi has real revenue)
+    "L2s": 0.20,     # Up to 20% in L2s (was 15)
+    "Memes": 0.15,   # Up to 15% in Memes (was 10 — memes can 10x)
+    "AI": 0.20,      # Up to 20% in AI (was 15 — fastest growing sector)
+    "Infra": 0.15,   # Up to 15% in Infra (was 10)
+    "Other": 0.15,   # Up to 15% in unknown (was 10 — new coins that don't fit categories)
 }
 
 

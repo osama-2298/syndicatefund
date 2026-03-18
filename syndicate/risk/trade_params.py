@@ -65,19 +65,19 @@ TIER_CONFIG = {
         "trail_atr_mult": 4.0,
         "tp1_r_mult": 1.5,
         "tp2_r_mult": 3.0,
-        "risk_per_trade": 0.0075,
-        "max_position_pct": 0.05,
-        "max_holding_hours": 120,
+        "risk_per_trade": 0.01,      # Was 0.0075 — mid-caps deserve real allocation
+        "max_position_pct": 0.08,    # Was 0.05 — can't find alpha with 5% cap
+        "max_holding_hours": 168,    # Was 120 — let mid-cap winners run longer
         "fallback_stop_pct": 0.20,
     },
     "meme": {
         "stop_atr_mult": 4.5,
         "trail_atr_mult": 5.0,
-        "tp1_r_mult": 1.0,  # Memes spike fast — take profit quickly at 1R
-        "tp2_r_mult": 2.0,  # Don't expect 4R from a meme
-        "risk_per_trade": 0.0025,
-        "max_position_pct": 0.02,
-        "max_holding_hours": 48,
+        "tp1_r_mult": 1.0,
+        "tp2_r_mult": 2.0,
+        "risk_per_trade": 0.005,     # Was 0.0025 — memes can be asymmetric winners
+        "max_position_pct": 0.04,    # Was 0.02 — 2% is meaningless, 4% can matter
+        "max_holding_hours": 72,     # Was 48 — give memes a bit more room
         "fallback_stop_pct": 0.35,
     },
 }
@@ -203,10 +203,10 @@ def compute_trade_params(
     # High confidence → larger but capped position
     risk_per_trade = config["risk_per_trade"]
     # Half-Kelly: edge = 2*confidence - 1. If confidence < 0.5, edge is negative (no trade).
-    # We use quarter-Kelly for additional safety.
+    # Half-Kelly is industry standard (quarter was too conservative — tiny positions even at high conviction).
     edge = max(0, 2 * confidence - 1)  # 0 at conf 0.5, 1.0 at conf 1.0
-    kelly_fraction = edge * 0.25  # Quarter-Kelly
-    adjusted_risk = risk_per_trade * min(kelly_fraction / 0.25, 1.0)  # Normalize so conf=0.75 = baseline
+    kelly_fraction = edge * 0.50  # Half-Kelly (was quarter — upgrade to industry standard)
+    adjusted_risk = risk_per_trade * min(kelly_fraction / 0.50, 1.0)  # Normalize so conf=0.75 = baseline
 
     total_value = max(portfolio.total_value, 1)
     risk_amount = total_value * adjusted_risk

@@ -286,9 +286,9 @@ class SignalAggregator:
         weighted_signals = self._apply_calibration(weighted_signals)
 
         # ── Step 2: Separate by direction ──
-        # CRITICAL: Conviction < 4 signals are NOISE, not data.
-        # Even if the manager mapped them to BUY/SHORT, they get zero weight.
-        MIN_ACTIONABLE_CONVICTION = 4
+        # Conviction < 3 signals are noise. 3 = slight lean, still counts.
+        # Was 4 — too aggressive, killed valid low-conviction signals that add information.
+        MIN_ACTIONABLE_CONVICTION = 3
         bullish = []
         bearish = []
         neutral = []
@@ -384,7 +384,8 @@ class SignalAggregator:
         pre_modifier_confidence = raw_confidence  # Save for penalty floor
 
         # 7a: Polarization penalty (high polarization = reduce size)
-        polarization_penalty = 1.0 - (polarization * 0.4)
+        # Was 0.4 — too aggressive. Disagreement can be healthy (3 vs 2 teams)
+        polarization_penalty = 1.0 - (polarization * 0.2)
         confidence *= polarization_penalty
 
         # 7b: Macro regime gate
@@ -410,7 +411,7 @@ class SignalAggregator:
             or (consensus < 0.5 and polarization > 0.5)
         )
         if close_call:
-            confidence *= 0.85  # Reduce to 85% on close calls (was 0.75 — too aggressive)
+            confidence *= 0.92  # Was 0.85 — light touch on close calls, let the risk manager decide
             alerts.append(AggregationAlert(
                 "CLOSE_CALL", "MEDIUM",
                 f"Close call — directional strength {directional_strength:.2f}, consensus {consensus:.0%}.",
@@ -621,18 +622,18 @@ class SignalAggregator:
         # History: March 2020 (F&G=9, CRISIS) was the best buy ever. Don't kill contrarian signals.
         if self._regime == "crisis":
             if macro_is_bearish and aggregate_direction == "bullish":
-                confidence *= 0.65  # Moderate, not crush (was 0.3 → 0.65)
+                confidence *= 0.80  # Was 0.65 — contrarian in crisis = historically best trades
                 alerts.append(AggregationAlert(
-                    "REGIME_OVERRIDE", "HIGH",
-                    "CRISIS regime + Macro BEARISH. Bullish signal moderated (not killed — contrarian may be right).",
+                    "REGIME_OVERRIDE", "MEDIUM",
+                    "CRISIS + Macro BEARISH vs bullish aggregate. Light moderation — March 2020 was contrarian.",
                 ))
-            # In crisis, reduce position size but don't prevent trading
-            confidence *= 0.75  # Was 0.5 → 0.75
+            # Crisis = reduce sizing through position sizing, NOT by killing confidence
+            confidence *= 0.90  # Was 0.75 — let position sizing handle risk, not signal killing
 
         # Bear regime: Macro moderates, doesn't veto
         elif self._regime == "bear":
             if macro_is_bearish and macro_conviction >= 7 and aggregate_direction == "bullish":
-                confidence *= 0.70  # Was 0.5 → 0.70
+                confidence *= 0.82  # Was 0.70 — bears create the best entries, don't crush them
                 alerts.append(AggregationAlert(
                     "REGIME_CONFLICT", "HIGH",
                     f"BEAR regime + Macro BEARISH (conv {macro_conviction}). Bullish signal moderated.",
@@ -643,7 +644,7 @@ class SignalAggregator:
             (macro_is_bearish and aggregate_direction == "bullish") or
             (not macro_is_bearish and aggregate_direction == "bearish")
         ):
-            confidence *= 0.85  # Was 0.7 → 0.85
+            confidence *= 0.90  # Mild dissent penalty — macro is one view among many
             alerts.append(AggregationAlert(
                 "MACRO_DISSENT", "MEDIUM",
                 f"Macro high-conviction ({macro_conviction}) dissent. Aggregate moderated.",
@@ -688,19 +689,19 @@ class SignalAggregator:
         )
 
         if tech_opposes and tf_alignment == "CONFLICTING":
-            confidence *= 0.6
+            confidence *= 0.75  # Was 0.6 — technical conflict is a warning, not a veto
             alerts.append(AggregationAlert(
                 "TECHNICAL_VETO", "HIGH",
                 f"Technical opposes with CONFLICTING timeframes. Poor entry timing.",
             ))
         elif tech_opposes and tech_conviction >= 7:
-            confidence *= 0.75
+            confidence *= 0.85  # Was 0.75 — let other teams override technical
             alerts.append(AggregationAlert(
                 "TECHNICAL_DISSENT", "MEDIUM",
                 f"Technical high-conviction ({tech_conviction}) dissent against {aggregate_direction}.",
             ))
         elif tech_conviction <= 3:
-            confidence *= 0.85
+            confidence *= 0.92  # Was 0.85 — weak technical is just low info, not a negative signal
             alerts.append(AggregationAlert(
                 "WEAK_TECHNICAL", "LOW",
                 f"Technical has very low conviction ({tech_conviction}). No clear setup.",

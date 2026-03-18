@@ -253,11 +253,15 @@ class CROAgent(BaseLLMCaller):
         This fixes the core problem: LLM consistently sets thresholds too high,
         killing 98.5% of signals before they reach execution.
         """
+        # Lowered from original (0.55-0.65 range) to let more signals through.
+        # The aggregator's modifier stack already applies -15 to -40% penalties,
+        # so a 0.50 floor after modifiers is still a meaningful threshold.
+        # Research: optimal min consensus is 50% (Lopez de Prado, 2018)
         caps = {
-            MarketRegime.BULL:    {"min_signal_confidence": 0.55, "min_consensus_ratio": 0.55},
-            MarketRegime.RANGING: {"min_signal_confidence": 0.55, "min_consensus_ratio": 0.60},
-            MarketRegime.BEAR:    {"min_signal_confidence": 0.55, "min_consensus_ratio": 0.60},
-            MarketRegime.CRISIS:  {"min_signal_confidence": 0.60, "min_consensus_ratio": 0.65},
+            MarketRegime.BULL:    {"min_signal_confidence": 0.45, "min_consensus_ratio": 0.45},
+            MarketRegime.RANGING: {"min_signal_confidence": 0.48, "min_consensus_ratio": 0.50},
+            MarketRegime.BEAR:    {"min_signal_confidence": 0.48, "min_consensus_ratio": 0.50},
+            MarketRegime.CRISIS:  {"min_signal_confidence": 0.50, "min_consensus_ratio": 0.55},
         }
         regime_caps = caps.get(regime, caps[MarketRegime.RANGING])
 

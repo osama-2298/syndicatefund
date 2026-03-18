@@ -85,8 +85,8 @@ class Settings(BaseSettings):
     # ── Platform ──
     paper_trading: bool = True
     log_level: str = "INFO"
-    max_coins_per_cycle: int = 10
-    min_volume_24h: float = 1_000_000
+    max_coins_per_cycle: int = 12
+    min_volume_24h: float = 250_000  # Was $1M — opened up to find mid-cap gems
     performance_history_path: str = ""
 
     # ── Decision Mode ──

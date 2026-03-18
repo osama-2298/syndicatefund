@@ -91,14 +91,16 @@ def compute_coin_scores(all_stats: list[dict], max_candidates: int = 30) -> list
         else:
             daily_range_pct = 0
 
-        if 3 <= daily_range_pct <= 8:
-            vol_score_adj = 1.0
+        # Volatility scoring: reward opportunity, don't penalize it
+        # Mid-cap volatility (8-20%) = where the alpha is
+        if 3 <= daily_range_pct <= 15:
+            vol_score_adj = 1.0  # Sweet spot: enough movement to trade
+        elif 15 < daily_range_pct <= 25:
+            vol_score_adj = 0.8  # High vol = still tradeable, slight discount
         elif 1 <= daily_range_pct < 3:
-            vol_score_adj = daily_range_pct / 3
-        elif 8 < daily_range_pct <= 15:
-            vol_score_adj = max(0.3, 1.0 - (daily_range_pct - 8) / 14)
-        elif daily_range_pct > 15:
-            vol_score_adj = 0.2
+            vol_score_adj = daily_range_pct / 3  # Low vol = boring
+        elif daily_range_pct > 25:
+            vol_score_adj = 0.5  # Extreme vol = risky but still interesting
         else:
             vol_score_adj = 0.1
 
@@ -152,10 +154,12 @@ class COOAgent(BaseLLMCaller):
         "- If a chain is seeing TVL growth, its token deserves attention.\n"
         "- Diversify across sectors: don't pick 5 meme coins or 5 L1s.\n\n"
         "REGIME ADJUSTMENTS:\n"
-        "- BULL: More mid/small caps, more momentum plays, 8-10 coins.\n"
-        "- RANGING: Focus on volatile names good for mean-reversion, 6-8 coins.\n"
-        "- BEAR: Stick to top 10 by market cap, high liquidity, 4-6 coins.\n"
-        "- CRISIS: BTC + ETH + maybe 1-2 safe havens. Max 4 coins.\n\n"
+        "- BULL: Aggressive — momentum plays, mid-caps, memes with volume. 10-12 coins.\n"
+        "- RANGING: Mix of mean-reversion and breakout candidates. 8-10 coins.\n"
+        "- BEAR: Contrarian opportunities + strong large caps. 8-10 coins. "
+        "BEAR markets create the BEST asymmetric entries — don't hide in BTC only.\n"
+        "- CRISIS: Asymmetric opportunity. March 2020 F&G=9 was the best buy ever. "
+        "BTC + ETH + 4-6 beaten-down quality alts. 6-8 coins.\n\n"
         "RULES:\n"
         "- Select from the candidate list only.\n"
         "- Keep reasoning to 2-3 sentences.\n"
