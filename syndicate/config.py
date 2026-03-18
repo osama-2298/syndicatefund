@@ -92,7 +92,7 @@ class Settings(BaseSettings):
     # ── Decision Mode ──
     # "every_cycle": make trading decisions every 4h cycle (original behavior)
     # "daily": collect data every 4h, but only execute trades at 00:00 UTC cycle
-    decision_mode: str = "daily"
+    decision_mode: str = "every_cycle"
 
     # ── Paths ──
     project_root: Path = Field(default_factory=lambda: Path(__file__).parent.parent)
