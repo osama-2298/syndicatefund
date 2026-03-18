@@ -50,6 +50,59 @@ SYMBOL_MAP: dict[str, str] = {
     "AR": "ARUSDT", "ARWEAVE": "ARUSDT",
     "HBAR": "HBARUSDT",
     "TRUMP": "TRUMPUSDT",
+    # Expanded: mid-caps and emerging coins the fund should discover
+    "FLOKI": "FLOKIUSDT",
+    "GRT": "GRTUSDT", "GRAPH": "GRTUSDT",
+    "ALGO": "ALGOUSDT", "ALGORAND": "ALGOUSDT",
+    "XLM": "XLMUSDT", "STELLAR": "XLMUSDT",
+    "LTC": "LTCUSDT", "LITECOIN": "LTCUSDT",
+    "ICP": "ICPUSDT",
+    "VET": "VETUSDT", "VECHAIN": "VETUSDT",
+    "SAND": "SANDUSDT", "SANDBOX": "SANDUSDT",
+    "MANA": "MANAUSDT", "DECENTRALAND": "MANAUSDT",
+    "AXS": "AXSUSDT", "AXIE": "AXSUSDT",
+    "GALA": "GALAUSDT",
+    "ROSE": "ROSEUSDT", "OASIS": "ROSEUSDT",
+    "ONE": "ONEUSDT", "HARMONY": "ONEUSDT",
+    "EGLD": "EGLDUSDT", "ELROND": "EGLDUSDT",
+    "IMX": "IMXUSDT", "IMMUTABLE": "IMXUSDT",
+    "RNDR": "RENDERUSDT",
+    "CRV": "CRVUSDT", "CURVE": "CRVUSDT",
+    "SNX": "SNXUSDT", "SYNTHETIX": "SNXUSDT",
+    "COMP": "COMPUSDT", "COMPOUND": "COMPUSDT",
+    "LDO": "LDOUSDT", "LIDO": "LDOUSDT",
+    "RPL": "RPLUSDT", "ROCKETPOOL": "RPLUSDT",
+    "SSV": "SSVUSDT",
+    "ENS": "ENSUSDT",
+    "DYDX": "DYDXUSDT",
+    "GMX": "GMXUSDT",
+    "JTO": "JTOUSDT", "JITO": "JTOUSDT",
+    "JUP": "JUPUSDT", "JUPITER": "JUPUSDT",
+    "W": "WUSDT", "WORMHOLE": "WUSDT",
+    "STRK": "STRKUSDT", "STARKNET": "STRKUSDT",
+    "PYTH": "PYTHUSDT",
+    "ONDO": "ONDOUSDT",
+    "ENA": "ENAUSDT", "ETHENA": "ENAUSDT",
+    "EIGEN": "EIGENUSDT", "EIGENLAYER": "EIGENUSDT",
+    "ZRO": "ZROUSDT", "LAYERZERO": "ZROUSDT",
+    "IO": "IOUSDT",
+    "NOT": "NOTUSDT", "NOTCOIN": "NOTUSDT",
+    "TON": "TONUSDT", "TONCOIN": "TONUSDT",
+    "NEIRO": "NEIROUSDT",
+    "TURBO": "TURBOUSDT",
+    "PEOPLE": "PEOPLEUSDT",
+    "ORDI": "ORDIUSDT",
+    "SATS": "1000SATSUSDT",
+    "WLD": "WLDUSDT", "WORLDCOIN": "WLDUSDT",
+    "BLUR": "BLURUSDT",
+    "TRB": "TRBUSDT", "TELLOR": "TRBUSDT",
+    "MEME": "MEMEUSDT",
+    "ACE": "ACEUSDT",
+    "BOME": "BOMEUSDT",
+    "ETHFI": "ETHFIUSDT",
+    "PIXEL": "PIXELUSDT",
+    "PORTAL": "PORTALUSDT",
+    "AEVO": "AEVOUSDT",
 }
 
 
@@ -100,14 +153,14 @@ def detect_hot_coins(
     # ── Source 2: CoinGecko trending ──
     trending = intel.get("trending", [])
 
-    for coin in trending[:10]:
+    for coin in trending[:15]:  # Was 10 — check more trending coins
         sym = coin.get("symbol", "")
         binance_sym = _to_binance_symbol(sym)
         if binance_sym is None or binance_sym in selected_set:
             continue
         rank = coin.get("market_cap_rank")
-        # Only consider coins with reasonable market cap (rank < 200)
-        if rank and rank < 200:
+        # Expanded from rank < 200 to < 500 — emerging coins have opportunity
+        if rank and rank < 500:
             if binance_sym not in candidates:
                 candidates[binance_sym] = {"score": 0, "reasons": [], "sources": set()}
             candidates[binance_sym]["score"] += 5
@@ -129,6 +182,39 @@ def detect_hot_coins(
                         f"in top Reddit post ({score_val} upvotes)"
                     )
                     candidates[binance_sym_mapped]["sources"].add("reddit_top")
+
+    # ── Source 4: DeFi TVL movers — chains gaining capital ──
+    defi_summary = intel.get("defi_summary", {})
+    top_chains = defi_summary.get("top_5_chains", [])
+    for chain in top_chains:
+        chain_name = chain.get("name", "").upper()
+        binance_sym = _to_binance_symbol(chain_name)
+        if binance_sym is None or binance_sym in selected_set:
+            continue
+        change = chain.get("change_1d", 0)
+        if isinstance(change, (int, float)) and change > 3:  # >3% daily TVL growth
+            if binance_sym not in candidates:
+                candidates[binance_sym] = {"score": 0, "reasons": [], "sources": set()}
+            candidates[binance_sym]["score"] += 4
+            candidates[binance_sym]["reasons"].append(f"TVL growing {change:.1f}% in 24h")
+            candidates[binance_sym]["sources"].add("defi_tvl")
+
+    # ── Source 5: News sentiment — coins in the news with positive sentiment ──
+    news = intel.get("news_sentiment", {})
+    if isinstance(news, dict):
+        news_coins = news.get("coin_mentions", news.get("trending_coins", {}))
+        if isinstance(news_coins, dict):
+            for ticker, data in news_coins.items():
+                binance_sym = _to_binance_symbol(ticker)
+                if binance_sym is None or binance_sym in selected_set:
+                    continue
+                mention_count = data if isinstance(data, (int, float)) else data.get("count", 0)
+                if mention_count >= 2:
+                    if binance_sym not in candidates:
+                        candidates[binance_sym] = {"score": 0, "reasons": [], "sources": set()}
+                    candidates[binance_sym]["score"] += mention_count * 1.5
+                    candidates[binance_sym]["reasons"].append(f"in crypto news {int(mention_count)}x")
+                    candidates[binance_sym]["sources"].add("news")
 
     # ── Filter: must appear in at least 1 source with meaningful score ──
     hot = []

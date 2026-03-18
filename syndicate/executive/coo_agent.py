@@ -55,7 +55,7 @@ COIN_SELECTION_TOOL = {
 }
 
 
-def compute_coin_scores(all_stats: list[dict], max_candidates: int = 30) -> list[CoinScore]:
+def compute_coin_scores(all_stats: list[dict], max_candidates: int = 50) -> list[CoinScore]:
     """
     Score each coin by opportunity using Binance data.
     Returns top candidates sorted by composite score descending.
@@ -224,13 +224,13 @@ class COOAgent(BaseLLMCaller):
 
         # ── Source 1: Binance opportunity scores ──
         prompt += (
-            f"=== BINANCE OPPORTUNITY SCORES (top 25) ===\n"
+            f"=== BINANCE OPPORTUNITY SCORES (top 40) ===\n"
             f"{'#':<4} {'Symbol':<12} {'Score':>7} {'Volume':>7} "
             f"{'Volat':>7} {'Mom':>7}\n"
             f"{'─' * 48}\n"
         )
 
-        for i, coin in enumerate(scored[:25], 1):
+        for i, coin in enumerate(scored[:40], 1):
             mom_sign = "+" if coin.momentum_score > 0 else ""
             prompt += (
                 f"{i:<4} {coin.symbol:<12} {coin.composite_score:>7.3f} "
@@ -300,9 +300,27 @@ class COOAgent(BaseLLMCaller):
                 prompt += f"  Sector Weights: {', '.join(parts)}\n"
             prompt += "  Follow the CEO's directive when selecting coins.\n"
 
+        # ── Source 6: Opportunity Scanner (gainers, volume spikes, trending) ──
+        opp_scan = extra.get("opportunity_scan", {}) if extra else {}
+        movers = opp_scan.get("movers", [])
+        if movers:
+            prompt += f"\n=== OPPORTUNITY SCANNER — LIVE DISCOVERIES ===\n"
+            prompt += f"These coins are showing unusual activity RIGHT NOW:\n"
+            for m in movers[:15]:
+                base = m["symbol"].replace("USDT", "")
+                reason = " + ".join(m.get("reasons", [])[:2])
+                sources = ", ".join(m.get("sources", []))
+                prompt += f"  {base:<10} {reason:<50} [{sources}]\n"
+            prompt += (
+                "\nCoins appearing in the opportunity scanner deserve EXTRA consideration. "
+                "These are LIVE signals — momentum, volume spikes, or social buzz happening NOW.\n"
+            )
+
         prompt += (
             f"\nSelect {max_coins} symbols. Use ALL the intelligence above. "
             f"Always include BTC + ETH. Diversify sectors. "
-            f"Prioritize coins that appear in MULTIPLE sources and align with the CEO's strategy."
+            f"Prioritize coins that appear in MULTIPLE sources and align with the CEO's strategy. "
+            f"DON'T just pick the top market caps — actively seek out interesting mid-caps "
+            f"and coins showing unusual activity in the opportunity scanner."
         )
         return prompt

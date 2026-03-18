@@ -778,7 +778,7 @@ def run_pipeline(
             return
 
         # ═══════════════════════════════════════
-        # STEP 3: COO — Coin Selection (guided by CEO strategy)
+        # STEP 3: COO — Coin Selection (guided by CEO strategy + opportunity scanner)
         # ═══════════════════════════════════════
         section("COO — Coin Selection")
 
@@ -787,6 +787,29 @@ def run_pipeline(
             quote_asset="USDT",
             min_volume=settings.min_volume_24h,
         )
+
+        # Run opportunity scanner — actively discovers movers, volume spikes, trending
+        try:
+            from syndicate.data.opportunity_scanner import OpportunityScanner
+            with OpportunityScanner() as scanner:
+                opportunities = scanner.scan(min_volume=settings.min_volume_24h)
+            movers = opportunities.get("movers", [])
+            if movers:
+                print(f"    {c('SCANNER', C.B_CYAN)} Found {len(movers)} opportunities "
+                      f"({len(opportunities.get('gainers', []))} gainers, "
+                      f"{len(opportunities.get('volume_spikes', []))} vol spikes, "
+                      f"{len(opportunities.get('trending', []))} trending)")
+                # Show top 5 discovered opportunities
+                for m in movers[:5]:
+                    base = m["symbol"].replace("USDT", "")
+                    reason = " + ".join(m["reasons"][:2])
+                    sources = ", ".join(m["sources"])
+                    print(f"      {c(base, C.B_WHITE):>8}  {dim(reason)}  [{dim(sources)}]")
+            intel["opportunity_scan"] = opportunities
+        except Exception as e:
+            logger.warning("opportunity_scanner_failed", error=str(e))
+            intel["opportunity_scan"] = {}
+
         # Pass CEO's focus strategy to COO
         intel["ceo_focus_strategy"] = directive.focus_strategy
         intel["ceo_sector_weights"] = directive.sector_weights
@@ -809,7 +832,7 @@ def run_pipeline(
         # STEP 3b: Hot Coin Injection
         # ═══════════════════════════════════════
         from syndicate.data.hot_coins import detect_hot_coins
-        hot_additions = detect_hot_coins(intel, selected_coins, max_additions=3)
+        hot_additions = detect_hot_coins(intel, selected_coins, max_additions=5)  # Was 3
 
         if hot_additions:
             # Verify hot coins exist on Binance AND aren't already selected
