@@ -254,6 +254,7 @@ class ResearchReportRow(Base):
 
 
 class PipelineEventType(str, PyEnum):
+    """Known event types — used for validation, not as a DB enum."""
     CEO_DIRECTIVE = "ceo_directive"
     COO_SELECTION = "coo_selection"
     CRO_RULES = "cro_rules"
@@ -264,6 +265,7 @@ class PipelineEventType(str, PyEnum):
     TRADE_EXECUTED = "trade_executed"
     TRADE_CLOSED = "trade_closed"
     CEO_REVIEW = "ceo_review"
+    CYCLE_END = "cycle_end"
 
 
 class PipelineEventRow(Base):
@@ -276,7 +278,7 @@ class PipelineEventRow(Base):
 
     id         = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     cycle_id   = Column(Integer, ForeignKey("cycles.id"), nullable=True)
-    event_type = Column(Enum(PipelineEventType), nullable=False)
+    event_type = Column(String, nullable=False)  # Plain string — not a PG enum
     timestamp  = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     stage      = Column(String, nullable=False)
     actor      = Column(String, nullable=False)

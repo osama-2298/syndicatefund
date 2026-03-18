@@ -128,7 +128,7 @@ def emit_event(
 
 async def persist_events(cycle_id: int | None, collector: EventCollector) -> None:
     """Bulk-insert all events from the collector to the database."""
-    from syndicate.db.models import PipelineEventRow, PipelineEventType
+    from syndicate.db.models import PipelineEventRow
     from syndicate.db.session import async_session_factory
 
     events = collector.events
@@ -138,13 +138,9 @@ async def persist_events(cycle_id: int | None, collector: EventCollector) -> Non
     try:
         async with async_session_factory() as session:
             for ev in events:
-                try:
-                    evt = PipelineEventType(ev.event_type)
-                except ValueError:
-                    continue
                 row = PipelineEventRow(
                     cycle_id=cycle_id,
-                    event_type=evt,
+                    event_type=ev.event_type,
                     timestamp=datetime.fromisoformat(ev.timestamp),
                     stage=ev.stage,
                     actor=ev.actor,

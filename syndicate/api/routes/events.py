@@ -32,7 +32,7 @@ def _row_to_response(row: PipelineEventRow) -> EventResponse:
     return EventResponse(
         id=str(row.id),
         cycle_id=row.cycle_id,
-        event_type=row.event_type.value,
+        event_type=row.event_type if isinstance(row.event_type, str) else row.event_type.value,
         timestamp=row.timestamp.isoformat(),
         stage=row.stage,
         actor=row.actor,
@@ -55,11 +55,7 @@ async def list_events(
     if cycle_id is not None:
         query = query.where(PipelineEventRow.cycle_id == cycle_id)
     if event_type is not None:
-        try:
-            evt = PipelineEventType(event_type)
-            query = query.where(PipelineEventRow.event_type == evt)
-        except ValueError:
-            pass
+        query = query.where(PipelineEventRow.event_type == event_type)
 
     query = query.order_by(desc(PipelineEventRow.timestamp)).limit(limit)
     result = await db.execute(query)

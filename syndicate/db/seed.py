@@ -107,6 +107,27 @@ async def create_tables() -> None:
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+        # Migrate pipeline_events.event_type from enum to varchar if needed
+        await conn.execute(
+            __import__("sqlalchemy").text("""
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'pipeline_events'
+                        AND data_type = 'USER-DEFINED'
+                        AND column_name = 'event_type'
+                    ) THEN
+                        ALTER TABLE pipeline_events
+                            ALTER COLUMN event_type TYPE VARCHAR
+                            USING event_type::VARCHAR;
+                        DROP TYPE IF EXISTS pipelineeventtype;
+                    END IF;
+                END $$;
+            """)
+        )
+
     print("  Tables created (or already exist).")
 
 
