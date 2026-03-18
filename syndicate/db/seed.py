@@ -165,9 +165,12 @@ async def seed() -> None:
 
 def main() -> None:
     print("\n  Seeding Syndicate database...\n")
-    asyncio.run(seed())
-    # Dispose engine to close connections cleanly
-    asyncio.run(engine.dispose())
+
+    async def _seed_and_cleanup():
+        await seed()
+        await engine.dispose()
+
+    asyncio.run(_seed_and_cleanup())
 
 
 if __name__ == "__main__":

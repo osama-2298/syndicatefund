@@ -253,6 +253,38 @@ class ResearchReportRow(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
 
 
+class PipelineEventType(str, PyEnum):
+    CEO_DIRECTIVE = "ceo_directive"
+    COO_SELECTION = "coo_selection"
+    CRO_RULES = "cro_rules"
+    TEAM_SIGNAL = "team_signal"
+    AGGREGATION_RESULT = "aggregation_result"
+    DISAGREEMENT = "disagreement"
+    VERDICT = "verdict"
+    TRADE_EXECUTED = "trade_executed"
+    TRADE_CLOSED = "trade_closed"
+    CEO_REVIEW = "ceo_review"
+
+
+class PipelineEventRow(Base):
+    __tablename__ = "pipeline_events"
+    __table_args__ = (
+        Index("ix_pipeline_events_cycle_id", "cycle_id"),
+        Index("ix_pipeline_events_event_type", "event_type"),
+        Index("ix_pipeline_events_timestamp", "timestamp"),
+    )
+
+    id         = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    cycle_id   = Column(Integer, ForeignKey("cycles.id"), nullable=True)
+    event_type = Column(Enum(PipelineEventType), nullable=False)
+    timestamp  = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    stage      = Column(String, nullable=False)
+    actor      = Column(String, nullable=False)
+    title      = Column(String, nullable=False)
+    detail     = Column(JSONB, nullable=True)
+    elapsed_ms = Column(Integer, nullable=True)
+
+
 class AgentCommRow(Base):
     __tablename__ = "agent_comms"
     __table_args__ = (
