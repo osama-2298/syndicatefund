@@ -1,10 +1,14 @@
 """Crypto Macro Agent — reads crypto-native macro conditions. REAL ANALYST."""
 
 from __future__ import annotations
+from pathlib import Path
 from typing import Any
 from syndicate.agents.base import BaseAgent
+from syndicate.agents.team_manager import _load_manager_knowledge
 from syndicate.data.models import TeamType
 from syndicate.agents.macro.macro_agent import compute_macro_scores
+
+_TRADING_KB = _load_manager_knowledge(Path(__file__).parent / "trading_knowledge.md")
 
 
 class CryptoMacroAgent(BaseAgent):
@@ -14,7 +18,7 @@ class CryptoMacroAgent(BaseAgent):
 
     @property
     def system_prompt(self) -> str:
-        return (
+        base = (
             "You are a macro strategist at a crypto hedge fund. "
             "You read the big picture: total market cap, BTC dominance, capital rotation.\n\n"
             "THINK like a macro strategist:\n"
@@ -28,6 +32,9 @@ class CryptoMacroAgent(BaseAgent):
             "Use CoinPaprika data for cross-validation when available.\n\n"
             "You MUST pick BULLISH or BEARISH. Your signal applies to ALL positions."
         )
+        if _TRADING_KB:
+            base += f"\n=== TRADING KNOWLEDGE ===\n{_TRADING_KB}\n"
+        return base
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:
         global_data = market_data.get("global_data", {})

@@ -3,6 +3,7 @@ import type {
   RegisterRequest, RegisterResponse, PipelineEvent,
   BoardSession, CeoPost, ResearchReport, MoltbookInfo,
   TeamPerf, SignalItem, AgentStats, TradeEntry, AgentComm,
+  ContributorProfile,
 } from './types';
 
 export interface CycleSummary {
@@ -102,4 +103,26 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  // Profile / Contributor
+  getProfile: (token: string) => fetchClient<ContributorProfile>('/api/v1/contributors/me', {
+    headers: { Authorization: `Bearer ${token}` },
+  }),
+  pauseContribution: (token: string) => fetchClient<any>('/api/v1/contributors/me/pause', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  }),
+  resumeContribution: (token: string) => fetchClient<any>('/api/v1/contributors/me/resume', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  }),
+  cancelContribution: (token: string) => fetchClient<any>('/api/v1/contributors/me/cancel', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  }),
+  // Arbitrage
+  getArbStatus: () => fetchClient<any>('/api/v1/arbitrage/status'),
+  getArbFundingRates: () => fetchClient<any>('/api/v1/arbitrage/funding-rates'),
+  getArbOpportunities: (limit = 50) => fetchClient<any>(`/api/v1/arbitrage/opportunities?limit=${limit}`),
+  getArbStats: () => fetchClient<any>('/api/v1/arbitrage/stats'),
+  triggerFundingRateScan: () => fetchClient<any>('/api/v1/arbitrage/funding-rates/scan', { method: 'POST' }),
 };

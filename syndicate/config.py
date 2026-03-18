@@ -94,6 +94,18 @@ class Settings(BaseSettings):
     # "daily": collect data every 4h, but only execute trades at 00:00 UTC cycle
     decision_mode: str = "every_cycle"
 
+    # ── Arbitrage ──
+    arb_enabled: bool = True
+    arb_paper_trading: bool = True
+    arb_initial_cash: float = 50_000.0
+    arb_funding_rate_enabled: bool = True
+    arb_stat_arb_enabled: bool = False  # Not viable in bear markets (Sharpe < 0.5)
+    arb_cross_exchange_enabled: bool = False  # Needs multi-exchange API keys
+    arb_min_spread_pct: float = 0.02  # Minimum spread to flag as opportunity (0.02%)
+    arb_scan_symbols: list[str] = [
+        "BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "ADA", "AVAX", "LINK", "SUI",
+    ]
+
     # ── Paths ──
     project_root: Path = Field(default_factory=lambda: Path(__file__).parent.parent)
 
@@ -132,6 +144,18 @@ class Settings(BaseSettings):
         if self.performance_history_path:
             return self.performance_history_path
         return str(self.data_dir / "performance_history.json")
+
+    @property
+    def arb_portfolio_state_path(self) -> str:
+        return str(self.data_dir / "arb_portfolio_state.json")
+
+    @property
+    def arb_opportunities_path(self) -> str:
+        return str(self.data_dir / "arb_opportunities.json")
+
+    @property
+    def funding_rate_scan_path(self) -> str:
+        return str(self.data_dir / "funding_rate_scan.json")
 
     @field_validator("decision_mode")
     @classmethod

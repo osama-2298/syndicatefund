@@ -1,9 +1,13 @@
 """Smart Money Sentiment Agent — derivatives + institutional positioning. REAL ANALYST."""
 
 from __future__ import annotations
+from pathlib import Path
 from typing import Any
 from syndicate.agents.base import BaseAgent
+from syndicate.agents.team_manager import _load_manager_knowledge
 from syndicate.data.models import TeamType
+
+_TRADING_KB = _load_manager_knowledge(Path(__file__).parent / "trading_knowledge.md")
 
 
 class SmartMoneySentimentAgent(BaseAgent):
@@ -13,7 +17,7 @@ class SmartMoneySentimentAgent(BaseAgent):
 
     @property
     def system_prompt(self) -> str:
-        return (
+        base = (
             "You are a derivatives analyst at a crypto hedge fund.\n\n"
             "ANALYZE funding, positioning, and taker flow to read institutional behavior.\n\n"
             "RESEARCH-BACKED EVIDENCE:\n"
@@ -32,6 +36,9 @@ class SmartMoneySentimentAgent(BaseAgent):
             "NO DERIVATIVES DATA: Give conviction 0. Non-negotiable.\n"
             "You MUST pick BULLISH or BEARISH."
         )
+        if _TRADING_KB:
+            base += f"\n=== TRADING KNOWLEDGE ===\n{_TRADING_KB}\n"
+        return base
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:
         smart_money = market_data.get("smart_money")
@@ -80,6 +87,25 @@ class SmartMoneySentimentAgent(BaseAgent):
             base = self.profile.symbol.replace("USDT", "")
             prompt += f"** NO DERIVATIVES DATA for {base}. No Binance futures exist for this coin. **\n"
             prompt += f"Give conviction 0. You cannot analyze what you cannot see.\n"
+
+        # Cross-exchange funding rates (from multi-exchange scan)
+        cross_funding = market_data.get("cross_exchange_funding")
+        if cross_funding:
+            prompt += "\n=== CROSS-EXCHANGE FUNDING RATES ===\n"
+            rates = cross_funding.get("rates", {})
+            for exchange, rate in sorted(rates.items()):
+                prompt += f"  {exchange.upper()}: {rate:+.4f}%\n"
+            spread = cross_funding.get("spread_pct", 0)
+            ann = cross_funding.get("annualized_spread_pct", 0)
+            if spread > 0.01:
+                highest = cross_funding.get("highest", {})
+                lowest = cross_funding.get("lowest", {})
+                prompt += (
+                    f"\n  SPREAD: {spread:.4f}% ({ann:.1f}% annualized)\n"
+                    f"  Highest: {highest.get('exchange', '?').upper()} ({highest.get('rate_pct', 0):+.4f}%)\n"
+                    f"  Lowest: {lowest.get('exchange', '?').upper()} ({lowest.get('rate_pct', 0):+.4f}%)\n"
+                    f"  ** Cross-exchange funding divergence detected. Carry arb potential. **\n"
+                )
 
         prompt += "\nWhat are the smart money players telling you? Form your thesis."
         return prompt

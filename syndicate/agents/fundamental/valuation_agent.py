@@ -1,9 +1,13 @@
 """Valuation Agent — is this asset cheap or expensive? REAL ANALYST."""
 
 from __future__ import annotations
+from pathlib import Path
 from typing import Any
 from syndicate.agents.base import BaseAgent
+from syndicate.agents.team_manager import _load_manager_knowledge
 from syndicate.data.models import TeamType
+
+_TRADING_KB = _load_manager_knowledge(Path(__file__).parent / "trading_knowledge.md")
 
 
 class ValuationAgent(BaseAgent):
@@ -13,7 +17,7 @@ class ValuationAgent(BaseAgent):
 
     @property
     def system_prompt(self) -> str:
-        return (
+        base = (
             "You are a fundamental analyst valuing crypto assets like a Benjamin Graham for crypto.\n\n"
             "ANALYZE the data — form a VALUE THESIS with margin of safety.\n\n"
             "Key considerations:\n"
@@ -32,6 +36,9 @@ class ValuationAgent(BaseAgent):
             "You MUST pick BULLISH (undervalued) or BEARISH (overvalued).\n"
             "Conviction 0 only if no CoinGecko data."
         )
+        if _TRADING_KB:
+            base += f"\n=== TRADING KNOWLEDGE ===\n{_TRADING_KB}\n"
+        return base
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:
         coingecko = market_data.get("coingecko_coin", {})

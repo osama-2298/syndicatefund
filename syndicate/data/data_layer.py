@@ -103,6 +103,7 @@ class MarketSnapshot:
         self.prediction_markets: dict | None = None  # Polymarket (Fed, crypto, economy)
         self.whale_flows: dict | None = None  # Exchange wallet balances
         self.news_sentiment: dict | None = None  # CryptoPanic news sentiment
+        self.cross_exchange_rates: dict | None = None  # Multi-exchange funding rate scan
 
         # Metadata
         self.fetch_times: dict[str, float] = {}
@@ -160,6 +161,16 @@ class MarketSnapshot:
             if base in cs:
                 reddit_coin_sentiment = cs[base]
 
+        # Cross-exchange funding rate data for this symbol
+        cross_exchange_funding = None
+        if self.cross_exchange_rates:
+            all_rates = self.cross_exchange_rates.get("all_rates", [])
+            base = symbol.replace("USDT", "")
+            for rate_data in all_rates:
+                if rate_data.get("symbol") == base:
+                    cross_exchange_funding = rate_data
+                    break
+
         return {
             "fear_greed": self.fear_greed,
             "reddit_sentiment": self.reddit_sentiment,
@@ -168,6 +179,7 @@ class MarketSnapshot:
             "trending": self.trending_coins,
             "coingecko_coin": coin.coingecko,
             "smart_money": smart_money,
+            "cross_exchange_funding": cross_exchange_funding,
             "indicators": coin.indicators,
             "stats_24h": coin.stats_24h,
         }
@@ -291,6 +303,14 @@ MarketSnapshot._DATA_RESOLVERS = {
     "paprika_coin": lambda snap, coin, sym: coin.paprika,
     "chain_tvl": lambda snap, coin, sym: coin.chain_tvl,
     "indicators": lambda snap, coin, sym: coin.indicators_4h,  # Alias
+    "cross_exchange_funding": lambda snap, coin, sym: (
+        next(
+            (r for r in (snap.cross_exchange_rates or {}).get("all_rates", [])
+             if r.get("symbol") == sym.replace("USDT", "")),
+            None,
+        )
+    ),
+    "cross_exchange_rates": lambda snap, coin, sym: snap.cross_exchange_rates,
 }
 
 
@@ -466,7 +486,19 @@ class DataLayer:
             finally:
                 wt.close()
 
-        with ThreadPoolExecutor(max_workers=6) as pool:
+        def _load_cross_exchange_rates():
+            """Load latest cross-exchange funding rate scan from disk (no API calls)."""
+            import json
+            from pathlib import Path
+            from syndicate.config import settings
+            try:
+                path = Path(settings.funding_rate_scan_path)
+                if path.exists():
+                    snapshot.cross_exchange_rates = json.loads(path.read_text())
+            except Exception as e:
+                snapshot.errors.append(f"Cross-exchange rates: {str(e)[:60]}")
+
+        with ThreadPoolExecutor(max_workers=7) as pool:
             enrichment_futures = [
                 pool.submit(_enrich_coingecko),
                 pool.submit(_enrich_blockchain),
@@ -474,6 +506,7 @@ class DataLayer:
                 pool.submit(_enrich_derivatives),
                 pool.submit(_enrich_coinpaprika),
                 pool.submit(_enrich_whales),
+                pool.submit(_load_cross_exchange_rates),
             ]
             # Wait for all to complete
             for fut in enrichment_futures:

@@ -1,10 +1,14 @@
 """Market Sentiment Agent — Fear & Greed + crowd positioning. REAL ANALYST with historical data."""
 
 from __future__ import annotations
+from pathlib import Path
 from typing import Any
 from syndicate.agents.base import BaseAgent
+from syndicate.agents.team_manager import _load_manager_knowledge
 from syndicate.data.models import TeamType, TechnicalIndicators
 from syndicate.agents.sentiment.sentiment_agent import compute_sentiment_scores
+
+_TRADING_KB = _load_manager_knowledge(Path(__file__).parent / "trading_knowledge.md")
 
 
 class MarketSentimentAgent(BaseAgent):
@@ -14,7 +18,7 @@ class MarketSentimentAgent(BaseAgent):
 
     @property
     def system_prompt(self) -> str:
-        return (
+        base = (
             "You are a market psychologist at a crypto hedge fund, backed by historical data.\n\n"
             "HISTORICAL EVIDENCE (research-backed, from 2018-2026):\n"
             "- F&G 0-10: Sharpe 8.0. Avg 12mo return +440%. ALWAYS preceded major rallies.\n"
@@ -34,6 +38,9 @@ class MarketSentimentAgent(BaseAgent):
             "WHAT WOULD INVALIDATE: 'Contrarian buy invalid if exchange/protocol failure is ONGOING.'\n\n"
             "You MUST pick BULLISH or BEARISH. Conviction 0 only if F&G unavailable."
         )
+        if _TRADING_KB:
+            base += f"\n=== TRADING KNOWLEDGE ===\n{_TRADING_KB}\n"
+        return base
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:
         indicators = market_data.get("indicators")

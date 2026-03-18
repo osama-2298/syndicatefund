@@ -1,9 +1,13 @@
 """Network Health Agent — blockchain fundamentals. REAL ANALYST."""
 
 from __future__ import annotations
+from pathlib import Path
 from typing import Any
 from syndicate.agents.base import BaseAgent
+from syndicate.agents.team_manager import _load_manager_knowledge
 from syndicate.data.models import TeamType
+
+_TRADING_KB = _load_manager_knowledge(Path(__file__).parent / "trading_knowledge.md")
 
 
 class NetworkHealthAgent(BaseAgent):
@@ -13,7 +17,7 @@ class NetworkHealthAgent(BaseAgent):
 
     @property
     def system_prompt(self) -> str:
-        return (
+        base = (
             "You are a blockchain network analyst at a crypto hedge fund. "
             "You read on-chain fundamentals: network power, transaction volume, mempool, block times, TVL.\n\n"
             "ANALYZE the data — think about what it MEANS, not just what the numbers are.\n\n"
@@ -31,6 +35,9 @@ class NetworkHealthAgent(BaseAgent):
             "NO CHAIN DATA: If this coin has no on-chain metrics, give conviction 1-2 at most.\n\n"
             "You MUST pick BULLISH or BEARISH."
         )
+        if _TRADING_KB:
+            base += f"\n=== TRADING KNOWLEDGE ===\n{_TRADING_KB}\n"
+        return base
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:
         btc_onchain = market_data.get("btc_onchain", {})

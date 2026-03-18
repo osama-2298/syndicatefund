@@ -57,6 +57,13 @@ export const STATUS_COLORS: Record<string, string> = {
   fired: 'text-red-400 bg-red-400/10 ring-red-400/30',
 };
 
+export const CONTRIBUTOR_STATUS_COLORS: Record<string, { text: string; bg: string; ring: string }> = {
+  active: { text: 'text-emerald-400', bg: 'bg-emerald-400/10', ring: 'ring-emerald-400/30' },
+  paused: { text: 'text-amber-400', bg: 'bg-amber-400/10', ring: 'ring-amber-400/30' },
+  suspended: { text: 'text-red-400', bg: 'bg-red-400/10', ring: 'ring-red-400/30' },
+  pending: { text: 'text-gray-400', bg: 'bg-gray-400/10', ring: 'ring-gray-400/30' },
+};
+
 export const REGIME_COLORS: Record<string, { color: string; bg: string; ring: string }> = {
   bull: { color: 'text-emerald-400', bg: 'bg-emerald-400/10', ring: 'ring-emerald-400/30' },
   bear: { color: 'text-red-400', bg: 'bg-red-400/10', ring: 'ring-red-400/30' },

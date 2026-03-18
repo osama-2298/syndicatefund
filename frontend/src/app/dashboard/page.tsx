@@ -148,6 +148,7 @@ export default function Dashboard() {
   const [livePrices, setLivePrices] = useState<Record<string, number>>({});
   const [priceFlash, setPriceFlash] = useState<Record<string, 'up' | 'down' | ''>>({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const livePricesRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
@@ -161,7 +162,7 @@ export default function Dashboard() {
       setPortfolio(p);
       setCycles(c);
       setAgents(a);
-      setTrades(Array.isArray(tr) ? tr : []);
+      setTrades(Array.isArray(tr) ? tr : (tr?.trades ?? []));
 
       // Group events by cycle
       const grouped: Record<number, PipelineEvent[]> = {};
@@ -185,7 +186,7 @@ export default function Dashboard() {
         grouped[Number(cid)] = grouped[Number(cid)].reverse();
       }
       setEventsByCycle(grouped);
-    }).finally(() => setLoading(false));
+    }).catch(() => setError(true)).finally(() => setLoading(false));
   }, []);
 
   // Live Binance price polling
@@ -247,6 +248,16 @@ export default function Dashboard() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Activity size={20} className="animate-spin text-syn-accent" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+        <Zap size={36} className="text-white/10" />
+        <p className="text-sm text-syn-muted">Could not load dashboard data</p>
+        <p className="text-xs text-syn-muted/50">Ensure the API server is running on {API_BASE}</p>
       </div>
     );
   }

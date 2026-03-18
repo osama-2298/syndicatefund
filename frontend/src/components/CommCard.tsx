@@ -32,7 +32,7 @@ function getInitials(comm: AgentComm): string {
     const team = cls.replace('manager_', '');
     return team.slice(0, 2).toUpperCase();
   }
-  return comm.agent_name.slice(0, 2).toUpperCase();
+  return (comm.agent_name || '??').slice(0, 2).toUpperCase();
 }
 
 function getTitle(comm: AgentComm): string {

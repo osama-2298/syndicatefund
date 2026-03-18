@@ -9,6 +9,7 @@ export default function ActivityPage() {
   const [cycles, setCycles] = useState<CycleData[]>([]);
   const [eventsByCycle, setEventsByCycle] = useState<Record<number, PipelineEvent[]>>({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -46,13 +47,23 @@ export default function ActivityPage() {
         grouped[Number(cid)] = grouped[Number(cid)].reverse();
       }
       setEventsByCycle(grouped);
-    }).finally(() => setLoading(false));
+    }).catch(() => setError(true)).finally(() => setLoading(false));
   }, []);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Activity size={24} className="animate-spin text-syn-accent" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+        <Activity size={36} className="text-white/10" />
+        <p className="text-sm text-syn-muted">Could not load activity data</p>
+        <p className="text-xs text-syn-muted/50">Ensure the API server is running</p>
       </div>
     );
   }

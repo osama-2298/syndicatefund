@@ -1,9 +1,13 @@
 """Capital Flow Agent — whale flows + DeFi protocol trends. REAL ANALYST."""
 
 from __future__ import annotations
+from pathlib import Path
 from typing import Any
 from syndicate.agents.base import BaseAgent
+from syndicate.agents.team_manager import _load_manager_knowledge
 from syndicate.data.models import TeamType
+
+_TRADING_KB = _load_manager_knowledge(Path(__file__).parent / "trading_knowledge.md")
 
 
 class CapitalFlowAgent(BaseAgent):
@@ -13,7 +17,7 @@ class CapitalFlowAgent(BaseAgent):
 
     @property
     def system_prompt(self) -> str:
-        return (
+        base = (
             "You are a capital flow analyst at a crypto hedge fund. "
             "You track where money is moving: exchange reserves, DeFi protocols, whale wallets.\n\n"
             "ANALYZE the flows — think about what they MEAN for price direction.\n\n"
@@ -30,6 +34,9 @@ class CapitalFlowAgent(BaseAgent):
             "FIRST READING: If whale data has no prior cycle to compare, give conviction 2-3.\n\n"
             "You MUST pick BULLISH or BEARISH."
         )
+        if _TRADING_KB:
+            base += f"\n=== TRADING KNOWLEDGE ===\n{_TRADING_KB}\n"
+        return base
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:
         whale_flows = market_data.get("whale_flows", {})

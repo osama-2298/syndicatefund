@@ -1,9 +1,13 @@
 """Cycle Position Agent — where is this asset in its market cycle? REAL ANALYST."""
 
 from __future__ import annotations
+from pathlib import Path
 from typing import Any
 from syndicate.agents.base import BaseAgent
+from syndicate.agents.team_manager import _load_manager_knowledge
 from syndicate.data.models import TeamType
+
+_TRADING_KB = _load_manager_knowledge(Path(__file__).parent / "trading_knowledge.md")
 
 
 class CyclePositionAgent(BaseAgent):
@@ -13,7 +17,7 @@ class CyclePositionAgent(BaseAgent):
 
     @property
     def system_prompt(self) -> str:
-        return (
+        base = (
             "You are a Wyckoff cycle analyst at a crypto hedge fund.\n\n"
             "ANALYZE the cycle position — accumulation → markup → distribution → markdown.\n\n"
             "Key framework:\n"
@@ -31,6 +35,9 @@ class CyclePositionAgent(BaseAgent):
             "You MUST pick BULLISH or BEARISH.\n"
             "Accumulation/early markup = BULLISH. Distribution/markdown = BEARISH."
         )
+        if _TRADING_KB:
+            base += f"\n=== TRADING KNOWLEDGE ===\n{_TRADING_KB}\n"
+        return base
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:
         indicators = market_data.get("indicators")

@@ -14,6 +14,7 @@ from sqlalchemy.orm import joinedload
 from syndicate.config import LLMProvider, settings
 from syndicate.core.encryption import decrypt_api_key
 from syndicate.data.models import AgentProfile
+from syndicate.db.models import ContributorStatus
 
 logger = structlog.get_logger()
 
@@ -123,6 +124,10 @@ class AgentRegistry:
         for agent in agents:
             team = teams.get(agent.team_id)
             if team is None:
+                continue
+
+            # Skip agents whose contributor is not active (paused/suspended)
+            if agent.contributor and agent.contributor.status != ContributorStatus.ACTIVE:
                 continue
 
             defn = AgentDefinition(

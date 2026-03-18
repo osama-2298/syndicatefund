@@ -7,6 +7,7 @@ from syndicate.data.models import TeamType
 
 _KNOWLEDGE_PATH = Path(__file__).parent / "manager_knowledge.md"
 _KNOWLEDGE = _load_manager_knowledge(_KNOWLEDGE_PATH)
+_TRADING_KB = _load_manager_knowledge(Path(__file__).parent / "trading_knowledge.md")
 
 
 class SentimentManager(BaseTeamManager):
@@ -38,4 +39,6 @@ class SentimentManager(BaseTeamManager):
         )
         if _KNOWLEDGE:
             base += f"\n=== YOUR KNOWLEDGE BASE ===\n{_KNOWLEDGE}\n"
+        if _TRADING_KB:
+            base += f"\n=== TRADING KNOWLEDGE ===\n{_TRADING_KB}\n"
         return base

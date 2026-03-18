@@ -7,10 +7,14 @@ Forms its own thesis about whether there's a tradable setup right now.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from syndicate.agents.base import BaseAgent
+from syndicate.agents.team_manager import _load_manager_knowledge
 from syndicate.data.models import TeamType, TechnicalIndicators
+
+_TRADING_KB = _load_manager_knowledge(Path(__file__).parent / "trading_knowledge.md")
 
 
 class TechnicalSignalAgent(BaseAgent):
@@ -22,7 +26,7 @@ class TechnicalSignalAgent(BaseAgent):
 
     @property
     def system_prompt(self) -> str:
-        return (
+        base = (
             "You are a senior technical analyst specializing in 4-HOUR chart setups.\n\n"
             "You receive RAW indicators, order book, and derivatives. ANALYZE — don't classify.\n\n"
             "What a great setup analyst looks for:\n"
@@ -43,6 +47,9 @@ class TechnicalSignalAgent(BaseAgent):
             "- 0-2: No data or genuinely ambiguous.\n\n"
             "You MUST pick BULLISH or BEARISH."
         )
+        if _TRADING_KB:
+            base += f"\n=== TRADING KNOWLEDGE ===\n{_TRADING_KB}\n"
+        return base
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:
         indicators = market_data.get("indicators")

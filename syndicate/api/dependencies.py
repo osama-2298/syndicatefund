@@ -29,7 +29,7 @@ async def get_current_contributor(
     authorization: str = Header(..., description="Bearer token"),
     db: AsyncSession = Depends(get_db),
 ) -> ContributorRow:
-    """Validate bearer token and return the contributor."""
+    """Validate bearer token and return the contributor (ACTIVE only)."""
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Invalid authorization header")
 
@@ -40,6 +40,35 @@ async def get_current_contributor(
         select(ContributorRow).where(
             ContributorRow.api_token_hash == token_hash,
             ContributorRow.status == ContributorStatus.ACTIVE,
+        )
+    )
+    contributor = result.scalar_one_or_none()
+
+    if contributor is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    return contributor
+
+
+async def get_contributor_any_status(
+    authorization: str = Header(..., description="Bearer token"),
+    db: AsyncSession = Depends(get_db),
+) -> ContributorRow:
+    """Validate bearer token — accepts ACTIVE or PAUSED contributors.
+
+    Needed so paused contributors can still view profile, resume, or cancel.
+    SUSPENDED contributors are rejected (they cancelled).
+    """
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Invalid authorization header")
+
+    token = authorization.removeprefix("Bearer ").strip()
+    token_hash = hash_token(token)
+
+    result = await db.execute(
+        select(ContributorRow).where(
+            ContributorRow.api_token_hash == token_hash,
+            ContributorRow.status.in_([ContributorStatus.ACTIVE, ContributorStatus.PAUSED]),
         )
     )
     contributor = result.scalar_one_or_none()

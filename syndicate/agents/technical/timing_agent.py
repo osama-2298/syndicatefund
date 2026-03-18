@@ -1,9 +1,13 @@
 """Technical Timing Agent — 1H entry timing. Real analyst, not classifier."""
 
 from __future__ import annotations
+from pathlib import Path
 from typing import Any
 from syndicate.agents.base import BaseAgent
+from syndicate.agents.team_manager import _load_manager_knowledge
 from syndicate.data.models import TeamType, TechnicalIndicators
+
+_TRADING_KB = _load_manager_knowledge(Path(__file__).parent / "trading_knowledge.md")
 
 
 class TechnicalTimingAgent(BaseAgent):
@@ -13,7 +17,7 @@ class TechnicalTimingAgent(BaseAgent):
 
     @property
     def system_prompt(self) -> str:
-        return (
+        base = (
             "You are an execution trader specializing in 1-HOUR entry timing. "
             "Your job: is the SHORT-TERM momentum right to enter a position NOW?\n\n"
             "You receive raw 1H indicator data. Analyze it — don't classify.\n\n"
@@ -26,6 +30,9 @@ class TechnicalTimingAgent(BaseAgent):
             "Conviction 4-6 is your normal range. 7+ requires clear 1H momentum.\n"
             "You MUST pick BULLISH or BEARISH."
         )
+        if _TRADING_KB:
+            base += f"\n=== TRADING KNOWLEDGE ===\n{_TRADING_KB}\n"
+        return base
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:
         indicators_1h = market_data.get("indicators_1h")

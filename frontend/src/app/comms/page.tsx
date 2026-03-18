@@ -366,10 +366,11 @@ export default function CommsPage() {
           {filteredComms.length >= limit && (
             <div className="text-center">
               <button
-                onClick={() => setLimit((prev) => prev + 200)}
-                className="text-sm text-syn-accent hover:text-syn-accent-hover font-medium transition-colors"
+                onClick={() => { setLoading(true); setLimit((prev) => prev + 200); }}
+                disabled={loading}
+                className="text-sm text-syn-accent hover:text-syn-accent-hover font-medium transition-colors disabled:opacity-50"
               >
-                Load More
+                {loading ? 'Loading...' : 'Load More'}
               </button>
             </div>
           )}

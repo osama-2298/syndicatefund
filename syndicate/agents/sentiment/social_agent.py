@@ -1,9 +1,13 @@
 """Social Sentiment Agent — reads Reddit and CoinGecko social signals. REAL ANALYST."""
 
 from __future__ import annotations
+from pathlib import Path
 from typing import Any
 from syndicate.agents.base import BaseAgent
+from syndicate.agents.team_manager import _load_manager_knowledge
 from syndicate.data.models import TeamType
+
+_TRADING_KB = _load_manager_knowledge(Path(__file__).parent / "trading_knowledge.md")
 
 
 class SocialSentimentAgent(BaseAgent):
@@ -13,7 +17,7 @@ class SocialSentimentAgent(BaseAgent):
 
     @property
     def system_prompt(self) -> str:
-        return (
+        base = (
             "You are a social media analyst at a crypto hedge fund.\n\n"
             "ANALYZE the actual content — read the Reddit titles, understand the narratives.\n\n"
             "What great social analysts do:\n"
@@ -31,6 +35,9 @@ class SocialSentimentAgent(BaseAgent):
             "Social data is NOISY. LOW engagement = cap conviction at 4.\n"
             "You MUST pick BULLISH or BEARISH. Conviction 0 if no social data."
         )
+        if _TRADING_KB:
+            base += f"\n=== TRADING KNOWLEDGE ===\n{_TRADING_KB}\n"
+        return base
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:
         reddit = market_data.get("reddit_sentiment", {})

@@ -1,9 +1,13 @@
 """External Macro Agent — Polymarket + BTC derivatives. REAL ANALYST."""
 
 from __future__ import annotations
+from pathlib import Path
 from typing import Any
 from syndicate.agents.base import BaseAgent
+from syndicate.agents.team_manager import _load_manager_knowledge
 from syndicate.data.models import TeamType
+
+_TRADING_KB = _load_manager_knowledge(Path(__file__).parent / "trading_knowledge.md")
 
 
 class ExternalMacroAgent(BaseAgent):
@@ -13,7 +17,7 @@ class ExternalMacroAgent(BaseAgent):
 
     @property
     def system_prompt(self) -> str:
-        return (
+        base = (
             "You are an external macro analyst at a crypto hedge fund. "
             "You read PREDICTION MARKETS (Polymarket) and BTC derivatives for macro signals.\n\n"
             "Polymarket data is REAL MONEY. These are not polls — people have their capital at risk.\n"
@@ -29,6 +33,9 @@ class ExternalMacroAgent(BaseAgent):
             "Low-volume markets are noise — ignore them.\n\n"
             "You MUST pick BULLISH or BEARISH. Conviction 0 if no Polymarket data."
         )
+        if _TRADING_KB:
+            base += f"\n=== TRADING KNOWLEDGE ===\n{_TRADING_KB}\n"
+        return base
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:
         pred = market_data.get("prediction_markets", {})

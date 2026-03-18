@@ -8,10 +8,14 @@ Python computes the math (RSI, MACD, SMA). The LLM does the ANALYSIS.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from syndicate.agents.base import BaseAgent
+from syndicate.agents.team_manager import _load_manager_knowledge
 from syndicate.data.models import TeamType, TechnicalIndicators
+
+_TRADING_KB = _load_manager_knowledge(Path(__file__).parent / "trading_knowledge.md")
 
 
 class TechnicalTrendAgent(BaseAgent):
@@ -23,7 +27,7 @@ class TechnicalTrendAgent(BaseAgent):
 
     @property
     def system_prompt(self) -> str:
-        return (
+        base = (
             "You are a senior technical analyst at a crypto hedge fund. "
             "You specialize in DAILY chart analysis — reading the macro trend.\n\n"
             "You receive RAW indicator values. ANALYZE them — form a THESIS.\n\n"
@@ -48,6 +52,9 @@ class TechnicalTrendAgent(BaseAgent):
             "- 1-2: Genuinely unclear. Picking the direction of last resort.\n\n"
             "You MUST pick BULLISH or BEARISH. Conviction 0 only if data unavailable."
         )
+        if _TRADING_KB:
+            base += f"\n=== TRADING KNOWLEDGE ===\n{_TRADING_KB}\n"
+        return base
 
     def build_analysis_prompt(self, market_data: dict[str, Any]) -> str:
         """Present RAW indicator values for the analyst to interpret."""

@@ -1434,12 +1434,8 @@ def run_pipeline(
                     if _evt_collector:
                         await persist_events(cycle_id, _evt_collector)
 
-            # Always use a fresh event loop from sync thread context
-            _loop = asyncio.new_event_loop()
-            try:
-                _loop.run_until_complete(_record())
-            finally:
-                _loop.close()
+            # Use asyncio.run() which properly creates, sets, and closes a new loop
+            asyncio.run(_record())
         except Exception as e:
             logger.warning("cycle_db_record_failed", error=str(e))
 

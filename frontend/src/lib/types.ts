@@ -223,3 +223,30 @@ export interface RegisterResponse {
   estimated_monthly_cost_usd: number;
   message: string;
 }
+
+export interface ContributorProfile {
+  id: string;
+  display_name: string;
+  email: string | null;
+  status: string;
+  max_agents: number;
+  preferred_model: string;
+  total_cost_usd: number;
+  cost_limit_usd: number | null;
+  agent_count: number;
+  created_at: string;
+  agents: AgentDetail[];
+}
+
+export interface AgentDetail {
+  id: string;
+  role: string;
+  agent_class: string | null;
+  team_name: string | null;
+  model: string;
+  provider: string;
+  status: string;
+  total_signals: number;
+  accuracy: number;
+  total_cost_usd: number;
+}
