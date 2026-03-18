@@ -1385,56 +1385,90 @@ def run_pipeline(
         try:
             import asyncio
             from syndicate.core.orchestrator import record_cycle_to_db
-            from syndicate.db.session import async_session_factory
 
             _evt_collector = collector
             _blog_entry = blog_entry if 'blog_entry' in dir() else None
             _comms_for_db = _cycle_comms
 
             async def _record():
+                # Create a completely fresh engine + session for this thread
+                # The shared engine from session.py is bound to the FastAPI event loop
+                from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
                 from syndicate.db.models import CeoPostRow, AgentCommRow
-                async with async_session_factory() as session:
-                    cycle_id = await record_cycle_to_db(
-                        db_session=session,
-                        started_at=datetime.fromtimestamp(cycle_start_wall, tz=timezone.utc),
-                        completed_at=datetime.now(timezone.utc),
-                        duration_secs=elapsed_total,
-                        regime=directive.regime.value,
-                        coins_analyzed=n_coins,
-                        signals_produced=n_signals,
-                        orders_executed=len(final_orders),
-                        portfolio_value=summary.get("total_value", 100000),
-                    )
-                    # Save blog post to DB
-                    if _blog_entry:
-                        post = CeoPostRow(
-                            post_type=_blog_entry["post_type"],
-                            title=_blog_entry["title"],
-                            content=_blog_entry["content"],
-                            summary=_blog_entry.get("summary", ""),
-                            market_context=_blog_entry.get("market_context"),
-                        )
-                        session.add(post)
-                    # Save agent comms to DB
-                    for comm_data in _comms_for_db:
-                        session.add(AgentCommRow(
-                            cycle_id=cycle_id,
-                            comm_type=comm_data["comm_type"],
-                            agent_class=comm_data.get("agent_class"),
-                            agent_name=comm_data["agent_name"],
-                            team=comm_data.get("team"),
-                            symbol=comm_data.get("symbol"),
-                            direction=comm_data.get("direction"),
-                            conviction=comm_data.get("conviction"),
-                            content=comm_data["content"],
-                            metadata_=comm_data.get("metadata", {}),
-                        ))
-                    await session.commit()
-                    # Persist pipeline events
-                    if _evt_collector:
-                        await persist_events(cycle_id, _evt_collector)
 
-            # Use asyncio.run() which properly creates, sets, and closes a new loop
+                _engine = create_async_engine(settings.database_url, echo=False, pool_size=2)
+                _session_factory = async_sessionmaker(_engine, class_=AsyncSession, expire_on_commit=False)
+
+                try:
+                    async with _session_factory() as session:
+                        cycle_id = await record_cycle_to_db(
+                            db_session=session,
+                            started_at=datetime.fromtimestamp(cycle_start_wall, tz=timezone.utc),
+                            completed_at=datetime.now(timezone.utc),
+                            duration_secs=elapsed_total,
+                            regime=directive.regime.value,
+                            coins_analyzed=n_coins,
+                            signals_produced=n_signals,
+                            orders_executed=len(final_orders),
+                            portfolio_value=summary.get("total_value", 100000),
+                        )
+                        # Save blog post to DB
+                        if _blog_entry:
+                            post = CeoPostRow(
+                                post_type=_blog_entry["post_type"],
+                                title=_blog_entry["title"],
+                                content=_blog_entry["content"],
+                                summary=_blog_entry.get("summary", ""),
+                                market_context=_blog_entry.get("market_context"),
+                            )
+                            session.add(post)
+                        # Save agent comms to DB
+                        for comm_data in _comms_for_db:
+                            session.add(AgentCommRow(
+                                cycle_id=cycle_id,
+                                comm_type=comm_data["comm_type"],
+                                agent_class=comm_data.get("agent_class"),
+                                agent_name=comm_data["agent_name"],
+                                team=comm_data.get("team"),
+                                symbol=comm_data.get("symbol"),
+                                direction=comm_data.get("direction"),
+                                conviction=comm_data.get("conviction"),
+                                content=comm_data["content"],
+                                metadata_=comm_data.get("metadata", {}),
+                            ))
+                        await session.commit()
+                        # Persist pipeline events
+                        if _evt_collector:
+                            from syndicate.core.events import persist_events as _persist
+                            await _persist_events_with_engine(_engine, cycle_id, _evt_collector)
+                finally:
+                    await _engine.dispose()
+
+            async def _persist_events_with_engine(eng, cycle_id, coll):
+                """Persist events using the fresh engine."""
+                from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+                from syndicate.db.models import PipelineEventRow
+                from datetime import datetime as dt
+
+                _sf = async_sessionmaker(eng, class_=AsyncSession, expire_on_commit=False)
+                events = coll.events
+                if not events:
+                    return
+                async with _sf() as session:
+                    for ev in events:
+                        row = PipelineEventRow(
+                            cycle_id=cycle_id,
+                            event_type=ev.event_type,
+                            timestamp=dt.fromisoformat(ev.timestamp),
+                            stage=ev.stage,
+                            actor=ev.actor,
+                            title=ev.title,
+                            detail=ev.detail if ev.detail else None,
+                            elapsed_ms=ev.elapsed_ms,
+                        )
+                        session.add(row)
+                    await session.commit()
+
             asyncio.run(_record())
         except Exception as e:
             logger.warning("cycle_db_record_failed", error=str(e))
