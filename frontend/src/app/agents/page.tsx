@@ -5,8 +5,7 @@ import { Loader2, Crown, Radio, Zap, BarChart3, Users, ChevronRight, Search } fr
 import Avatar from 'boring-avatars';
 import { API_BASE } from '@/lib/api';
 import {
-  AGENT_META,
-  DEFAULT_AVATAR_COLORS,
+  getPersonaByClass,
   STATUS_COLORS,
   getTeamGradient,
 } from '@/lib/constants';
@@ -18,13 +17,7 @@ import type { AgentSummary } from '@/lib/types';
 
 /** Resolve display metadata for any agent — known or unknown. */
 function getAgentDisplay(agent: AgentSummary) {
-  const meta = AGENT_META[agent.agent_class || ''];
-  return {
-    name: meta?.name || agent.role,
-    animal: meta?.animal || '',
-    title: meta?.title || agent.role,
-    colors: meta?.colors || DEFAULT_AVATAR_COLORS,
-  };
+  return getPersonaByClass(agent.agent_class, agent.role);
 }
 
 /* ------------------------------------------------------------------ */

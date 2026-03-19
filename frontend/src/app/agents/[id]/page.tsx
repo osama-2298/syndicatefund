@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { Activity, ArrowLeft, Flame, Snowflake, Target } from 'lucide-react';
 import Avatar from 'boring-avatars';
 import { API_BASE } from '@/lib/api';
-import { AGENT_META, DEFAULT_AVATAR_COLORS, AGENT_NAMES, STATUS_COLORS, OUTCOME_COLORS } from '@/lib/constants';
+import { getPersonaByClass, STATUS_COLORS, OUTCOME_COLORS } from '@/lib/constants';
 import type { SignalItem, AgentStats } from '@/lib/types';
 
 interface AgentDetail {
@@ -61,11 +61,11 @@ export default function AgentProfilePage() {
     );
   }
 
-  const meta = AGENT_META[agent.agent_class || ''];
-  const personaName = meta?.name || AGENT_NAMES[agent.agent_class || ''] || agent.role;
-  const animal = meta?.animal || '';
-  const title = meta?.title || agent.role;
-  const avatarColors = meta?.colors || DEFAULT_AVATAR_COLORS;
+  const persona = getPersonaByClass(agent.agent_class, agent.role);
+  const personaName = persona.name;
+  const animal = persona.animal;
+  const title = persona.title;
+  const avatarColors = persona.colors;
   const accuracyPct = agent.accuracy * 100;
   const statusColor = STATUS_COLORS[agent.status] || STATUS_COLORS.registered;
 

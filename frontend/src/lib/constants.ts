@@ -142,90 +142,79 @@ export const DECISION_STYLES: Record<string, { color: string; label: string; bg:
   team_created: { color: 'text-emerald-400', label: 'NEW TEAM', bg: 'bg-emerald-500/10 ring-emerald-500/20' },
 };
 
-// ── Rich agent metadata (names, mascots, titles, avatar palettes) ──
+// ── Unified persona registry — keyed by display name ──
+// Covers ALL named personas: analysts, managers, executives, board, operations, research.
+// Any page can look up a persona by name to get avatar colors, animal mascot, and title.
 
-export const AGENT_META: Record<string, {
-  name: string;
+export interface Persona {
   animal: string;
   title: string;
   colors: string[];
-}> = {
-  TechnicalTrendAgent: {
-    name: 'Lena Karlsson',
-    animal: '🦅',
-    title: 'Trend Analyst · 1D',
-    colors: ['#3B82F6', '#06B6D4', '#0EA5E9', '#60A5FA', '#0284C7'],
-  },
-  TechnicalSignalAgent: {
-    name: 'David Osei',
-    animal: '🐺',
-    title: 'Signal Analyst · 4H',
-    colors: ['#818CF8', '#3B82F6', '#6366F1', '#4F46E5', '#93C5FD'],
-  },
-  TechnicalTimingAgent: {
-    name: 'Mika Tanaka',
-    animal: '🐆',
-    title: 'Timing Analyst · 1H',
-    colors: ['#0EA5E9', '#38BDF8', '#3B82F6', '#7DD3FC', '#0369A1'],
-  },
-  SocialSentimentAgent: {
-    name: 'Priya Sharma',
-    animal: '🦜',
-    title: 'Social Sentiment Analyst',
-    colors: ['#A855F7', '#EC4899', '#D946EF', '#F0ABFC', '#7C3AED'],
-  },
-  MarketSentimentAgent: {
-    name: 'Alexei Volkov',
-    animal: '🐻',
-    title: 'Market Sentiment Analyst',
-    colors: ['#8B5CF6', '#7C3AED', '#A855F7', '#C084FC', '#6D28D9'],
-  },
-  SmartMoneySentimentAgent: {
-    name: 'Sofia Reyes',
-    animal: '🦊',
-    title: 'Smart Money Analyst',
-    colors: ['#D946EF', '#A855F7', '#E879F9', '#F0ABFC', '#9333EA'],
-  },
-  ValuationAgent: {
-    name: 'Henrik Larsen',
-    animal: '🦉',
-    title: 'Valuation Analyst',
-    colors: ['#EAB308', '#F59E0B', '#FBBF24', '#FDE047', '#CA8A04'],
-  },
-  CyclePositionAgent: {
-    name: 'Amara Obi',
-    animal: '🦋',
-    title: 'Cycle Position Analyst',
-    colors: ['#F59E0B', '#F97316', '#FB923C', '#FBBF24', '#EA580C'],
-  },
-  CryptoMacroAgent: {
-    name: 'Lucas Weber',
-    animal: '🐋',
-    title: 'Crypto Macro Analyst',
-    colors: ['#06B6D4', '#14B8A6', '#22D3EE', '#2DD4BF', '#0891B2'],
-  },
-  ExternalMacroAgent: {
-    name: 'Fatima Al-Rashid',
-    animal: '🐘',
-    title: 'External Macro Analyst',
-    colors: ['#14B8A6', '#10B981', '#2DD4BF', '#34D399', '#0D9488'],
-  },
-  NetworkHealthAgent: {
-    name: 'Jin Park',
-    animal: '🐙',
-    title: 'Network Health Analyst',
-    colors: ['#10B981', '#22C55E', '#34D399', '#6EE7B7', '#059669'],
-  },
-  CapitalFlowAgent: {
-    name: 'Camille Dubois',
-    animal: '🦈',
-    title: 'Capital Flow Analyst',
-    colors: ['#22C55E', '#84CC16', '#4ADE80', '#A3E635', '#16A34A'],
-  },
+}
+
+export const PERSONA: Record<string, Persona> = {
+  // ── Founding Analysts (12) ──
+  'Lena Karlsson':    { animal: '🦅', title: 'Trend Analyst · 1D',        colors: ['#3B82F6', '#06B6D4', '#0EA5E9', '#60A5FA', '#0284C7'] },
+  'David Osei':       { animal: '🐺', title: 'Signal Analyst · 4H',       colors: ['#818CF8', '#3B82F6', '#6366F1', '#4F46E5', '#93C5FD'] },
+  'Mika Tanaka':      { animal: '🐆', title: 'Timing Analyst · 1H',       colors: ['#0EA5E9', '#38BDF8', '#3B82F6', '#7DD3FC', '#0369A1'] },
+  'Priya Sharma':     { animal: '🦜', title: 'Social Sentiment Analyst',   colors: ['#A855F7', '#EC4899', '#D946EF', '#F0ABFC', '#7C3AED'] },
+  'Alexei Volkov':    { animal: '🐻', title: 'Market Sentiment Analyst',   colors: ['#8B5CF6', '#7C3AED', '#A855F7', '#C084FC', '#6D28D9'] },
+  'Sofia Reyes':      { animal: '🦊', title: 'Smart Money Analyst',        colors: ['#D946EF', '#A855F7', '#E879F9', '#F0ABFC', '#9333EA'] },
+  'Henrik Larsen':    { animal: '🦉', title: 'Valuation Analyst',          colors: ['#EAB308', '#F59E0B', '#FBBF24', '#FDE047', '#CA8A04'] },
+  'Amara Obi':        { animal: '🦋', title: 'Cycle Position Analyst',     colors: ['#F59E0B', '#F97316', '#FB923C', '#FBBF24', '#EA580C'] },
+  'Lucas Weber':      { animal: '🐋', title: 'Crypto Macro Analyst',       colors: ['#06B6D4', '#14B8A6', '#22D3EE', '#2DD4BF', '#0891B2'] },
+  'Fatima Al-Rashid': { animal: '🐘', title: 'External Macro Analyst',     colors: ['#14B8A6', '#10B981', '#2DD4BF', '#34D399', '#0D9488'] },
+  'Jin Park':         { animal: '🐙', title: 'Network Health Analyst',     colors: ['#10B981', '#22C55E', '#34D399', '#6EE7B7', '#059669'] },
+  'Camille Dubois':   { animal: '🦈', title: 'Capital Flow Analyst',       colors: ['#22C55E', '#84CC16', '#4ADE80', '#A3E635', '#16A34A'] },
+
+  // ── Team Managers (5) ──
+  'Oscar Brennan':    { animal: '🐎', title: 'Technical Team Manager',     colors: ['#3B82F6', '#1D4ED8', '#60A5FA', '#0EA5E9', '#2563EB'] },
+  'Yara Haddad':      { animal: '🐬', title: 'Sentiment Team Manager',     colors: ['#A855F7', '#7C3AED', '#C084FC', '#EC4899', '#9333EA'] },
+  'Isaac Thornton':   { animal: '🦏', title: 'Fundamental Team Manager',   colors: ['#EAB308', '#CA8A04', '#FBBF24', '#F59E0B', '#A16207'] },
+  'Zara Kimathi':     { animal: '🦬', title: 'Macro Team Manager',         colors: ['#06B6D4', '#0891B2', '#22D3EE', '#14B8A6', '#0E7490'] },
+  'Nikolai Petrov':   { animal: '🐉', title: 'On-Chain Team Manager',      colors: ['#10B981', '#059669', '#34D399', '#22C55E', '#047857'] },
+
+  // ── Executive Leadership (3) ──
+  'Marcus Blackwell': { animal: '🦁', title: 'Chief Executive Officer',    colors: ['#F59E0B', '#D97706', '#FBBF24', '#F97316', '#B45309'] },
+  'Elena Vasquez':    { animal: '🐅', title: 'Chief Operating Officer',    colors: ['#06B6D4', '#0284C7', '#22D3EE', '#3B82F6', '#0369A1'] },
+  'Tobias Richter':   { animal: '🐊', title: 'Chief Risk Officer',         colors: ['#EF4444', '#DC2626', '#F87171', '#FB923C', '#B91C1C'] },
+
+  // ── Board of Directors (3) ──
+  'Victor Okafor':    { animal: '🦚', title: 'Chief Strategy Officer',     colors: ['#8B5CF6', '#6D28D9', '#A78BFA', '#7C3AED', '#5B21B6'] },
+  'Nadia Chen':       { animal: '🐝', title: 'Chief Talent Officer',       colors: ['#A855F7', '#9333EA', '#C084FC', '#D946EF', '#7C3AED'] },
+  'Raphael Moreno':   { animal: '🦂', title: 'Chief Performance Officer',  colors: ['#F97316', '#EA580C', '#FB923C', '#F59E0B', '#C2410C'] },
+
+  // ── Operations (4) ──
+  'Soren Lindqvist':  { animal: '🕷️', title: 'Signal Aggregator',          colors: ['#10B981', '#059669', '#34D399', '#06B6D4', '#047857'] },
+  'James Hartley':    { animal: '🐢', title: 'Risk Manager',               colors: ['#EF4444', '#B91C1C', '#F87171', '#DC2626', '#991B1B'] },
+  'Diana Frost':      { animal: '🦩', title: 'Head of Portfolio',          colors: ['#A855F7', '#7C3AED', '#C084FC', '#EC4899', '#6D28D9'] },
+  'Kai Nakamura':     { animal: '🐍', title: 'Head of Execution',          colors: ['#22C55E', '#16A34A', '#4ADE80', '#84CC16', '#15803D'] },
+
+  // ── Research Division (3) ──
+  'Dr. Elara Voss':   { animal: '🦇', title: 'Head of Research',           colors: ['#6366F1', '#4F46E5', '#818CF8', '#8B5CF6', '#4338CA'] },
+  'Dr. Kai Moretti':  { animal: '🐧', title: 'Quantitative Researcher',    colors: ['#06B6D4', '#0891B2', '#22D3EE', '#3B82F6', '#0E7490'] },
+  'Dr. Noor Hadid':   { animal: '🦌', title: 'Strategy Researcher',        colors: ['#F59E0B', '#D97706', '#FBBF24', '#F97316', '#B45309'] },
 };
 
-// Default palette for unknown agents
+// Default palette for unknown/contributor agents
 export const DEFAULT_AVATAR_COLORS = ['#6366F1', '#8B5CF6', '#A855F7', '#C084FC', '#E879F9'];
+
+/** Look up a persona by display name. Returns fallback for unknown names. */
+export function getPersona(name: string): Persona {
+  return PERSONA[name] || { animal: '', title: '', colors: DEFAULT_AVATAR_COLORS };
+}
+
+/** Resolve display name from agent_class (via AGENT_NAMES) then look up persona. */
+export function getPersonaByClass(agentClass: string | null, fallbackRole: string): { name: string } & Persona {
+  const name = (agentClass && AGENT_NAMES[agentClass]) || fallbackRole;
+  const persona = PERSONA[name];
+  return {
+    name,
+    animal: persona?.animal || '',
+    title: persona?.title || fallbackRole,
+    colors: persona?.colors || DEFAULT_AVATAR_COLORS,
+  };
+}
 
 // ── Helpers ──
 

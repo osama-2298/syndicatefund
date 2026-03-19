@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2, ChevronDown, ChevronRight, Users, Cpu, Crown } from 'lucide-react';
-import { AGENT_NAMES, MANAGER_NAMES } from '@/lib/constants';
+import { Loader2, ChevronDown, ChevronRight, Crown } from 'lucide-react';
+import Avatar from 'boring-avatars';
+import { AGENT_NAMES, MANAGER_NAMES, getPersona, getPersonaByClass, DEFAULT_AVATAR_COLORS } from '@/lib/constants';
 import { API_BASE } from '@/lib/api';
 
 /* ━━━ Types ━━━ */
@@ -58,10 +59,13 @@ const STATUS_DOT: Record<string, string> = {
 };
 
 function agentDisplay(a: Agent) {
-  if (a.agent_class && AGENT_NAMES[a.agent_class]) {
-    return { name: AGENT_NAMES[a.agent_class], role: a.agent_class.replace(/([A-Z])/g, ' $1').trim() };
-  }
-  return { name: a.role, role: a.model };
+  const persona = getPersonaByClass(a.agent_class, a.role);
+  return {
+    name: persona.name,
+    role: persona.title || a.agent_class?.replace(/([A-Z])/g, ' $1').trim() || a.model,
+    animal: persona.animal,
+    colors: persona.colors,
+  };
 }
 
 /* ━━━ Tree primitives ━━━ */
@@ -134,6 +138,7 @@ function ExecCard({
 }) {
   const [open, setOpen] = useState(false);
   const expandable = !!children;
+  const persona = getPersona(name);
 
   return (
     <div>
@@ -143,7 +148,7 @@ function ExecCard({
           expandable ? 'cursor-pointer hover:border-white/[0.12]' : ''
         } transition-colors`}
       >
-        <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center justify-between mb-2">
           <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-syn-text-tertiary">
             {title}
           </span>
@@ -157,8 +162,18 @@ function ExecCard({
             </span>
           )}
         </div>
-        <p className="text-sm font-semibold text-white">{name}</p>
-        <p className="text-xs text-syn-text-tertiary mt-0.5">{subtitle}</p>
+        <div className="flex items-center gap-3">
+          <div className="flex-shrink-0 rounded-full overflow-hidden ring-1 ring-white/[0.06]">
+            <Avatar name={name} variant="beam" size={32} colors={persona.colors} />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm font-semibold text-white">{name}</p>
+              {persona.animal && <span className="text-sm">{persona.animal}</span>}
+            </div>
+            <p className="text-xs text-syn-text-tertiary mt-0.5 line-clamp-2">{subtitle}</p>
+          </div>
+        </div>
         {expandable && (
           <div className="flex items-center gap-1 mt-2 text-[10px] text-syn-text-tertiary">
             {open ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
@@ -176,10 +191,27 @@ function ExecCard({
 }
 
 function SubRole({ name, subtitle }: { name: string; subtitle: string }) {
+  // Extract persona name from "Name — Title" format if present
+  const displayName = name.includes('—') ? name.split('—')[0].trim() : name;
+  const persona = getPersona(displayName);
+  const hasPersona = !!persona.animal;
+
   return (
     <div className="bg-white/[0.01] border border-white/[0.04] rounded-lg px-3 py-2">
-      <p className="text-xs font-medium text-syn-text-secondary">{name}</p>
-      <p className="text-[10px] text-syn-text-tertiary">{subtitle}</p>
+      <div className="flex items-center gap-2">
+        {hasPersona && (
+          <div className="flex-shrink-0 rounded-full overflow-hidden ring-1 ring-white/[0.04]">
+            <Avatar name={displayName} variant="beam" size={20} colors={persona.colors} />
+          </div>
+        )}
+        <div className="min-w-0">
+          <div className="flex items-center gap-1">
+            <p className="text-xs font-medium text-syn-text-secondary">{name}</p>
+            {persona.animal && <span className="text-xs">{persona.animal}</span>}
+          </div>
+          <p className="text-[10px] text-syn-text-tertiary">{subtitle}</p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -187,6 +219,7 @@ function SubRole({ name, subtitle }: { name: string; subtitle: string }) {
 function TeamCard({ team, agents }: { team: Team; agents: Agent[] }) {
   const [open, setOpen] = useState(false);
   const managerName = MANAGER_NAMES[team.name] || 'Manager';
+  const managerPersona = getPersona(managerName);
   const accent = TEAM_ACCENT[team.name] || 'text-gray-400';
 
   return (
@@ -218,7 +251,9 @@ function TeamCard({ team, agents }: { team: Team; agents: Agent[] }) {
           </div>
         </div>
         <p className="text-xs text-syn-text-tertiary">
-          Managed by <span className={accent}>{managerName}</span> — {team.discipline}
+          Managed by <span className={accent}>{managerName}</span>
+          {managerPersona.animal && <span className="ml-1">{managerPersona.animal}</span>}
+          {' — '}{team.discipline}
         </p>
         <div className="flex items-center gap-1 mt-2 text-[10px] text-syn-text-tertiary">
           {open ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
@@ -232,11 +267,14 @@ function TeamCard({ team, agents }: { team: Team; agents: Agent[] }) {
           {/* Manager node */}
           <TreeNode dot="bg-white/30">
             <div className="bg-white/[0.02] border border-white/[0.04] rounded-lg px-3.5 py-2.5 flex items-center gap-3">
-              <div className="w-6 h-6 rounded-full bg-white/[0.06] flex items-center justify-center flex-shrink-0">
-                <Users size={11} className="text-white/60" />
+              <div className="flex-shrink-0 rounded-full overflow-hidden ring-1 ring-white/[0.06]">
+                <Avatar name={managerName} variant="beam" size={24} colors={managerPersona.colors} />
               </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-syn-text-secondary">{managerName}</p>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1">
+                  <p className="text-xs font-medium text-syn-text-secondary">{managerName}</p>
+                  {managerPersona.animal && <span className="text-xs">{managerPersona.animal}</span>}
+                </div>
                 <p className="text-[10px] text-syn-text-tertiary capitalize">{team.name} Team Manager</p>
               </div>
             </div>
@@ -244,16 +282,19 @@ function TeamCard({ team, agents }: { team: Team; agents: Agent[] }) {
 
           {/* Agent nodes */}
           {agents.map((agent) => {
-            const { name, role } = agentDisplay(agent);
+            const { name, role, animal, colors } = agentDisplay(agent);
             const sd = STATUS_DOT[agent.status] || STATUS_DOT.registered;
             return (
               <TreeNode key={agent.id} dot={sd}>
                 <div className="bg-white/[0.02] border border-white/[0.04] rounded-lg px-3.5 py-2.5 flex items-center gap-3">
-                  <div className="w-6 h-6 rounded-full bg-white/[0.04] flex items-center justify-center flex-shrink-0">
-                    <Cpu size={10} className="text-white/40" />
+                  <div className="flex-shrink-0 rounded-full overflow-hidden ring-1 ring-white/[0.04]">
+                    <Avatar name={name} variant="beam" size={24} colors={colors} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-syn-text-secondary truncate">{name}</p>
+                    <div className="flex items-center gap-1">
+                      <p className="text-xs font-medium text-syn-text-secondary truncate">{name}</p>
+                      {animal && <span className="text-xs flex-shrink-0">{animal}</span>}
+                    </div>
                     <p className="text-[10px] text-syn-text-tertiary truncate">{role}</p>
                   </div>
                   <div className="flex-shrink-0 text-right">
@@ -374,16 +415,26 @@ export default function OrgPage() {
         <div className="relative mb-0">
           <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-violet-400/15 to-purple-500/15 blur-lg" />
           <div className="relative bg-syn-surface border-2 border-syn-accent/30 rounded-2xl px-6 py-5">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-3">
               <Crown size={14} className="text-syn-accent" />
               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">
                 Chief Executive Officer
               </span>
             </div>
-            <p className="text-lg font-bold text-white">Marcus Blackwell</p>
-            <p className="text-xs text-syn-text-tertiary mt-0.5">
-              Strategic leadership & market direction — oversees all divisions
-            </p>
+            <div className="flex items-center gap-4">
+              <div className="flex-shrink-0 rounded-full overflow-hidden ring-2 ring-syn-accent/30 shadow-lg">
+                <Avatar name="Marcus Blackwell" variant="beam" size={48} colors={getPersona('Marcus Blackwell').colors} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-lg font-bold text-white">Marcus Blackwell</p>
+                  <span className="text-lg">{getPersona('Marcus Blackwell').animal}</span>
+                </div>
+                <p className="text-xs text-syn-text-tertiary mt-0.5">
+                  Strategic leadership & market direction — oversees all divisions
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -601,20 +652,22 @@ export default function OrgPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
             {unassigned.map((agent) => {
+              const { name, animal, colors } = agentDisplay(agent);
               const sd = STATUS_DOT[agent.status] || STATUS_DOT.registered;
               return (
                 <div
                   key={agent.id}
                   className="bg-white/[0.02] border border-white/[0.04] rounded-lg px-3.5 py-3 flex items-center gap-3"
                 >
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-400/30 to-gray-500/30 flex items-center justify-center flex-shrink-0">
-                    <Cpu size={11} className="text-white/40" />
+                  <div className="flex-shrink-0 rounded-full overflow-hidden ring-1 ring-white/[0.04]">
+                    <Avatar name={name} variant="beam" size={28} colors={colors} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-xs font-medium text-syn-text-secondary truncate">
-                        {agent.role}
+                        {name}
                       </p>
+                      {animal && <span className="text-xs flex-shrink-0">{animal}</span>}
                       <span className={`w-1.5 h-1.5 rounded-full ${sd} flex-shrink-0`} />
                     </div>
                     <p className="text-[10px] text-syn-text-tertiary truncate">
