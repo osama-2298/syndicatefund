@@ -5,6 +5,8 @@ import { Loader2, ChevronDown, ChevronRight, Users, Cpu, Crown } from 'lucide-re
 import { AGENT_NAMES, MANAGER_NAMES } from '@/lib/constants';
 import { API_BASE } from '@/lib/api';
 
+/* ━━━ Types ━━━ */
+
 interface Agent {
   id: string;
   team_name: string | null;
@@ -28,99 +30,92 @@ interface Team {
   active_agent_count: number;
 }
 
-const teamGradients: Record<string, { border: string; dot: string; bg: string }> = {
-  technical: {
-    border: 'border-l-blue-400',
-    dot: 'bg-gradient-to-br from-blue-400 to-cyan-500',
-    bg: 'bg-blue-400/5',
-  },
-  sentiment: {
-    border: 'border-l-rose-400',
-    dot: 'bg-gradient-to-br from-rose-400 to-pink-500',
-    bg: 'bg-rose-400/5',
-  },
-  fundamental: {
-    border: 'border-l-emerald-400',
-    dot: 'bg-gradient-to-br from-emerald-400 to-teal-500',
-    bg: 'bg-emerald-400/5',
-  },
-  macro: {
-    border: 'border-l-cyan-400',
-    dot: 'bg-gradient-to-br from-cyan-400 to-indigo-500',
-    bg: 'bg-cyan-400/5',
-  },
-  onchain: {
-    border: 'border-l-purple-400',
-    dot: 'bg-gradient-to-br from-purple-400 to-violet-500',
-    bg: 'bg-purple-400/5',
-  },
+/* ━━━ Constants ━━━ */
+
+const TEAM_DOT: Record<string, string> = {
+  technical: 'bg-blue-400',
+  sentiment: 'bg-rose-400',
+  fundamental: 'bg-emerald-400',
+  macro: 'bg-cyan-400',
+  onchain: 'bg-purple-400',
 };
 
-const statusColors: Record<string, { dot: string; label: string }> = {
-  founding: { dot: 'bg-violet-400', label: 'text-violet-400' },
-  active: { dot: 'bg-emerald-400', label: 'text-emerald-400' },
-  assigned: { dot: 'bg-blue-400', label: 'text-blue-400' },
-  registered: { dot: 'bg-gray-400', label: 'text-gray-400' },
-  probation: { dot: 'bg-orange-400', label: 'text-orange-400' },
-  fired: { dot: 'bg-red-400', label: 'text-red-400' },
+const TEAM_ACCENT: Record<string, string> = {
+  technical: 'text-blue-400',
+  sentiment: 'text-rose-400',
+  fundamental: 'text-emerald-400',
+  macro: 'text-cyan-400',
+  onchain: 'text-purple-400',
 };
 
-function getAgentDisplayName(agent: Agent): { name: string; role: string } {
-  if (agent.agent_class && AGENT_NAMES[agent.agent_class]) {
-    return {
-      name: AGENT_NAMES[agent.agent_class],
-      role: agent.agent_class.replace(/([A-Z])/g, ' $1').trim(),
-    };
+const STATUS_DOT: Record<string, string> = {
+  founding: 'bg-violet-400',
+  active: 'bg-emerald-400',
+  assigned: 'bg-blue-400',
+  registered: 'bg-gray-400',
+  probation: 'bg-orange-400',
+  fired: 'bg-red-400',
+};
+
+function agentDisplay(a: Agent) {
+  if (a.agent_class && AGENT_NAMES[a.agent_class]) {
+    return { name: AGENT_NAMES[a.agent_class], role: a.agent_class.replace(/([A-Z])/g, ' $1').trim() };
   }
-  return { name: agent.role, role: agent.model };
+  return { name: a.role, role: a.model };
 }
 
-function getTeamGradient(name: string) {
-  return (
-    teamGradients[name] || {
-      border: 'border-l-gray-400',
-      dot: 'bg-gradient-to-br from-gray-400 to-gray-500',
-      bg: 'bg-gray-400/5',
-    }
-  );
-}
+/* ━━━ Tree primitives ━━━ */
 
-/* ────────────────────────────────────────────────── */
-/*  Card components                                   */
-/* ────────────────────────────────────────────────── */
-
-function CeoNode() {
+function TreeGroup({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className="flex justify-center mb-8">
-      <div className="relative">
-        {/* Glow */}
-        <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-violet-400/20 to-purple-500/20 blur-lg" />
-        <div className="relative bg-syn-surface border-2 border-syn-accent/30 rounded-2xl px-8 py-5 text-center min-w-[260px]">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <Crown size={14} className="text-syn-accent" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">
-              Chief Executive Officer
-            </span>
-          </div>
-          <p className="text-lg font-bold text-white">Marcus Blackwell</p>
-          <p className="text-xs text-syn-text-tertiary mt-0.5">Strategic leadership & market direction</p>
-        </div>
-      </div>
+    <div className={`relative border-l border-white/[0.06] pl-5 space-y-2 ${className}`}>
+      {children}
     </div>
   );
 }
 
-function ConnectorVertical({ className = '' }: { className?: string }) {
+function TreeNode({ children, dot, className = '' }: { children: React.ReactNode; dot?: string; className?: string }) {
   return (
-    <div className={`flex justify-center ${className}`}>
-      <div className="w-px h-6 bg-syn-border" />
+    <div className={`relative ${className}`}>
+      <div className="absolute -left-5 top-5 w-5 h-px bg-white/[0.06]" />
+      <div className={`absolute -left-[23px] top-[17px] w-[7px] h-[7px] rounded-full ${dot || 'bg-white/20'}`} />
+      {children}
     </div>
   );
 }
 
-function ConnectorHorizontal() {
-  return <div className="flex-1 h-px bg-syn-border self-center" />;
+/* ━━━ Section header ━━━ */
+
+function SectionHead({
+  label,
+  color,
+  badge,
+  badgeColor,
+  meta,
+}: {
+  label: string;
+  color: string;
+  badge?: string;
+  badgeColor?: string;
+  meta?: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 flex-wrap pt-3 pb-1">
+      <span className={`text-xs font-bold uppercase tracking-wider ${color}`}>{label}</span>
+      {badge && (
+        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ring-1 ring-inset ${badgeColor}`}>
+          {badge}
+        </span>
+      )}
+      {meta && (
+        <span className="text-[10px] text-syn-text-tertiary font-mono tabular-nums">{meta}</span>
+      )}
+      <div className="h-px flex-1 bg-white/[0.04]" />
+    </div>
+  );
 }
+
+/* ━━━ Card components ━━━ */
 
 function ExecCard({
   title,
@@ -138,75 +133,71 @@ function ExecCard({
   children?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const hasChildren = !!children;
+  const expandable = !!children;
 
   return (
-    <div className="flex-1 min-w-0">
+    <div>
       <div
-        onClick={() => hasChildren && setOpen(!open)}
-        className={`bg-syn-surface border border-syn-border rounded-xl p-4 ${
-          hasChildren ? 'cursor-pointer hover:border-white/[0.10]' : ''
-        } transition-all`}
+        onClick={() => expandable && setOpen(!open)}
+        className={`bg-white/[0.02] border border-white/[0.06] rounded-xl p-4 ${
+          expandable ? 'cursor-pointer hover:border-white/[0.12]' : ''
+        } transition-colors`}
       >
-        <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center justify-between mb-1">
           <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-syn-text-tertiary">
             {title}
           </span>
           {badge && (
             <span
               className={`text-[10px] font-bold px-1.5 py-0.5 rounded ring-1 ring-inset ${
-                badgeColor || 'bg-white/[0.04] text-syn-text-tertiary ring-syn-border'
+                badgeColor || 'bg-white/[0.04] text-syn-text-tertiary ring-white/[0.06]'
               }`}
             >
               {badge}
             </span>
           )}
         </div>
-        <p className="text-sm font-bold text-white">{name}</p>
+        <p className="text-sm font-semibold text-white">{name}</p>
         <p className="text-xs text-syn-text-tertiary mt-0.5">{subtitle}</p>
-        {hasChildren && (
+        {expandable && (
           <div className="flex items-center gap-1 mt-2 text-[10px] text-syn-text-tertiary">
             {open ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
             <span>{open ? 'Collapse' : 'Expand'}</span>
           </div>
         )}
       </div>
-      {open && hasChildren && (
-        <div className="mt-2 space-y-1.5 pl-3 border-l border-syn-border ml-4">{children}</div>
+      {open && children && (
+        <div className="mt-1.5 space-y-1 pl-3 border-l border-white/[0.04] ml-4">
+          {children}
+        </div>
       )}
     </div>
   );
 }
 
-function SubRoleCard({ name, subtitle }: { name: string; subtitle: string }) {
+function SubRole({ name, subtitle }: { name: string; subtitle: string }) {
   return (
-    <div className="bg-white/[0.02] border border-white/[0.04] rounded-lg px-3 py-2">
+    <div className="bg-white/[0.01] border border-white/[0.04] rounded-lg px-3 py-2">
       <p className="text-xs font-medium text-syn-text-secondary">{name}</p>
       <p className="text-[10px] text-syn-text-tertiary">{subtitle}</p>
     </div>
   );
 }
 
-function TeamCard({
-  team,
-  agents,
-}: {
-  team: Team;
-  agents: Agent[];
-}) {
+function TeamCard({ team, agents }: { team: Team; agents: Agent[] }) {
   const [open, setOpen] = useState(false);
-  const gradient = getTeamGradient(team.name);
   const managerName = MANAGER_NAMES[team.name] || 'Manager';
+  const accent = TEAM_ACCENT[team.name] || 'text-gray-400';
 
   return (
     <div>
       <div
         onClick={() => setOpen(!open)}
-        className={`bg-syn-surface border border-syn-border rounded-xl p-4 cursor-pointer hover:border-white/[0.10] transition-all border-l-2 ${gradient.border}`}
+        className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-4 cursor-pointer hover:border-white/[0.12] transition-colors"
       >
-        <div className="flex flex-wrap items-center justify-between gap-y-1 mb-1.5">
+        <div className="flex flex-wrap items-center justify-between gap-y-1 mb-1">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-white capitalize">{team.name} Team</span>
+            <span className="text-sm font-semibold text-white capitalize">{team.name} Team</span>
             <span
               className={`text-[10px] font-bold px-1.5 py-0.5 rounded ring-1 ring-inset ${
                 team.is_system
@@ -221,13 +212,13 @@ function TeamCard({
             <span className="text-[10px] font-mono tabular-nums text-syn-text-tertiary">
               {team.weight.toFixed(1)}x
             </span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-white/[0.04] text-syn-text-tertiary ring-1 ring-inset ring-syn-border">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-white/[0.04] text-syn-text-tertiary ring-1 ring-inset ring-white/[0.06]">
               {agents.length} agents
             </span>
           </div>
         </div>
         <p className="text-xs text-syn-text-tertiary">
-          Managed by {managerName} — {team.discipline}
+          Managed by <span className={accent}>{managerName}</span> — {team.discipline}
         </p>
         <div className="flex items-center gap-1 mt-2 text-[10px] text-syn-text-tertiary">
           {open ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
@@ -235,75 +226,69 @@ function TeamCard({
         </div>
       </div>
 
-      {/* Agent nodes */}
+      {/* Expanded: agents as sub-tree */}
       {open && (
-        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 pl-4 border-l-2 ml-4 border-white/[0.04]">
-          {/* Manager card */}
-          <div className="bg-white/[0.02] border border-white/[0.04] rounded-lg px-3.5 py-3 flex items-center gap-3">
-            <div
-              className={`w-7 h-7 rounded-full ${gradient.dot} flex items-center justify-center flex-shrink-0`}
-            >
-              <Users size={12} className="text-white/80" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-syn-text-secondary truncate">{managerName}</p>
-              <p className="text-[10px] text-syn-text-tertiary capitalize">{team.name} Manager</p>
-            </div>
-          </div>
-
-          {agents.map((agent) => {
-            const { name, role } = getAgentDisplayName(agent);
-            const status = statusColors[agent.status] || statusColors.registered;
-
-            return (
-              <div
-                key={agent.id}
-                className="bg-white/[0.02] border border-white/[0.04] rounded-lg px-3.5 py-3 flex items-center gap-3"
-              >
-                <div
-                  className={`w-7 h-7 rounded-full ${gradient.dot} flex items-center justify-center flex-shrink-0 opacity-60`}
-                >
-                  <Cpu size={11} className="text-white/80" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-xs font-medium text-syn-text-secondary truncate">{name}</p>
-                    <span className={`w-1.5 h-1.5 rounded-full ${status.dot} flex-shrink-0`} />
-                  </div>
-                  <p className="text-[10px] text-syn-text-tertiary truncate">{role}</p>
-                </div>
-                <div className="flex-shrink-0 text-right">
-                  {agent.total_signals > 0 ? (
-                    <div>
-                      <p className="text-xs font-mono tabular-nums text-white/40">
-                        {Math.round(agent.accuracy * 100)}%
-                      </p>
-                      <p className="text-[10px] text-syn-text-tertiary font-mono tabular-nums">
-                        {agent.total_signals} sig
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-[10px] text-syn-text-tertiary">New</p>
-                  )}
-                </div>
+        <TreeGroup className="mt-1">
+          {/* Manager node */}
+          <TreeNode dot="bg-white/30">
+            <div className="bg-white/[0.02] border border-white/[0.04] rounded-lg px-3.5 py-2.5 flex items-center gap-3">
+              <div className="w-6 h-6 rounded-full bg-white/[0.06] flex items-center justify-center flex-shrink-0">
+                <Users size={11} className="text-white/60" />
               </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-syn-text-secondary">{managerName}</p>
+                <p className="text-[10px] text-syn-text-tertiary capitalize">{team.name} Team Manager</p>
+              </div>
+            </div>
+          </TreeNode>
+
+          {/* Agent nodes */}
+          {agents.map((agent) => {
+            const { name, role } = agentDisplay(agent);
+            const sd = STATUS_DOT[agent.status] || STATUS_DOT.registered;
+            return (
+              <TreeNode key={agent.id} dot={sd}>
+                <div className="bg-white/[0.02] border border-white/[0.04] rounded-lg px-3.5 py-2.5 flex items-center gap-3">
+                  <div className="w-6 h-6 rounded-full bg-white/[0.04] flex items-center justify-center flex-shrink-0">
+                    <Cpu size={10} className="text-white/40" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-syn-text-secondary truncate">{name}</p>
+                    <p className="text-[10px] text-syn-text-tertiary truncate">{role}</p>
+                  </div>
+                  <div className="flex-shrink-0 text-right">
+                    {agent.total_signals > 0 ? (
+                      <div>
+                        <p className="text-xs font-mono tabular-nums text-white/40">
+                          {Math.round(agent.accuracy * 100)}%
+                        </p>
+                        <p className="text-[10px] text-syn-text-tertiary font-mono tabular-nums">
+                          {agent.total_signals} sig
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-syn-text-tertiary">New</p>
+                    )}
+                  </div>
+                </div>
+              </TreeNode>
             );
           })}
 
           {agents.length === 0 && (
-            <div className="col-span-full bg-white/[0.01] border border-white/[0.03] rounded-lg px-3.5 py-3 text-center">
-              <p className="text-xs text-syn-text-tertiary">No agents assigned yet</p>
-            </div>
+            <TreeNode dot="bg-gray-400/30">
+              <div className="bg-white/[0.01] border border-white/[0.03] rounded-lg px-3.5 py-2.5 text-center">
+                <p className="text-xs text-syn-text-tertiary">No agents assigned yet</p>
+              </div>
+            </TreeNode>
           )}
-        </div>
+        </TreeGroup>
       )}
     </div>
   );
 }
 
-/* ────────────────────────────────────────────────── */
-/*  Main page                                         */
-/* ────────────────────────────────────────────────── */
+/* ━━━ Main page ━━━ */
 
 export default function OrgPage() {
   const [teams, setTeams] = useState<Team[]>([]);
@@ -345,305 +330,303 @@ export default function OrgPage() {
     );
   }
 
+  const totalAnalysts = Object.values(agentsByTeam).reduce((s, a) => s + a.length, 0);
+
   return (
     <div className="max-w-5xl mx-auto slide-up">
       {/* ── Header ── */}
       <div className="mb-10">
         <h1 className="text-2xl font-bold tracking-tight text-white">Org Chart</h1>
         <p className="text-sm text-syn-text-secondary mt-1">
-          A full corporate hierarchy. <span className="font-mono tabular-nums">{teams.length}</span> teams, <span className="font-mono tabular-nums">{agents.length}</span> analysts, 3 researchers, 6 executives. Zero humans. Click to expand.
+          Full corporate hierarchy.{' '}
+          <span className="font-mono tabular-nums">{teams.length}</span> teams,{' '}
+          <span className="font-mono tabular-nums">{agents.length}</span> analysts, 3 researchers,
+          6 executives. Zero humans. Click nodes to expand.
         </p>
       </div>
 
       {/* ── Pipeline flow legend ── */}
       <div className="bg-syn-surface border border-syn-border rounded-xl px-4 sm:px-6 py-3.5 mb-4">
-        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-syn-text-tertiary mb-2">Pipeline flow per cycle</p>
-        {/* Full legend — hidden on very small screens */}
-        <div className="hidden sm:flex items-center gap-2 flex-wrap text-xs">
-          <span className="text-syn-accent/80 font-medium">CEO</span>
-          <span className="text-syn-text-tertiary">→</span>
-          <span className="text-blue-400/80 font-medium">COO</span>
-          <span className="text-syn-text-tertiary">→</span>
-          <span className="text-emerald-400/80 font-medium">Analysis</span>
-          <span className="text-syn-text-tertiary">→</span>
-          <span className="text-cyan-400/80 font-medium">Aggregator</span>
-          <span className="text-syn-text-tertiary">→</span>
-          <span className="text-red-400/80 font-medium">Risk</span>
-          <span className="text-syn-text-tertiary">→</span>
-          <span className="text-purple-400/80 font-medium">Portfolio</span>
-          <span className="text-syn-text-tertiary">→</span>
-          <span className="text-orange-400/80 font-medium">Execution</span>
-        </div>
-        {/* Compact legend — shown only on very small screens */}
-        <div className="flex sm:hidden items-center gap-1.5 text-[10px] overflow-x-auto">
-          <span className="text-syn-accent/80 font-medium whitespace-nowrap">CEO</span>
-          <span className="text-syn-text-tertiary">→</span>
-          <span className="text-blue-400/80 font-medium whitespace-nowrap">COO</span>
-          <span className="text-syn-text-tertiary">→</span>
-          <span className="text-emerald-400/80 font-medium whitespace-nowrap">Analysis</span>
-          <span className="text-syn-text-tertiary">→</span>
-          <span className="text-cyan-400/80 font-medium whitespace-nowrap">Agg</span>
-          <span className="text-syn-text-tertiary">→</span>
-          <span className="text-red-400/80 font-medium whitespace-nowrap">Risk</span>
-          <span className="text-syn-text-tertiary">→</span>
-          <span className="text-purple-400/80 font-medium whitespace-nowrap">Port</span>
-          <span className="text-syn-text-tertiary">→</span>
-          <span className="text-orange-400/80 font-medium whitespace-nowrap">Exec</span>
+        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-syn-text-tertiary mb-2">
+          Pipeline flow per cycle
+        </p>
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap text-[10px] sm:text-xs">
+          {[
+            { label: 'CEO', color: 'text-syn-accent/80' },
+            { label: 'COO', color: 'text-blue-400/80' },
+            { label: 'Analysis', color: 'text-emerald-400/80' },
+            { label: 'Aggregator', color: 'text-cyan-400/80' },
+            { label: 'Risk', color: 'text-red-400/80' },
+            { label: 'Portfolio', color: 'text-purple-400/80' },
+            { label: 'Execution', color: 'text-orange-400/80' },
+          ].map((step, i, arr) => (
+            <span key={step.label} className="flex items-center gap-1.5 sm:gap-2">
+              <span className={`${step.color} font-medium whitespace-nowrap`}>{step.label}</span>
+              {i < arr.length - 1 && <span className="text-syn-text-tertiary">→</span>}
+            </span>
+          ))}
         </div>
       </div>
 
-      {/* ── Org chart ── */}
+      {/* ═══ Org tree ═══ */}
       <div className="bg-syn-surface border border-syn-border rounded-xl p-4 sm:p-6 md:p-8">
-        {/* Tier 1: CEO */}
-        <CeoNode />
-
-        {/* Vertical connector from CEO */}
-        <ConnectorVertical />
-
-        {/* Horizontal rail — hidden on mobile where grid stacks vertically */}
-        <div className="hidden md:flex items-stretch gap-0 mb-0">
-          <div className="flex-1 flex flex-col items-center">
-            <div className="h-px w-1/2 bg-syn-border self-end" />
-          </div>
-          <div className="flex-1">
-            <div className="h-px bg-syn-border" />
-          </div>
-          <div className="flex-1 flex flex-col items-center">
-            <div className="h-px w-1/2 bg-syn-border self-start" />
-          </div>
-        </div>
-
-        {/* Tier 2: COO, CRO, Board */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-8">
-          <div>
-            <ConnectorVertical className="hidden md:flex" />
-            <ExecCard
-              title="Chief Operating Officer"
-              name="Elena Vasquez"
-              subtitle="Selects which coins to analyze each cycle — her picks flow down to the Analysis Division"
-              badge="STEP 1"
-              badgeColor="bg-blue-400/10 text-blue-400 ring-blue-400/20"
-            />
-          </div>
-
-          <div>
-            <ConnectorVertical className="hidden md:flex" />
-            <ExecCard
-              title="Chief Risk Officer"
-              name="Tobias Richter"
-              subtitle="Sets risk rules per cycle — enforced by the Risk Manager in Operations below"
-            >
-              <SubRoleCard
-                name="James Hartley — Risk Manager"
-                subtitle="Enforces CRO rules in Operations: position sizing, drawdown halt, confidence gates"
-              />
-            </ExecCard>
-          </div>
-
-          <div>
-            <ConnectorVertical className="hidden md:flex" />
-            <ExecCard
-              title="Board of Directors"
-              name="Governance"
-              subtitle="Organizational structure and agent lifecycle"
-              badge="META"
-              badgeColor="bg-purple-400/10 text-purple-400 ring-purple-400/20"
-            >
-              <SubRoleCard
-                name="Victor Okafor — CSO"
-                subtitle="Team creation and dissolution"
-              />
-              <SubRoleCard
-                name="Nadia Chen — CTO"
-                subtitle="Agent assignment and prompt writing"
-              />
-              <SubRoleCard
-                name="Raphael Moreno — CPO"
-                subtitle="Probation and firing pipeline"
-              />
-            </ExecCard>
-          </div>
-        </div>
-
-        {/* Flow: COO → Analysis */}
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <div className="text-[10px] text-blue-400/40 font-medium">COO selected coins</div>
-          <div className="text-syn-text-tertiary">↓</div>
-        </div>
-
-        {/* ── Section: Analysis teams ── */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="h-px flex-1 bg-white/[0.04]" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-400/60">
-              Analysis Division
-            </span>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded ring-1 ring-inset bg-emerald-400/10 text-emerald-400 ring-emerald-400/20">
-              STEP 2
-            </span>
-            <div className="h-px flex-1 bg-white/[0.04]" />
-          </div>
-
-          <div className="space-y-3">
-            {teams.map((team) => (
-              <TeamCard key={team.id} team={team} agents={agentsByTeam[team.name] || []} />
-            ))}
-          </div>
-        </div>
-
-        {/* Flow: Analysis → Operations */}
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <div className="text-[10px] text-emerald-400/40 font-medium">Team signals per coin</div>
-          <div className="text-syn-text-tertiary">↓</div>
-        </div>
-
-        {/* ── Section: Operations ── */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="h-px flex-1 bg-white/[0.04]" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-400/60">
-              Operations
-            </span>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded ring-1 ring-inset bg-cyan-400/10 text-cyan-400 ring-cyan-400/20">
-              STEPS 3–6
-            </span>
-            <div className="h-px flex-1 bg-white/[0.04]" />
-          </div>
-
-          <div className="space-y-3">
-            {/* Step 3: Aggregator */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <ExecCard
-                title="Signal Aggregator"
-                name="Soren Lindqvist"
-                subtitle="Combines all team signals into one recommendation per coin — deterministic, no LLM"
-                badge="STEP 3"
-                badgeColor="bg-cyan-400/10 text-cyan-400 ring-cyan-400/20"
-              >
-                <SubRoleCard name="Bayesian log-odds" subtitle="Weighted signal combination by team accuracy" />
-                <SubRoleCard name="Macro & Technical gates" subtitle="Bearish macro suppresses buys fund-wide" />
-                <SubRoleCard name="Polarization detection" subtitle="Flags team disagreement" />
-                <SubRoleCard name="Close-call detection" subtitle="Flags marginal signals" />
-              </ExecCard>
-
-              {/* Step 4: Risk — enforces CRO rules */}
-              <ExecCard
-                title="Risk Manager"
-                name="James Hartley"
-                subtitle="Enforces CRO Tobias Richter's rules on aggregated signals — gates, sizes, and halts"
-                badge="STEP 4"
-                badgeColor="bg-red-400/10 text-red-400 ring-red-400/20"
-              >
-                <SubRoleCard name="Confidence & consensus gates" subtitle="Kills signals below CRO thresholds" />
-                <SubRoleCard name="Position sizing" subtitle="Quarter-Kelly allocation per trade" />
-                <SubRoleCard name="Drawdown halt" subtitle="Blocks all trading if daily loss exceeded" />
-                <SubRoleCard name="Open positions cap" subtitle="Max concurrent positions enforced" />
-              </ExecCard>
+        {/* ── CEO (root) ── */}
+        <div className="relative mb-0">
+          <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-violet-400/15 to-purple-500/15 blur-lg" />
+          <div className="relative bg-syn-surface border-2 border-syn-accent/30 rounded-2xl px-6 py-5">
+            <div className="flex items-center gap-2 mb-1">
+              <Crown size={14} className="text-syn-accent" />
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">
+                Chief Executive Officer
+              </span>
             </div>
+            <p className="text-lg font-bold text-white">Marcus Blackwell</p>
+            <p className="text-xs text-syn-text-tertiary mt-0.5">
+              Strategic leadership & market direction — oversees all divisions
+            </p>
+          </div>
+        </div>
 
-            {/* Step 5-6: Portfolio & Execution */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {/* ── Tree trunk from CEO ── */}
+        <TreeGroup className="mt-0 pt-3">
+          {/* ━━ Branch: Executive Team ━━ */}
+          <TreeNode dot="bg-amber-400">
+            <SectionHead
+              label="Executive Team"
+              color="text-amber-400"
+              meta="3 direct reports"
+            />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
               <ExecCard
-                title="Head of Portfolio"
-                name="Diana Frost"
-                subtitle="Reviews risk-approved orders against segment allocation limits — CEO sector weights applied"
-                badge="STEP 5"
+                title="Chief Operating Officer"
+                name="Elena Vasquez"
+                subtitle="Selects which coins to analyze each cycle — her picks flow down to Analysis"
+                badge="STEP 1"
+                badgeColor="bg-blue-400/10 text-blue-400 ring-blue-400/20"
+              />
+              <ExecCard
+                title="Chief Risk Officer"
+                name="Tobias Richter"
+                subtitle="Sets risk rules per cycle — enforced by Risk Manager in Operations"
+              >
+                <SubRole
+                  name="James Hartley — Risk Manager"
+                  subtitle="Enforces CRO rules: position sizing, drawdown halt, confidence gates"
+                />
+              </ExecCard>
+              <ExecCard
+                title="Board of Directors"
+                name="Governance"
+                subtitle="Organizational structure and agent lifecycle"
+                badge="META"
                 badgeColor="bg-purple-400/10 text-purple-400 ring-purple-400/20"
               >
-                <SubRoleCard name="L1s / DeFi / L2s" subtitle="Segment allocation" />
-                <SubRoleCard name="Memes / AI / Infrastructure" subtitle="Segment allocation" />
-              </ExecCard>
-              <ExecCard
-                title="Head of Execution"
-                name="Kai Nakamura"
-                subtitle="Executes final portfolio-approved orders and monitors live positions"
-                badge="STEP 6"
-                badgeColor="bg-orange-400/10 text-orange-400 ring-orange-400/20"
-              >
-                <SubRoleCard name="Paper Trader" subtitle="Executes buy/sell against virtual portfolio" />
-                <SubRoleCard name="Trade Monitor" subtitle="SL / TP / trailing stops between cycles" />
-                <SubRoleCard name="Trade Ledger" subtitle="P&L, holding time, exit reason tracking" />
+                <SubRole name="Victor Okafor — CSO" subtitle="Team creation and dissolution" />
+                <SubRole name="Nadia Chen — CTO" subtitle="Agent assignment and prompt writing" />
+                <SubRole
+                  name="Raphael Moreno — CPO"
+                  subtitle="Probation and firing pipeline"
+                />
               </ExecCard>
             </div>
-          </div>
-        </div>
+          </TreeNode>
 
-        {/* ── Section: Research Division ── */}
-        <div className="mb-8">
+          {/* ━━ Branch: Analysis Division ━━ */}
+          <TreeNode dot="bg-emerald-400">
+            <SectionHead
+              label="Analysis Division"
+              color="text-emerald-400"
+              badge="STEP 2"
+              badgeColor="bg-emerald-400/10 text-emerald-400 ring-emerald-400/20"
+              meta={`${teams.length} teams · ${totalAnalysts} agents`}
+            />
+            <TreeGroup className="mt-2">
+              {teams.map((team) => (
+                <TreeNode key={team.id} dot={TEAM_DOT[team.name] || 'bg-gray-400'}>
+                  <TeamCard team={team} agents={agentsByTeam[team.name] || []} />
+                </TreeNode>
+              ))}
+            </TreeGroup>
+          </TreeNode>
+
+          {/* ━━ Branch: Operations Pipeline ━━ */}
+          <TreeNode dot="bg-cyan-400">
+            <SectionHead
+              label="Operations Pipeline"
+              color="text-cyan-400"
+              badge="STEPS 3–6"
+              badgeColor="bg-cyan-400/10 text-cyan-400 ring-cyan-400/20"
+            />
+            <TreeGroup className="mt-2">
+              <TreeNode dot="bg-cyan-400">
+                <ExecCard
+                  title="Signal Aggregator"
+                  name="Soren Lindqvist"
+                  subtitle="Combines all team signals into one recommendation per coin — deterministic, no LLM"
+                  badge="STEP 3"
+                  badgeColor="bg-cyan-400/10 text-cyan-400 ring-cyan-400/20"
+                >
+                  <SubRole
+                    name="Bayesian log-odds"
+                    subtitle="Weighted signal combination by team accuracy"
+                  />
+                  <SubRole
+                    name="Macro & Technical gates"
+                    subtitle="Bearish macro suppresses buys fund-wide"
+                  />
+                  <SubRole
+                    name="Polarization detection"
+                    subtitle="Flags team disagreement"
+                  />
+                  <SubRole name="Close-call detection" subtitle="Flags marginal signals" />
+                </ExecCard>
+              </TreeNode>
+
+              <TreeNode dot="bg-red-400">
+                <ExecCard
+                  title="Risk Manager"
+                  name="James Hartley"
+                  subtitle="Enforces CRO Tobias Richter's rules on aggregated signals — gates, sizes, and halts"
+                  badge="STEP 4"
+                  badgeColor="bg-red-400/10 text-red-400 ring-red-400/20"
+                >
+                  <SubRole
+                    name="Confidence & consensus gates"
+                    subtitle="Kills signals below CRO thresholds"
+                  />
+                  <SubRole
+                    name="Position sizing"
+                    subtitle="Quarter-Kelly allocation per trade"
+                  />
+                  <SubRole
+                    name="Drawdown halt"
+                    subtitle="Blocks all trading if daily loss exceeded"
+                  />
+                  <SubRole
+                    name="Open positions cap"
+                    subtitle="Max concurrent positions enforced"
+                  />
+                </ExecCard>
+              </TreeNode>
+
+              <TreeNode dot="bg-purple-400">
+                <ExecCard
+                  title="Head of Portfolio"
+                  name="Diana Frost"
+                  subtitle="Reviews risk-approved orders against segment allocation limits — CEO sector weights applied"
+                  badge="STEP 5"
+                  badgeColor="bg-purple-400/10 text-purple-400 ring-purple-400/20"
+                >
+                  <SubRole
+                    name="Segment allocation"
+                    subtitle="L1s / DeFi / L2s / Memes / AI / Infrastructure"
+                  />
+                </ExecCard>
+              </TreeNode>
+
+              <TreeNode dot="bg-orange-400">
+                <ExecCard
+                  title="Head of Execution"
+                  name="Kai Nakamura"
+                  subtitle="Executes final portfolio-approved orders and monitors live positions"
+                  badge="STEP 6"
+                  badgeColor="bg-orange-400/10 text-orange-400 ring-orange-400/20"
+                >
+                  <SubRole
+                    name="Paper Trader"
+                    subtitle="Executes buy/sell against virtual portfolio"
+                  />
+                  <SubRole
+                    name="Trade Monitor"
+                    subtitle="SL / TP / trailing stops between cycles"
+                  />
+                  <SubRole
+                    name="Trade Ledger"
+                    subtitle="P&L, holding time, exit reason tracking"
+                  />
+                </ExecCard>
+              </TreeNode>
+            </TreeGroup>
+          </TreeNode>
+
+          {/* ━━ Branch: Research Division ━━ */}
+          <TreeNode dot="bg-indigo-400">
+            <SectionHead label="Research Division" color="text-indigo-400" />
+            <TreeGroup className="mt-2">
+              <TreeNode dot="bg-indigo-400">
+                <ExecCard
+                  title="Head of Research"
+                  name="Dr. Elara Voss"
+                  subtitle="Orchestrates research, produces weekly digests"
+                  badge="LEAD"
+                  badgeColor="bg-indigo-400/10 text-indigo-400 ring-indigo-400/20"
+                />
+              </TreeNode>
+              <TreeNode dot="bg-indigo-300/60">
+                <ExecCard
+                  title="Quantitative Researcher"
+                  name="Dr. Kai Moretti"
+                  subtitle="Signal health, decay detection, data source evaluation"
+                />
+              </TreeNode>
+              <TreeNode dot="bg-indigo-300/60">
+                <ExecCard
+                  title="Strategy Researcher"
+                  name="Dr. Noor Hadid"
+                  subtitle="Trade attribution, regime analysis, hypothesis testing"
+                />
+              </TreeNode>
+            </TreeGroup>
+            <div className="mt-2 ml-5">
+              <a
+                href="/research"
+                className="text-xs text-syn-accent hover:text-violet-300 transition-colors inline-flex items-center gap-1"
+              >
+                View research reports →
+              </a>
+            </div>
+          </TreeNode>
+        </TreeGroup>
+      </div>
+
+      {/* ── Unassigned agents ── */}
+      {unassigned.length > 0 && (
+        <div className="mt-4 bg-syn-surface border border-syn-border rounded-xl p-4 sm:p-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="h-px flex-1 bg-white/[0.04]" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-400/60">
-              Research Division
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-text-tertiary">
+              Unassigned — Awaiting Board Review
             </span>
             <div className="h-px flex-1 bg-white/[0.04]" />
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <ExecCard
-              title="Head of Research"
-              name="Dr. Elara Voss"
-              subtitle="Orchestrates research, produces weekly digests"
-              badge="LEAD"
-              badgeColor="bg-indigo-400/10 text-indigo-400 ring-indigo-400/20"
-            />
-            <ExecCard
-              title="Quantitative Researcher"
-              name="Dr. Kai Moretti"
-              subtitle="Signal health, decay detection, data source evaluation"
-            />
-            <ExecCard
-              title="Strategy Researcher"
-              name="Dr. Noor Hadid"
-              subtitle="Trade attribution, regime analysis, hypothesis testing"
-            />
-          </div>
-          <div className="mt-3 text-center">
-            <a href="/research" className="text-xs text-syn-accent hover:text-violet-300 transition-colors inline-flex items-center gap-1">
-              View research reports →
-            </a>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+            {unassigned.map((agent) => {
+              const sd = STATUS_DOT[agent.status] || STATUS_DOT.registered;
+              return (
+                <div
+                  key={agent.id}
+                  className="bg-white/[0.02] border border-white/[0.04] rounded-lg px-3.5 py-3 flex items-center gap-3"
+                >
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-400/30 to-gray-500/30 flex items-center justify-center flex-shrink-0">
+                    <Cpu size={11} className="text-white/40" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-medium text-syn-text-secondary truncate">
+                        {agent.role}
+                      </p>
+                      <span className={`w-1.5 h-1.5 rounded-full ${sd} flex-shrink-0`} />
+                    </div>
+                    <p className="text-[10px] text-syn-text-tertiary truncate">
+                      {agent.model} / {agent.provider}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
-
-        {/* ── Section: Unassigned agents ── */}
-        {unassigned.length > 0 && (
-          <div>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="h-px flex-1 bg-white/[0.04]" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-text-tertiary">
-                Unassigned — Awaiting Board Review
-              </span>
-              <div className="h-px flex-1 bg-white/[0.04]" />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-              {unassigned.map((agent) => {
-                const status = statusColors[agent.status] || statusColors.registered;
-                return (
-                  <div
-                    key={agent.id}
-                    className="bg-white/[0.02] border border-white/[0.04] rounded-lg px-3.5 py-3 flex items-center gap-3"
-                  >
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-400/30 to-gray-500/30 flex items-center justify-center flex-shrink-0">
-                      <Cpu size={11} className="text-white/40" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs font-medium text-syn-text-secondary truncate">{agent.role}</p>
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${status.dot} flex-shrink-0`}
-                        />
-                      </div>
-                      <p className="text-[10px] text-syn-text-tertiary truncate">
-                        {agent.model} / {agent.provider}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }
