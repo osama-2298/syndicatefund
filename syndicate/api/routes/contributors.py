@@ -2,17 +2,30 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from syndicate.api.dependencies import generate_api_token, get_current_contributor
+from syndicate.api.dependencies import (
+    generate_api_token,
+    get_contributor_any_status,
+    get_current_contributor,
+)
 from syndicate.core.cost_estimator import estimate_monthly_cost
 from syndicate.core.encryption import encrypt_api_key
-from syndicate.db.models import AgentRow, AgentStatusDB, ContributorRow, ProviderType
+from syndicate.db.models import (
+    AgentRow,
+    AgentStatusDB,
+    ContributorRow,
+    ContributorStatus,
+    ProviderType,
+    TeamRow,
+)
 from syndicate.db.session import get_db
 
 router = APIRouter(prefix="/contributors", tags=["contributors"])
@@ -202,38 +215,141 @@ async def register(
     )
 
 
-class ContributorProfile(BaseModel):
+class AgentDetail(BaseModel):
+    id: str
+    role: str
+    agent_class: str | None
+    team_name: str | None
+    model: str
+    provider: str
+    status: str
+    total_signals: int
+    accuracy: float
+    total_cost_usd: float
+
+
+class ContributorProfileResponse(BaseModel):
     id: str
     display_name: str
     email: str | None
     max_agents: int
+    preferred_model: str
     cost_limit_usd: float | None
     total_cost_usd: float
     status: str
     created_at: str
     agent_count: int
+    agents: list[AgentDetail]
 
 
-@router.get("/me", response_model=ContributorProfile)
+@router.get("/me", response_model=ContributorProfileResponse)
 async def get_me(
-    contributor: ContributorRow = Depends(get_current_contributor),
+    contributor: ContributorRow = Depends(get_contributor_any_status),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get current contributor profile and usage."""
-    # Count agents
+    """Get current contributor profile with full agent details."""
     result = await db.execute(
-        select(AgentRow).where(AgentRow.contributor_id == contributor.id)
+        select(AgentRow)
+        .options(selectinload(AgentRow.team))
+        .where(AgentRow.contributor_id == contributor.id)
     )
     agents = result.scalars().all()
 
-    return ContributorProfile(
+    agent_details = []
+    preferred_model = "claude-sonnet-4-6"
+    for a in agents:
+        preferred_model = a.model  # Use the first agent's model
+        total = a.total_signals
+        correct = a.correct_signals
+        accuracy = (correct / total * 100) if total > 0 else 0.0
+        agent_details.append(AgentDetail(
+            id=str(a.id),
+            role=a.role,
+            agent_class=a.agent_class,
+            team_name=a.team.name if a.team else None,
+            model=a.model,
+            provider=a.provider.value,
+            status=a.status.value,
+            total_signals=total,
+            accuracy=round(accuracy, 1),
+            total_cost_usd=float(a.total_cost_usd),
+        ))
+
+    return ContributorProfileResponse(
         id=str(contributor.id),
         display_name=contributor.display_name,
         email=contributor.email,
         max_agents=contributor.max_agents,
+        preferred_model=preferred_model,
         cost_limit_usd=float(contributor.cost_limit_usd) if contributor.cost_limit_usd else None,
         total_cost_usd=float(contributor.total_cost_usd),
         status=contributor.status.value,
         created_at=contributor.created_at.isoformat(),
         agent_count=len(agents),
+        agents=agent_details,
     )
+
+
+# ── Pause / Resume / Cancel ─────────────────────────────────────────────────
+
+
+@router.post("/me/pause")
+async def pause_contribution(
+    contributor: ContributorRow = Depends(get_current_contributor),
+    db: AsyncSession = Depends(get_db),
+):
+    """Pause contribution — agents stop running but are not fired."""
+    if contributor.status != ContributorStatus.ACTIVE:
+        raise HTTPException(status_code=400, detail="Can only pause an active contribution")
+
+    contributor.status = ContributorStatus.PAUSED
+    await db.commit()
+    return {"status": "paused", "message": "Contribution paused. Your agents are on standby."}
+
+
+@router.post("/me/resume")
+async def resume_contribution(
+    contributor: ContributorRow = Depends(get_contributor_any_status),
+    db: AsyncSession = Depends(get_db),
+):
+    """Resume a paused contribution — agents start running again."""
+    if contributor.status != ContributorStatus.PAUSED:
+        raise HTTPException(status_code=400, detail="Can only resume a paused contribution")
+
+    contributor.status = ContributorStatus.ACTIVE
+    await db.commit()
+    return {"status": "active", "message": "Contribution resumed. Agents are back online."}
+
+
+@router.post("/me/cancel")
+async def cancel_contribution(
+    contributor: ContributorRow = Depends(get_contributor_any_status),
+    db: AsyncSession = Depends(get_db),
+):
+    """Cancel contribution permanently — all agents are fired."""
+    if contributor.status == ContributorStatus.SUSPENDED:
+        raise HTTPException(status_code=400, detail="Contribution already cancelled")
+
+    # Fire all agents
+    result = await db.execute(
+        select(AgentRow).where(
+            AgentRow.contributor_id == contributor.id,
+            AgentRow.status.notin_([AgentStatusDB.FIRED]),
+        )
+    )
+    agents = result.scalars().all()
+    fired_count = 0
+    for agent in agents:
+        agent.status = AgentStatusDB.FIRED
+        agent.fired_at = datetime.now(timezone.utc)
+        agent.team_id = None  # Detach from team
+        fired_count += 1
+
+    contributor.status = ContributorStatus.SUSPENDED
+    await db.commit()
+
+    return {
+        "status": "suspended",
+        "agents_fired": fired_count,
+        "message": f"Contribution cancelled. {fired_count} agent(s) fired.",
+    }

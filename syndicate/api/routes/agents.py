@@ -42,6 +42,7 @@ async def list_agents(
     db: AsyncSession = Depends(get_db),
     status: str | None = None,
     team_id: str | None = None,
+    include_fired: bool = False,
 ):
     """List all agents (full transparency)."""
     query = select(AgentRow).options(joinedload(AgentRow.team))
@@ -54,6 +55,8 @@ async def list_agents(
                 status_code=400,
                 detail=f"Invalid status '{status}'. Valid: {[s.value for s in AgentStatusDB]}",
             )
+    elif not include_fired:
+        query = query.where(AgentRow.status != AgentStatusDB.FIRED)
     if team_id:
         try:
             query = query.where(AgentRow.team_id == UUID(team_id))

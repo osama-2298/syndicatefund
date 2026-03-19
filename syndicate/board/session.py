@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import structlog
+import sqlalchemy as sa
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,6 +28,8 @@ from syndicate.db.models import (
     AgentRow,
     AgentStatusDB,
     BoardDecisionRow,
+    ContributorRow,
+    ContributorStatus,
     ProviderType,
     TeamRow,
     TeamStatus,
@@ -156,7 +159,10 @@ class BoardSession:
         data = []
         for t in teams:
             agent_count_q = await self.db.execute(
-                select(func.count(AgentRow.id)).where(AgentRow.team_id == t.id)
+                select(func.count(AgentRow.id)).where(
+                    AgentRow.team_id == t.id,
+                    AgentRow.status != AgentStatusDB.FIRED,
+                )
             )
             agent_count = agent_count_q.scalar() or 0
             data.append({
@@ -182,13 +188,17 @@ class BoardSession:
         return result.scalar() or 0
 
     async def _get_unassigned_agents(self) -> list[dict]:
+        from sqlalchemy.orm import joinedload
+
         result = await self.db.execute(
-            select(AgentRow).where(
+            select(AgentRow)
+            .options(joinedload(AgentRow.contributor))
+            .where(
                 AgentRow.status == AgentStatusDB.REGISTERED,
                 AgentRow.team_id.is_(None),
             )
         )
-        agents = result.scalars().all()
+        agents = result.unique().scalars().all()
         return [
             {
                 "id": str(a.id),
@@ -197,6 +207,7 @@ class BoardSession:
                 "contributor_id": str(a.contributor_id) if a.contributor_id else None,
             }
             for a in agents
+            if a.contributor is None or a.contributor.status == ContributorStatus.ACTIVE
         ]
 
     async def _get_all_agents_data(self) -> list[dict]:
@@ -210,6 +221,7 @@ class BoardSession:
                     AgentStatusDB.FOUNDING,
                     AgentStatusDB.ACTIVE,
                     AgentStatusDB.PROBATION,
+                    AgentStatusDB.ASSIGNED,
                 ])
             )
         )
@@ -302,9 +314,15 @@ class BoardSession:
         understaffed = []
         for team in teams.scalars().all():
             count_q = await self.db.execute(
-                select(func.count(AgentRow.id)).where(
+                select(func.count(AgentRow.id))
+                .outerjoin(ContributorRow, AgentRow.contributor_id == ContributorRow.id)
+                .where(
                     AgentRow.team_id == team.id,
                     AgentRow.status.notin_([AgentStatusDB.FIRED]),
+                    sa.or_(
+                        AgentRow.contributor_id.is_(None),
+                        ContributorRow.status == ContributorStatus.ACTIVE,
+                    ),
                 )
             )
             current = count_q.scalar() or 0
@@ -410,6 +428,13 @@ class BoardSession:
         if agent.status == AgentStatusDB.FOUNDING:
             logger.warning("cannot_reassign_founding", agent_id=str(agent_id))
             return
+
+        # Don't assign agents whose contributor is no longer active
+        if agent.contributor_id:
+            contributor = await self.db.get(ContributorRow, agent.contributor_id)
+            if contributor and contributor.status != ContributorStatus.ACTIVE:
+                logger.warning("contributor_not_active", agent_id=str(agent_id))
+                return
 
         # Find the team
         team_result = await self.db.execute(

@@ -31,6 +31,7 @@ export default function ProfilePage() {
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState('');
   const [cancelConfirm, setCancelConfirm] = useState('');
+  const [showCancelPanel, setShowCancelPanel] = useState(false);
 
   // Auto-load from localStorage
   useEffect(() => {
@@ -312,22 +313,47 @@ export default function ProfilePage() {
 
           {/* Cancel section */}
           {(profile.status === 'active' || profile.status === 'paused') && (
-            <div className="flex items-center gap-2 sm:ml-auto">
-              <input
-                type="text"
-                value={cancelConfirm}
-                onChange={(e) => setCancelConfirm(e.target.value)}
-                placeholder='Type CANCEL'
-                className="bg-white/[0.03] border border-syn-border rounded-lg px-3 py-2 text-sm text-white font-mono w-32 focus:border-red-400/50 focus:outline-none focus:ring-1 focus:ring-red-400/20 transition-all placeholder:text-white/15"
-              />
-              <button
-                onClick={handleCancel}
-                disabled={cancelConfirm !== 'CANCEL' || !!actionLoading}
-                className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-red-500/10 text-red-400 ring-1 ring-red-500/20 hover:bg-red-500/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                {actionLoading === 'cancel' ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
-                Cancel
-              </button>
+            <div className="sm:ml-auto">
+              {!showCancelPanel ? (
+                <button
+                  onClick={() => setShowCancelPanel(true)}
+                  className="text-xs text-white/30 hover:text-red-400/70 transition-colors underline underline-offset-2"
+                >
+                  Cancel contribution...
+                </button>
+              ) : (
+                <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-4 space-y-3 max-w-sm">
+                  <p className="text-xs font-semibold text-red-400 uppercase tracking-wider">This cannot be undone</p>
+                  <ul className="text-xs text-white/50 space-y-1">
+                    <li>All your agents will be permanently fired</li>
+                    <li>Agents will be removed from their teams</li>
+                    <li>Signal history is preserved (read-only)</li>
+                  </ul>
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="text"
+                      value={cancelConfirm}
+                      onChange={(e) => setCancelConfirm(e.target.value)}
+                      placeholder='Type CANCEL'
+                      className="bg-white/[0.03] border border-syn-border rounded-lg px-3 py-2 text-sm text-white font-mono w-32 focus:border-red-400/50 focus:outline-none focus:ring-1 focus:ring-red-400/20 transition-all placeholder:text-white/15"
+                    />
+                    <button
+                      onClick={handleCancel}
+                      disabled={cancelConfirm !== 'CANCEL' || !!actionLoading}
+                      className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-red-500/10 text-red-400 ring-1 ring-red-500/20 hover:bg-red-500/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      {actionLoading === 'cancel' ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
+                      Confirm
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => { setShowCancelPanel(false); setCancelConfirm(''); }}
+                    className="text-xs text-white/30 hover:text-white/50 transition-colors"
+                  >
+                    Nevermind
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

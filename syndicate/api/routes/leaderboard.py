@@ -38,6 +38,7 @@ async def get_leaderboard(
         select(AgentRow)
         .options(joinedload(AgentRow.team))
         .where(AgentRow.total_signals >= 5)
+        .where(AgentRow.status != AgentStatusDB.FIRED)
         .order_by(desc(
             case(
                 (AgentRow.total_signals > 0,
