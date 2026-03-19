@@ -1,19 +1,33 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import {
-  TrendingUp, TrendingDown, Shield, Activity, Clock, ArrowRight,
-  ChevronRight, Zap, Swords,
+  TrendingUp, TrendingDown, Shield, Activity, ArrowRight,
+  ChevronRight, ChevronDown, ChevronUp, Zap, Swords,
+  Target, BarChart3, Clock,
 } from 'lucide-react';
 import CycleCard, { type CycleData, type PipelineEvent } from '@/components/CycleCard';
-import { AGENT_COLORS, TEAM_COLORS } from '@/lib/constants';
+import { AGENT_COLORS } from '@/lib/constants';
 import { API_BASE } from '@/lib/api';
 
-interface Position { symbol: string; side: string; entry_price: number; quantity: number; current_price: number; }
-interface TradeEntry { symbol: string; side: string; entry_price: number; stop_loss: number; take_profit_1: number; conviction: number; confidence: number; risk_amount: number; exit_reason: string; asset_tier: string; }
-interface AgentData { id: string; team_name: string | null; role: string; agent_class: string | null; status: string; total_signals: number; accuracy: number; provider: string; }
+// Lazy-load Recharts (no SSR)
+const AreaChart = dynamic(() => import('recharts').then(m => m.AreaChart), { ssr: false });
+const Area = dynamic(() => import('recharts').then(m => m.Area), { ssr: false });
+const XAxis = dynamic(() => import('recharts').then(m => m.XAxis), { ssr: false });
+const YAxis = dynamic(() => import('recharts').then(m => m.YAxis), { ssr: false });
+const Tooltip = dynamic(() => import('recharts').then(m => m.Tooltip), { ssr: false });
+const ResponsiveContainer = dynamic(() => import('recharts').then(m => m.ResponsiveContainer), { ssr: false });
 
-// -- Animated Number --
+/* ── Types ── */
+
+interface Position { symbol: string; side: string; entry_price: number; quantity: number; current_price: number; }
+interface TradeEntry { symbol: string; side: string; entry_price: number; exit_price: number; stop_loss: number; take_profit_1: number; conviction: number; confidence: number; risk_amount: number; exit_reason: string; asset_tier: string; pnl_pct: number; pnl_usd: number; holding_hours: number; exit_time: string; entry_time: string; }
+interface TradeStats { total_trades: number; closed_trades: number; open_trades: number; wins: number; losses: number; win_rate: number; total_pnl_usd: number; avg_pnl_pct: number; profit_factor: number; current_streak: number; best_trade: { symbol: string; pnl_pct: number; pnl_usd: number; reason: string } | null; worst_trade: { symbol: string; pnl_pct: number; pnl_usd: number; reason: string } | null; }
+interface AgentData { id: string; team_name: string | null; role: string; agent_class: string | null; status: string; total_signals: number; accuracy: number; provider: string; }
+interface CyclePoint { id: number; date: string; value: number; regime: string | null; }
+
+/* ── Animated Number ── */
 
 function AnimatedNumber({ value, prefix = '$', decimals = 0 }: { value: number; prefix?: string; decimals?: number }) {
   const [display, setDisplay] = useState(value);
@@ -42,7 +56,256 @@ function AnimatedNumber({ value, prefix = '$', decimals = 0 }: { value: number; 
   );
 }
 
-// -- Sidebar: Disagreement Card --
+/* ── Helpers ── */
+
+function fmtUsd(n: number): string {
+  if (Math.abs(n) >= 1000) return `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  return `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+}
+
+function fmtPct(n: number): string {
+  return `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`;
+}
+
+function fmtHours(h: number): string {
+  if (h < 1) return `${Math.round(h * 60)}m`;
+  if (h < 24) return `${Math.round(h)}h`;
+  return `${(h / 24).toFixed(1)}d`;
+}
+
+function exitReasonLabel(reason: string): string {
+  const map: Record<string, string> = {
+    STOP_LOSS: 'Stop Loss', TAKE_PROFIT_1: 'TP1', TAKE_PROFIT_2: 'TP2',
+    TRAILING_STOP: 'Trail', BREAKEVEN_STOP: 'BE Stop', TIME_STOP: 'Time',
+  };
+  return map[reason] || reason;
+}
+
+function timeAgo(iso: string): string {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+/* ── Equity Curve Chart ── */
+
+function EquityCurve({ data }: { data: CyclePoint[] }) {
+  if (data.length < 2) return null;
+
+  const minVal = Math.min(...data.map(d => d.value));
+  const maxVal = Math.max(...data.map(d => d.value));
+  const isUp = data[data.length - 1].value >= data[0].value;
+  const gradientColor = isUp ? '#34d399' : '#f87171';
+
+  return (
+    <div className="bg-syn-surface border border-syn-border rounded-xl p-4 pb-2 mb-6">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <BarChart3 size={14} className="text-syn-muted" />
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Portfolio Performance</span>
+        </div>
+        <span className="text-[10px] font-mono text-syn-text-tertiary">{data.length} cycles</span>
+      </div>
+      <div className="h-[200px] -mx-2">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+            <defs>
+              <linearGradient id="equityGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={gradientColor} stopOpacity={0.25} />
+                <stop offset="100%" stopColor={gradientColor} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <XAxis
+              dataKey="date"
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.2)' }}
+              minTickGap={60}
+            />
+            <YAxis
+              domain={[minVal * 0.998, maxVal * 1.002]}
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.2)' }}
+              tickFormatter={(v: number) => `$${(v / 1000).toFixed(1)}k`}
+              width={52}
+            />
+            <Tooltip
+              contentStyle={{
+                background: 'rgba(15,15,20,0.95)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '8px',
+                fontSize: '11px',
+                padding: '8px 12px',
+              }}
+              labelStyle={{ color: 'rgba(255,255,255,0.4)', fontSize: '10px', marginBottom: '4px' }}
+              formatter={(value: any) => [`$${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}`, 'NAV']}
+            />
+            <Area
+              type="monotone"
+              dataKey="value"
+              stroke={gradientColor}
+              strokeWidth={1.5}
+              fill="url(#equityGrad)"
+              dot={false}
+              activeDot={{ r: 3, strokeWidth: 0, fill: gradientColor }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+/* ── Sidebar: Recent Activity ── */
+
+function ActivityFeed({ trades }: { trades: TradeEntry[] }) {
+  // Merge open and closed trades, sort by most recent activity
+  const activities = useMemo(() => {
+    const items: { type: 'open' | 'close'; symbol: string; side: string; time: string; pnlPct?: number; reason?: string }[] = [];
+    for (const t of trades) {
+      if (t.entry_time) {
+        items.push({ type: 'open', symbol: t.symbol, side: t.side, time: t.entry_time });
+      }
+      if (t.exit_reason && t.exit_reason !== 'OPEN' && t.exit_time) {
+        items.push({ type: 'close', symbol: t.symbol, side: t.side, time: t.exit_time, pnlPct: (t.pnl_pct ?? 0) * 100, reason: t.exit_reason });
+      }
+    }
+    return items.sort((a, b) => b.time.localeCompare(a.time)).slice(0, 8);
+  }, [trades]);
+
+  if (activities.length === 0) return null;
+
+  return (
+    <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Recent Activity</h3>
+        <a href="/activity" className="text-[10px] text-syn-muted hover:text-syn-accent transition-colors flex items-center gap-0.5">
+          All <ChevronRight size={10} />
+        </a>
+      </div>
+      <div className="space-y-1.5">
+        {activities.map((act, i) => {
+          const base = act.symbol.replace('USDT', '');
+          const isClose = act.type === 'close';
+          const isWin = (act.pnlPct ?? 0) > 0;
+          return (
+            <div key={i} className="flex items-center gap-2 py-1">
+              <div className={`w-1 h-1 rounded-full shrink-0 ${
+                isClose ? (isWin ? 'bg-emerald-400' : 'bg-red-400') : 'bg-syn-accent'
+              }`} />
+              <div className="flex-1 min-w-0">
+                <span className="text-[11px] font-medium">
+                  {isClose ? 'Closed' : 'Opened'}{' '}
+                  <span className={act.side === 'BUY' ? 'text-emerald-400' : 'text-red-400'}>
+                    {act.side === 'BUY' ? 'LONG' : 'SHORT'}
+                  </span>{' '}
+                  <span className="font-semibold">{base}</span>
+                </span>
+                {isClose && act.pnlPct !== undefined && (
+                  <span className={`text-[10px] ml-1 font-mono ${isWin ? 'text-emerald-400/70' : 'text-red-400/70'}`}>
+                    {fmtPct(act.pnlPct)}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] text-syn-text-tertiary shrink-0">{timeAgo(act.time)}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ── Sidebar: Performance Snapshot ── */
+
+function PerformanceSnapshot({ stats, closedTrades }: { stats: TradeStats | null; closedTrades: TradeEntry[] }) {
+  const winRate = stats?.win_rate ?? (closedTrades.length > 0
+    ? Math.round(closedTrades.filter(t => (t.pnl_usd ?? 0) > 0).length / closedTrades.length * 100)
+    : 0);
+  const wins = stats?.wins ?? closedTrades.filter(t => (t.pnl_usd ?? 0) > 0).length;
+  const losses = stats?.losses ?? closedTrades.filter(t => (t.pnl_usd ?? 0) <= 0).length;
+  const streak = stats?.current_streak ?? 0;
+
+  if (closedTrades.length === 0) return null;
+
+  return (
+    <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Performance</h3>
+        <a href="/results" className="text-[10px] text-syn-muted hover:text-syn-accent transition-colors flex items-center gap-0.5">
+          Details <ChevronRight size={10} />
+        </a>
+      </div>
+      {/* Win rate bar */}
+      <div className="mb-3">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs font-medium">Win Rate</span>
+          <span className={`text-sm font-bold font-mono ${winRate >= 55 ? 'text-emerald-400' : winRate >= 45 ? 'text-amber-400' : 'text-red-400'}`}>
+            {winRate}%
+          </span>
+        </div>
+        <div className="h-2 rounded-full bg-white/[0.04] overflow-hidden flex">
+          {wins > 0 && (
+            <div
+              className="h-full bg-emerald-500 rounded-l-full transition-all"
+              style={{ width: `${(wins / (wins + losses)) * 100}%` }}
+            />
+          )}
+          {losses > 0 && (
+            <div
+              className="h-full bg-red-500/60 rounded-r-full transition-all"
+              style={{ width: `${(losses / (wins + losses)) * 100}%` }}
+            />
+          )}
+        </div>
+        <div className="flex items-center justify-between mt-1">
+          <span className="text-[10px] text-emerald-400/50">{wins}W</span>
+          <span className="text-[10px] text-red-400/50">{losses}L</span>
+        </div>
+      </div>
+      {/* Stat rows */}
+      <div className="space-y-2 border-t border-syn-border pt-2">
+        {stats?.profit_factor != null && (
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-syn-text-tertiary">Profit Factor</span>
+            <span className={`text-[11px] font-mono font-semibold ${stats.profit_factor > 1 ? 'text-emerald-400' : 'text-red-400'}`}>
+              {stats.profit_factor.toFixed(2)}
+            </span>
+          </div>
+        )}
+        {streak !== 0 && (
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-syn-text-tertiary">Streak</span>
+            <span className={`text-[11px] font-mono font-semibold ${streak > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              {streak > 0 ? '+' : ''}{streak}
+            </span>
+          </div>
+        )}
+        {stats?.best_trade && (
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-syn-text-tertiary">Best Trade</span>
+            <span className="text-[11px] font-mono text-emerald-400">
+              {stats.best_trade.symbol.replace('USDT', '')} +{stats.best_trade.pnl_pct}%
+            </span>
+          </div>
+        )}
+        {stats?.worst_trade && (
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-syn-text-tertiary">Worst Trade</span>
+            <span className="text-[11px] font-mono text-red-400">
+              {stats.worst_trade.symbol.replace('USDT', '')} {stats.worst_trade.pnl_pct}%
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Sidebar: Disagreement Card ── */
 
 function DisagreementSidebar() {
   const [events, setEvents] = useState<any[]>([]);
@@ -81,7 +344,7 @@ function DisagreementSidebar() {
   );
 }
 
-// -- Sidebar: Leaderboard Card --
+/* ── Sidebar: Leaderboard Card ── */
 
 function LeaderboardSidebar({ agents }: { agents: AgentData[] }) {
   const topAgents = [...agents].sort((a, b) => b.total_signals - a.total_signals).slice(0, 5);
@@ -137,18 +400,23 @@ function LeaderboardSidebar({ agents }: { agents: AgentData[] }) {
   );
 }
 
-// -- Dashboard --
+/* ══════════════════════════════════════════
+   ██  DASHBOARD
+   ══════════════════════════════════════════ */
 
 export default function Dashboard() {
   const [portfolio, setPortfolio] = useState<any>(null);
   const [cycles, setCycles] = useState<CycleData[]>([]);
+  const [allCycles, setAllCycles] = useState<CyclePoint[]>([]);
   const [agents, setAgents] = useState<AgentData[]>([]);
   const [trades, setTrades] = useState<TradeEntry[]>([]);
+  const [tradeStats, setTradeStats] = useState<TradeStats | null>(null);
   const [eventsByCycle, setEventsByCycle] = useState<Record<number, PipelineEvent[]>>({});
   const [livePrices, setLivePrices] = useState<Record<string, number>>({});
   const [priceFlash, setPriceFlash] = useState<Record<string, 'up' | 'down' | ''>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [showAllClosed, setShowAllClosed] = useState(false);
   const livePricesRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
@@ -156,13 +424,32 @@ export default function Dashboard() {
       fetch(`${API_BASE}/api/v1/portfolio`).then(r => r.json()).catch(() => null),
       fetch(`${API_BASE}/api/v1/cycles?limit=3`).then(r => r.json()).catch(() => []),
       fetch(`${API_BASE}/api/v1/agents`).then(r => r.json()).catch(() => []),
-      fetch(`${API_BASE}/api/v1/portfolio/trades`).then(r => r.json()).catch(() => []),
+      fetch(`${API_BASE}/api/v1/portfolio/trades`).then(r => r.json()).catch(() => ({ trades: [], stats: null })),
       fetch(`${API_BASE}/api/v1/events?limit=200`).then(r => r.json()).catch(() => []),
-    ]).then(([p, c, a, tr, evts]) => {
+      fetch(`${API_BASE}/api/v1/cycles?limit=500`).then(r => r.json()).catch(() => []),
+    ]).then(([p, c, a, tr, evts, allC]) => {
       setPortfolio(p);
       setCycles(c);
       setAgents(a);
       setTrades(Array.isArray(tr) ? tr : (tr?.trades ?? []));
+      if (tr?.stats && Object.keys(tr.stats).length > 0) {
+        setTradeStats(tr.stats);
+      }
+
+      // Build equity curve from all cycles
+      const cycleArr = Array.isArray(allC) ? allC : [];
+      const points: CyclePoint[] = cycleArr
+        .filter((cyc: any) => cyc.portfolio_value != null)
+        .map((cyc: any) => ({
+          id: cyc.id,
+          date: cyc.completed_at
+            ? new Date(cyc.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+            : '',
+          value: cyc.portfolio_value,
+          regime: cyc.regime,
+        }))
+        .reverse(); // oldest first
+      setAllCycles(points);
 
       // Group events by cycle
       const grouped: Record<number, PipelineEvent[]> = {};
@@ -223,13 +510,12 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [portfolio]);
 
-  // Derived data
+  /* ── Derived data ── */
   const positions: Position[] = portfolio?.positions ?? [];
   const cash = portfolio?.cash ?? 100000;
   const invested = positions.reduce((s, p) => s + p.quantity * (livePrices[p.symbol] || p.current_price || p.entry_price), 0);
   const totalValue = cash + invested;
   const returnPct = ((totalValue - 100000) / 100000) * 100;
-  const returnUsd = totalValue - 100000;
 
   const openTradesBySymbol: Record<string, TradeEntry> = {};
   for (const t of trades) {
@@ -240,9 +526,19 @@ export default function Dashboard() {
   const totalSignals = agents.reduce((s, a) => s + a.total_signals, 0);
   const lastCycle = cycles?.[0];
 
+  const closedTrades = trades
+    .filter(t => t.exit_reason && t.exit_reason !== 'OPEN')
+    .sort((a, b) => (b.exit_time ?? '').localeCompare(a.exit_time ?? ''));
+  const displayedClosed = showAllClosed ? closedTrades : closedTrades.slice(0, 10);
+  const closedPnl = closedTrades.reduce((s, t) => s + (t.pnl_usd ?? 0), 0);
+  const winRate = tradeStats?.win_rate ?? (closedTrades.length > 0
+    ? Math.round(closedTrades.filter(t => (t.pnl_usd ?? 0) > 0).length / closedTrades.length * 100)
+    : 0);
+
   const hasCycles = cycles.length > 0;
   const hasPositions = positions.length > 0;
-  const hasData = hasCycles || hasPositions;
+  const hasClosedTrades = closedTrades.length > 0;
+  const hasData = hasCycles || hasPositions || hasClosedTrades;
 
   if (loading) {
     return (
@@ -264,8 +560,9 @@ export default function Dashboard() {
 
   return (
     <div className="slide-up">
-      {/* Portfolio Stats Strip */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      {/* ── Stats Strip ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        {/* Portfolio Value */}
         <div className="bg-syn-surface border border-syn-border rounded-xl p-4 relative overflow-hidden">
           <div className="absolute -top-8 -left-8 w-40 h-40 bg-syn-accent-muted rounded-full blur-3xl pointer-events-none" />
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted mb-1">Portfolio Value</p>
@@ -277,34 +574,63 @@ export default function Dashboard() {
             <span className="font-mono tabular-nums">{returnPct >= 0 ? '+' : ''}{returnPct.toFixed(2)}%</span>
           </div>
         </div>
+
+        {/* Realized P&L */}
         <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted mb-1">Agents</p>
-          <p className="text-lg font-bold font-mono tabular-nums">{activeAgents.length}</p>
-          <p className="text-[10px] text-syn-text-tertiary mt-1">{totalSignals.toLocaleString()} signals</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted mb-1">Realized P&L</p>
+          <p className={`text-lg font-bold font-mono tabular-nums ${closedPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            {closedPnl >= 0 ? '+' : ''}{fmtUsd(closedPnl)}
+          </p>
+          <p className="text-[10px] text-syn-text-tertiary mt-1">{closedTrades.length} closed trades</p>
         </div>
+
+        {/* Win Rate */}
+        <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted mb-1">Win Rate</p>
+          {closedTrades.length > 0 ? (
+            <>
+              <div className="flex items-center gap-2">
+                <Target size={14} className={winRate >= 55 ? 'text-emerald-400' : winRate >= 45 ? 'text-amber-400' : 'text-red-400'} />
+                <span className={`text-lg font-bold font-mono ${winRate >= 55 ? 'text-emerald-400' : winRate >= 45 ? 'text-amber-400' : 'text-red-400'}`}>
+                  {winRate}%
+                </span>
+              </div>
+              <p className="text-[10px] text-syn-text-tertiary mt-1">
+                {tradeStats ? `${tradeStats.wins}W / ${tradeStats.losses}L` : `${closedTrades.filter(t => (t.pnl_usd ?? 0) > 0).length}W / ${closedTrades.filter(t => (t.pnl_usd ?? 0) <= 0).length}L`}
+              </p>
+            </>
+          ) : (
+            <p className="text-xs text-syn-text-tertiary">Awaiting trades</p>
+          )}
+        </div>
+
+        {/* Regime */}
         <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted mb-1">Regime</p>
           {lastCycle?.regime ? (
-            <div className="flex items-center gap-1.5">
-              {lastCycle.regime === 'bull' ? <TrendingUp size={14} className="text-emerald-400" /> :
-               lastCycle.regime === 'bear' ? <TrendingDown size={14} className="text-red-400" /> :
-               <Shield size={14} className="text-syn-accent" />}
-              <span className={`text-lg font-bold ${
-                lastCycle.regime === 'bull' ? 'text-emerald-400' :
-                lastCycle.regime === 'bear' ? 'text-red-400' :
-                'text-syn-accent'
-              }`}>{lastCycle.regime.toUpperCase()}</span>
-            </div>
+            <>
+              <div className="flex items-center gap-1.5">
+                {lastCycle.regime === 'bull' ? <TrendingUp size={14} className="text-emerald-400" /> :
+                  lastCycle.regime === 'bear' ? <TrendingDown size={14} className="text-red-400" /> :
+                    <Shield size={14} className="text-syn-accent" />}
+                <span className={`text-lg font-bold ${
+                  lastCycle.regime === 'bull' ? 'text-emerald-400' :
+                    lastCycle.regime === 'bear' ? 'text-red-400' :
+                      'text-syn-accent'
+                }`}>{lastCycle.regime.toUpperCase()}</span>
+              </div>
+              <p className="text-[10px] text-syn-text-tertiary mt-1">
+                {positions.length} open / {activeAgents.length} agents / {totalSignals.toLocaleString()} signals
+              </p>
+            </>
           ) : (
             <p className="text-xs text-syn-text-tertiary">Awaiting</p>
           )}
         </div>
-        <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted mb-1">Positions</p>
-          <p className="text-lg font-bold font-mono tabular-nums">{positions.length}</p>
-          <p className="text-[10px] text-syn-text-tertiary mt-1">${invested.toLocaleString(undefined, { maximumFractionDigits: 0 })} deployed</p>
-        </div>
       </div>
+
+      {/* ── Equity Curve ── */}
+      <EquityCurve data={allCycles} />
 
       {/* Welcome message when no data */}
       {!hasData && (
@@ -316,34 +642,17 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Main: Latest Cycle Hero + Sidebar */}
+      {/* ── Main Content + Sidebar ── */}
       {hasData && (
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Main column */}
           <div className="flex-1 min-w-0 space-y-4">
-            {/* Latest cycle hero card */}
-            {lastCycle && (
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-sm font-bold text-syn-text-secondary">Latest Cycle</h2>
-                  <a href="/activity" className="text-[10px] text-syn-muted hover:text-syn-accent transition-colors flex items-center gap-0.5">
-                    All activity <ChevronRight size={10} />
-                  </a>
-                </div>
-                <CycleCard
-                  cycle={lastCycle}
-                  events={eventsByCycle[lastCycle.id] || []}
-                  defaultOpen={true}
-                />
-              </div>
-            )}
-
-            {/* Positions Table */}
+            {/* Open Positions Table */}
             {hasPositions && (
               <div className="bg-syn-surface border border-syn-border rounded-xl overflow-hidden">
                 <div className="px-4 py-3 border-b border-syn-border flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 shrink-0">
-                    <div className="w-1.5 h-1.5 rounded-full bg-syn-accent" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-syn-accent animate-pulse" />
                     <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Open Positions</span>
                   </div>
                   <span className="text-[10px] font-mono text-syn-text-tertiary whitespace-nowrap">
@@ -386,7 +695,7 @@ export default function Dashboard() {
                             key={i}
                             className={`border-b border-white/[0.03] transition-all duration-300 hover:bg-white/[0.02] ${
                               flash === 'up' ? 'bg-emerald-500/[0.04]' :
-                              flash === 'down' ? 'bg-red-500/[0.04]' : ''
+                                flash === 'down' ? 'bg-red-500/[0.04]' : ''
                             }`}
                           >
                             <td className="pl-4 pr-2 py-2.5 whitespace-nowrap">
@@ -415,7 +724,7 @@ export default function Dashboard() {
                             </td>
                             <td className={`px-2 py-2.5 text-right whitespace-nowrap transition-colors duration-500 ${
                               flash === 'up' ? 'text-emerald-400' :
-                              flash === 'down' ? 'text-red-400' : 'text-syn-text'
+                                flash === 'down' ? 'text-red-400' : 'text-syn-text'
                             }`}>
                               <span className="text-xs font-mono tabular-nums font-medium">
                                 ${live.toLocaleString(undefined, { maximumFractionDigits: 2 })}
@@ -459,6 +768,134 @@ export default function Dashboard() {
               </div>
             )}
 
+            {/* Closed Positions Table */}
+            {hasClosedTrades && (
+              <div className="bg-syn-surface border border-syn-border rounded-xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-syn-border flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Closed Positions</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-[10px] font-mono tabular-nums ${closedPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {closedPnl >= 0 ? '+' : ''}{fmtUsd(closedPnl)} realized
+                    </span>
+                    <a href="/results" className="text-[10px] text-syn-muted hover:text-syn-accent transition-colors flex items-center gap-0.5">
+                      Details <ChevronRight size={10} />
+                    </a>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[700px]">
+                    <thead>
+                      <tr className="text-[11px] font-bold uppercase tracking-[0.15em] text-syn-text-tertiary border-b border-syn-border">
+                        <th className="text-left pl-4 pr-2 py-2 whitespace-nowrap">Symbol</th>
+                        <th className="text-left px-2 py-2 whitespace-nowrap">Side</th>
+                        <th className="text-right px-2 py-2 whitespace-nowrap">Entry</th>
+                        <th className="text-right px-2 py-2 whitespace-nowrap">Exit</th>
+                        <th className="text-left px-2 py-2 whitespace-nowrap">Reason</th>
+                        <th className="text-right px-2 py-2 whitespace-nowrap">P&L</th>
+                        <th className="text-right px-2 py-2 whitespace-nowrap">Hold</th>
+                        <th className="text-left pr-4 pl-2 py-2 whitespace-nowrap">Tier</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {displayedClosed.map((trade, i) => {
+                        const pnlPct = (trade.pnl_pct ?? 0) * 100;
+                        const isWin = (trade.pnl_usd ?? 0) > 0;
+                        return (
+                          <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
+                            <td className="pl-4 pr-2 py-2.5 whitespace-nowrap">
+                              <span className="text-sm font-bold text-syn-text">
+                                {trade.symbol.replace('USDT', '')}
+                              </span>
+                            </td>
+                            <td className="px-2 py-2.5 whitespace-nowrap">
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                trade.side === 'BUY'
+                                  ? 'bg-emerald-500/10 text-emerald-400 ring-1 ring-inset ring-emerald-500/20'
+                                  : 'bg-red-500/10 text-red-400 ring-1 ring-inset ring-red-500/20'
+                              }`}>
+                                {trade.side === 'BUY' ? 'LONG' : 'SHORT'}
+                              </span>
+                            </td>
+                            <td className="px-2 py-2.5 text-right whitespace-nowrap">
+                              <span className="text-xs font-mono tabular-nums text-syn-text-tertiary">
+                                ${trade.entry_price?.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                              </span>
+                            </td>
+                            <td className="px-2 py-2.5 text-right whitespace-nowrap">
+                              <span className="text-xs font-mono tabular-nums text-syn-text-tertiary">
+                                ${trade.exit_price?.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                              </span>
+                            </td>
+                            <td className="px-2 py-2.5 whitespace-nowrap">
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ring-1 ring-inset ${
+                                trade.exit_reason?.includes('PROFIT')
+                                  ? 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/20'
+                                  : trade.exit_reason === 'STOP_LOSS'
+                                    ? 'bg-red-500/10 text-red-400 ring-red-500/20'
+                                    : 'bg-white/[0.04] text-white/40 ring-white/[0.08]'
+                              }`}>
+                                {exitReasonLabel(trade.exit_reason)}
+                              </span>
+                            </td>
+                            <td className="px-2 py-2.5 text-right whitespace-nowrap">
+                              <div className={`text-xs font-mono tabular-nums font-semibold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {(trade.pnl_usd ?? 0) >= 0 ? '+' : ''}{fmtUsd(trade.pnl_usd ?? 0)}
+                              </div>
+                              <div className={`text-[10px] font-mono tabular-nums ${isWin ? 'text-emerald-400/50' : 'text-red-400/50'}`}>
+                                {fmtPct(pnlPct)}
+                              </div>
+                            </td>
+                            <td className="px-2 py-2.5 text-right whitespace-nowrap">
+                              <span className="text-xs font-mono tabular-nums text-syn-text-tertiary">
+                                {(trade.holding_hours ?? 0) > 0 ? fmtHours(trade.holding_hours) : '\u2014'}
+                              </span>
+                            </td>
+                            <td className="pr-4 pl-2 py-2.5 whitespace-nowrap">
+                              {trade.asset_tier && (
+                                <span className="text-[10px] text-syn-text-tertiary capitalize">{trade.asset_tier}</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {closedTrades.length > 10 && (
+                  <button
+                    onClick={() => setShowAllClosed(!showAllClosed)}
+                    className="w-full py-2.5 border-t border-syn-border text-[10px] text-syn-text-tertiary hover:text-syn-text-secondary hover:bg-white/[0.02] transition-colors flex items-center justify-center gap-1"
+                  >
+                    {showAllClosed ? (
+                      <>Show less <ChevronUp size={10} /></>
+                    ) : (
+                      <>Show all {closedTrades.length} trades <ChevronDown size={10} /></>
+                    )}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Latest Cycle (compact) */}
+            {lastCycle && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Latest Cycle</h2>
+                  <a href="/activity" className="text-[10px] text-syn-muted hover:text-syn-accent transition-colors flex items-center gap-0.5">
+                    All activity <ChevronRight size={10} />
+                  </a>
+                </div>
+                <CycleCard
+                  cycle={lastCycle}
+                  events={eventsByCycle[lastCycle.id] || []}
+                  defaultOpen={false}
+                />
+              </div>
+            )}
+
             {/* CTA banner */}
             <div className="bg-syn-surface border border-syn-accent/[0.15] rounded-xl p-3 bg-gradient-to-r from-syn-accent/[0.05] to-syn-secondary/[0.05]">
               <div className="flex items-center justify-between gap-3">
@@ -478,6 +915,8 @@ export default function Dashboard() {
 
           {/* Sidebar */}
           <div className="w-full lg:w-[280px] shrink-0 space-y-3">
+            <ActivityFeed trades={trades} />
+            <PerformanceSnapshot stats={tradeStats} closedTrades={closedTrades} />
             <DisagreementSidebar />
             <LeaderboardSidebar agents={agents} />
           </div>

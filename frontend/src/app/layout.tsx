@@ -9,6 +9,7 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const jetbrains = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains' });
 
 const navLinks = [
+  { href: '/how-it-works', label: 'How It Works' },
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/activity', label: 'Activity' },
   { href: '/comms', label: 'Comms' },
@@ -94,6 +95,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center gap-3 sm:justify-between text-xs text-syn-text-tertiary">
             <span>Syndicate.ai — Autonomous AI Hedge Fund</span>
             <div className="flex flex-wrap gap-3 sm:gap-4">
+              <a href="/how-it-works" className="hover:text-syn-text-secondary transition-colors">How It Works</a>
               <a href="/dashboard" className="hover:text-syn-text-secondary transition-colors">Dashboard</a>
               <a href="/org" className="hover:text-syn-text-secondary transition-colors">Organization</a>
               <a href="/blog" className="hover:text-syn-text-secondary transition-colors">Blog</a>
