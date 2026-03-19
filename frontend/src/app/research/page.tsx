@@ -335,7 +335,7 @@ function SignalHealthFindings({ findings }: { findings: Record<string, any> }) {
                 key={k}
                 className="text-[11px] font-mono tabular-nums text-syn-text-tertiary bg-white/[0.03] px-2.5 py-1 rounded-lg"
               >
-                {formatKey(k)}: <span className="text-syn-text-secondary">{typeof v === 'number' && v < 1 && v > 0 ? formatPercent(v) : String(v)}</span>
+                {formatKey(k)}: <span className="text-syn-text-secondary">{typeof v === 'number' ? (k === 'avg_accuracy' ? formatPercent(v) : String(v)) : String(v)}</span>
               </span>
             ))}
           </div>
@@ -687,18 +687,26 @@ function HypothesisTestFindings({ findings }: { findings: Record<string, any> })
             Results
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-            {Object.entries(results).map(([k, v]) => (
-              <div key={k} className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-2.5 text-center">
-                <p className="text-[10px] text-syn-text-tertiary font-mono">{formatKey(k)}</p>
-                <p className="text-lg font-bold font-mono tabular-nums text-white mt-0.5">
-                  {typeof v === 'number'
-                    ? v <= 1 && v >= -1 && k !== 'sample_size'
-                      ? formatPercent(v)
-                      : v.toFixed(2)
-                    : String(v)}
-                </p>
-              </div>
-            ))}
+            {Object.entries(results).map(([k, v]) => {
+              const pctKeys = ['win_rate', 'max_drawdown'];
+              const intKeys = ['sample_size'];
+              let display: string;
+              if (typeof v === 'number') {
+                if (pctKeys.includes(k)) display = formatPercent(v);
+                else if (intKeys.includes(k)) display = String(Math.round(v));
+                else display = v.toFixed(2);
+              } else {
+                display = String(v);
+              }
+              return (
+                <div key={k} className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-2.5 text-center">
+                  <p className="text-[10px] text-syn-text-tertiary font-mono">{formatKey(k)}</p>
+                  <p className="text-lg font-bold font-mono tabular-nums text-white mt-0.5">
+                    {display}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -868,8 +876,9 @@ function WeeklyDigestFindings({ findings }: { findings: Record<string, any> }) {
 /* ------------------------------------------------------------------ */
 
 function GenericObjectFindings({ findings }: { findings: Record<string, any> }) {
+  // Filter out `title` — already rendered as report.title above the findings
   const entries = Object.entries(findings).filter(
-    ([, v]) => v !== null && v !== undefined
+    ([k, v]) => v !== null && v !== undefined && k !== 'title'
   );
   if (entries.length === 0) return null;
 
@@ -1126,7 +1135,7 @@ function DataContextFooter({ context }: { context: DataContext | null }) {
             key={key}
             className="text-[10px] font-mono tabular-nums font-medium text-syn-text-tertiary bg-white/[0.03] px-2.5 py-1 rounded-full ring-1 ring-syn-border"
           >
-            {formatKey(key).toLowerCase()}: {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+            {formatKey(key).toLowerCase()}: {typeof value === 'object' ? Object.entries(value).map(([k, v]) => `${k}: ${v}`).join(', ') : String(value)}
           </span>
         ))}
       </div>
