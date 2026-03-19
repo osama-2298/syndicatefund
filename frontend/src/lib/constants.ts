@@ -98,7 +98,7 @@ export const reportTypeConfig: Record<string, { label: string; color: string }> 
 // ── Blog page configs ──
 
 export const blogTypeConfig: Record<string, { label: string; color: string; dotColor: string }> = {
-  blog: { label: 'WEEKLY BLOG', color: 'text-amber-400 bg-amber-400/10 ring-amber-400/20', dotColor: 'bg-amber-400' },
+  blog: { label: 'CYCLE BLOG', color: 'text-amber-400 bg-amber-400/10 ring-amber-400/20', dotColor: 'bg-amber-400' },
   briefing: { label: 'DAILY BRIEF', color: 'text-emerald-400 bg-emerald-400/10 ring-emerald-400/20', dotColor: 'bg-emerald-400' },
   memo: { label: 'INTERNAL MEMO', color: 'text-purple-400 bg-purple-400/10 ring-purple-400/20', dotColor: 'bg-purple-400' },
 };
@@ -141,6 +141,91 @@ export const DECISION_STYLES: Record<string, { color: string; label: string; bg:
   agent_assigned: { color: 'text-blue-400', label: 'ASSIGNED', bg: 'bg-blue-500/10 ring-blue-500/20' },
   team_created: { color: 'text-emerald-400', label: 'NEW TEAM', bg: 'bg-emerald-500/10 ring-emerald-500/20' },
 };
+
+// ── Rich agent metadata (names, mascots, titles, avatar palettes) ──
+
+export const AGENT_META: Record<string, {
+  name: string;
+  animal: string;
+  title: string;
+  colors: string[];
+}> = {
+  TechnicalTrendAgent: {
+    name: 'Lena Karlsson',
+    animal: '🦅',
+    title: 'Trend Analyst · 1D',
+    colors: ['#3B82F6', '#06B6D4', '#0EA5E9', '#60A5FA', '#0284C7'],
+  },
+  TechnicalSignalAgent: {
+    name: 'David Osei',
+    animal: '🐺',
+    title: 'Signal Analyst · 4H',
+    colors: ['#818CF8', '#3B82F6', '#6366F1', '#4F46E5', '#93C5FD'],
+  },
+  TechnicalTimingAgent: {
+    name: 'Mika Tanaka',
+    animal: '🐆',
+    title: 'Timing Analyst · 1H',
+    colors: ['#0EA5E9', '#38BDF8', '#3B82F6', '#7DD3FC', '#0369A1'],
+  },
+  SocialSentimentAgent: {
+    name: 'Priya Sharma',
+    animal: '🦜',
+    title: 'Social Sentiment Analyst',
+    colors: ['#A855F7', '#EC4899', '#D946EF', '#F0ABFC', '#7C3AED'],
+  },
+  MarketSentimentAgent: {
+    name: 'Alexei Volkov',
+    animal: '🐻',
+    title: 'Market Sentiment Analyst',
+    colors: ['#8B5CF6', '#7C3AED', '#A855F7', '#C084FC', '#6D28D9'],
+  },
+  SmartMoneySentimentAgent: {
+    name: 'Sofia Reyes',
+    animal: '🦊',
+    title: 'Smart Money Analyst',
+    colors: ['#D946EF', '#A855F7', '#E879F9', '#F0ABFC', '#9333EA'],
+  },
+  ValuationAgent: {
+    name: 'Henrik Larsen',
+    animal: '🦉',
+    title: 'Valuation Analyst',
+    colors: ['#EAB308', '#F59E0B', '#FBBF24', '#FDE047', '#CA8A04'],
+  },
+  CyclePositionAgent: {
+    name: 'Amara Obi',
+    animal: '🦋',
+    title: 'Cycle Position Analyst',
+    colors: ['#F59E0B', '#F97316', '#FB923C', '#FBBF24', '#EA580C'],
+  },
+  CryptoMacroAgent: {
+    name: 'Lucas Weber',
+    animal: '🐋',
+    title: 'Crypto Macro Analyst',
+    colors: ['#06B6D4', '#14B8A6', '#22D3EE', '#2DD4BF', '#0891B2'],
+  },
+  ExternalMacroAgent: {
+    name: 'Fatima Al-Rashid',
+    animal: '🐘',
+    title: 'External Macro Analyst',
+    colors: ['#14B8A6', '#10B981', '#2DD4BF', '#34D399', '#0D9488'],
+  },
+  NetworkHealthAgent: {
+    name: 'Jin Park',
+    animal: '🐙',
+    title: 'Network Health Analyst',
+    colors: ['#10B981', '#22C55E', '#34D399', '#6EE7B7', '#059669'],
+  },
+  CapitalFlowAgent: {
+    name: 'Camille Dubois',
+    animal: '🦈',
+    title: 'Capital Flow Analyst',
+    colors: ['#22C55E', '#84CC16', '#4ADE80', '#A3E635', '#16A34A'],
+  },
+};
+
+// Default palette for unknown agents
+export const DEFAULT_AVATAR_COLORS = ['#6366F1', '#8B5CF6', '#A855F7', '#C084FC', '#E879F9'];
 
 // ── Helpers ──
 

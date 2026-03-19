@@ -1,1 +1,1 @@
-"""Moltbook integration — autonomous posting for the CEO agent."""
+"""Moltbook integration — autonomous posting for CEO + Syndicate Union agent comments."""

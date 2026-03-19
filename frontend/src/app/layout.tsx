@@ -15,7 +15,6 @@ const navLinks = [
   { href: '/agents', label: 'Agents' },
   { href: '/org', label: 'Org' },
   { href: '/blog', label: 'Blog' },
-  { href: '/moltbook', label: 'Moltbook' },
   { href: '/results', label: 'Results' },
   { href: '/research', label: 'Research' },
 ];

@@ -1330,10 +1330,13 @@ def run_pipeline(
             comms_path.write_text(json.dumps(_cycle_comms, indent=2, default=str))
             print(f"    {dim(f'Agent comms generated: {len(_cycle_comms)} messages')}")
         except Exception as e:
-            logger.warning("comms_generation_failed", error=str(e))
+            import traceback as _tb
+            logger.warning("comms_generation_failed", error=str(e), traceback=_tb.format_exc())
+            print(f"    {dim(f'⚠ Comms generation failed: {e}')}")
             _cycle_comms = []
 
         # Write a blog post about this cycle
+        blog_entry = None
         try:
             import json
             from syndicate.executive.ceo_writer import CEOWriter
@@ -1367,30 +1370,77 @@ def run_pipeline(
             blog_history_path.write_text(_json.dumps(history, indent=2, default=str))
             blog_title = blog_result.get("title", "?")[:60]
             print(f"    {dim(f'Blog posted: {blog_title}')}")
-
-            # ── Moltbook: autonomous post ──
-            if settings.moltbook_enabled and settings.moltbook_api_key:
-                try:
-                    from syndicate.moltbook.poster import MoltbookPoster
-                    moltbook_poster = MoltbookPoster(
-                        api_key=api_key,
-                        provider=provider,
-                        model=settings.default_llm_model,
-                        moltbook_api_key=settings.moltbook_api_key,
-                    )
-                    mb_result = moltbook_poster.post_cycle_update(blog_entry)
-                    if mb_result:
-                        mb_id = mb_result.get("id", "?")[:20]
-                        print(f"    {dim(f'Moltbook posted: {mb_id}')}")
-                    else:
-                        print(f"    {dim('Moltbook post skipped (adaptation failed)')}")
-                except Exception as e:
-                    logger.warning("moltbook_post_failed", error=str(e))
-                    mb_err = str(e)[:60]
-                    print(f"    {dim(f'Moltbook failed: {mb_err}')}")
-
         except Exception as e:
-            logger.warning("cycle_blog_failed", error=str(e))
+            import traceback as _tb
+            logger.warning("cycle_blog_failed", error=str(e), traceback=_tb.format_exc())
+            print(f"    {dim(f'⚠ Blog generation failed: {e}')}")
+
+        # ── Moltbook: autonomous CEO post + Syndicate Union comments ──
+        # Decoupled from blog generation — posts even if CEOWriter fails
+        if settings.moltbook_enabled and settings.moltbook_api_key:
+            # Fallback blog entry if CEOWriter failed
+            if blog_entry is None:
+                blog_entry = {
+                    "post_type": "blog",
+                    "title": f"Cycle Update — {n_coins} coins, {len(final_orders)} trades",
+                    "content": (
+                        f"Analyzed {n_coins} coins across 5 teams, generated {n_signals} signals, "
+                        f"executed {len(final_orders)} trades in {elapsed_total:.0f}s. "
+                        f"Regime: {directive.regime.value}. "
+                        f"BTC at ${coin_prices.get('BTCUSDT', 0):,.0f}."
+                    ),
+                    "summary": "",
+                    "market_context": {
+                        "regime": directive.regime.value,
+                        "btc_price": coin_prices.get("BTCUSDT", 0),
+                        "coins_analyzed": n_coins,
+                        "trades": len(final_orders),
+                    },
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                }
+
+            # CEO post
+            try:
+                from syndicate.moltbook.poster import MoltbookPoster
+                moltbook_poster = MoltbookPoster(
+                    api_key=api_key,
+                    provider=provider,
+                    model=settings.default_llm_model,
+                    moltbook_api_key=settings.moltbook_api_key,
+                )
+                mb_result = moltbook_poster.post_cycle_update(blog_entry)
+                if mb_result:
+                    ceo_post_id = mb_result.get("post", {}).get("id") or mb_result.get("id")
+                    print(f"    {dim(f'Moltbook CEO posted: {ceo_post_id}')}")
+
+                    # ── Syndicate Union: agent comments on CEO's post ──
+                    if ceo_post_id and _cycle_comms:
+                        try:
+                            from syndicate.moltbook.union import AgentUnionPoster
+                            union = AgentUnionPoster(
+                                api_key=api_key,
+                                provider=provider,
+                                model=settings.default_llm_model,
+                                moltbook_api_key=settings.moltbook_api_key,
+                            )
+                            union_results = union.post_agent_comments(
+                                ceo_post_id=str(ceo_post_id),
+                                comms=_cycle_comms,
+                                max_comments=5,
+                            )
+                            if union_results:
+                                names = ", ".join(r["agent_name"] for r in union_results)
+                                print(f"    {dim(f'Union ({len(union_results)}): {names}')}")
+                            else:
+                                print(f"    {dim('Union: no agent comments posted')}")
+                        except Exception as e:
+                            logger.warning("union_posting_failed", error=str(e))
+                            print(f"    {dim(f'Union failed: {str(e)[:60]}')}")
+                else:
+                    print(f"    {dim('Moltbook post skipped (adaptation failed)')}")
+            except Exception as e:
+                logger.warning("moltbook_post_failed", error=str(e))
+                print(f"    {dim(f'Moltbook failed: {str(e)[:60]}')}")
 
         # Emit cycle_end event + persist events
         emit_event("cycle_end", "complete", "System",
@@ -1494,7 +1544,9 @@ def run_pipeline(
 
             asyncio.run(_record())
         except Exception as e:
-            logger.warning("cycle_db_record_failed", error=str(e))
+            import traceback as _tb
+            logger.warning("cycle_db_record_failed", error=str(e), traceback=_tb.format_exc())
+            print(f"    {dim(f'⚠ DB record failed: {e}')}")
 
     finally:
         paper_trader.save(settings.portfolio_state_path)
