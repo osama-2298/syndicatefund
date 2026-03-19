@@ -119,10 +119,4 @@ export const api = {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   }),
-  // Arbitrage
-  getArbStatus: () => fetchClient<any>('/api/v1/arbitrage/status'),
-  getArbFundingRates: () => fetchClient<any>('/api/v1/arbitrage/funding-rates'),
-  getArbOpportunities: (limit = 50) => fetchClient<any>(`/api/v1/arbitrage/opportunities?limit=${limit}`),
-  getArbStats: () => fetchClient<any>('/api/v1/arbitrage/stats'),
-  triggerFundingRateScan: () => fetchClient<any>('/api/v1/arbitrage/funding-rates/scan', { method: 'POST' }),
 };

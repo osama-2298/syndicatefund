@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 import structlog
 from fastapi import FastAPI
 
-from syndicate.api.routes import agents, arbitrage, backtest, ceo_posts, comms, contributors, cycles, events, moltbook, portfolio, research, signals, teams
+from syndicate.api.routes import agents, backtest, ceo_posts, comms, contributors, cycles, events, moltbook, portfolio, research, signals, teams
 from syndicate.config import settings
 
 logger = structlog.get_logger()
@@ -612,48 +612,15 @@ async def _weekly_research_task(shutdown_event: asyncio.Event):
     print("[RESEARCH] Weekly research task stopped.", flush=True)
 
 
-async def _funding_rate_scan_task(shutdown_event: asyncio.Event):
-    """Background task that scans cross-exchange funding rates every 4 hours."""
-    print("[ARB] Funding rate scan task starting...", flush=True)
-
-    # Initial scan on startup (after 30s delay for other services to be ready)
-    try:
-        await asyncio.wait_for(shutdown_event.wait(), timeout=30)
-        return
-    except asyncio.TimeoutError:
-        pass
-
-    while not shutdown_event.is_set():
-        try:
-            if settings.arb_enabled and settings.arb_funding_rate_enabled:
-                print("[ARB] Running cross-exchange funding rate scan...", flush=True)
-                loop = asyncio.get_event_loop()
-
-                from syndicate.data.funding_arb_scanner import FundingArbScanner
-
-                def _run_scan():
-                    with FundingArbScanner() as scanner:
-                        return scanner.scan()
-
-                result = await loop.run_in_executor(None, _run_scan)
-                opps = result.get("actionable_opportunities", 0)
-                print(f"[ARB] Scan complete: {opps} opportunities found", flush=True)
-        except Exception as e:
-            logger.error("funding_rate_scan_failed", error=str(e))
-
-        # Run every 4 hours (aligned with main cycle)
-        try:
-            await asyncio.wait_for(shutdown_event.wait(), timeout=4 * 3600)
-            break
-        except asyncio.TimeoutError:
-            pass
-
-    print("[ARB] Funding rate scan task stopped.", flush=True)
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan — startup and shutdown."""
+    # Ensure all DB tables exist (handles new tables added after initial seed)
+    from syndicate.db.session import engine as _db_engine
+    from syndicate.db.models import Base as _Base
+    async with _db_engine.begin() as conn:
+        await conn.run_sync(_Base.metadata.create_all)
+
     shutdown_event = asyncio.Event()
 
     # Start background tasks
@@ -663,7 +630,6 @@ async def lifespan(app: FastAPI):
     blog_task = asyncio.create_task(_weekly_blog_task(shutdown_event))
     daily_research_task = asyncio.create_task(_daily_research_task(shutdown_event))
     weekly_research_task = asyncio.create_task(_weekly_research_task(shutdown_event))
-    funding_scan_task = asyncio.create_task(_funding_rate_scan_task(shutdown_event))
 
     yield
 
@@ -671,7 +637,7 @@ async def lifespan(app: FastAPI):
     shutdown_event.set()
     all_tasks = [
         cycle_task, monitor_task, briefing_task, blog_task,
-        daily_research_task, weekly_research_task, funding_scan_task,
+        daily_research_task, weekly_research_task,
     ]
     for task in all_tasks:
         task.cancel()
@@ -720,7 +686,6 @@ app.include_router(research.router, prefix="/api/v1")
 app.include_router(moltbook.router, prefix="/api/v1")
 app.include_router(comms.router, prefix="/api/v1")
 app.include_router(events.router, prefix="/api/v1")
-app.include_router(arbitrage.router, prefix="/api/v1")
 
 
 @app.get("/health")

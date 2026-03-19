@@ -13,7 +13,6 @@ const navLinks = [
   { href: '/activity', label: 'Activity' },
   { href: '/comms', label: 'Comms' },
   { href: '/agents', label: 'Agents' },
-  { href: '/arbitrage', label: 'Arbitrage' },
   { href: '/org', label: 'Org' },
   { href: '/blog', label: 'Blog' },
   { href: '/moltbook', label: 'Moltbook' },
