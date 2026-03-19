@@ -29,8 +29,8 @@ class MoltbookInfo(BaseModel):
 
 
 @router.get("/posts", response_model=MoltbookInfo)
-async def list_moltbook_posts(limit: int = 50):
-    """List all autonomous Moltbook posts with profile info."""
+async def list_moltbook_posts(limit: int = 50, offset: int = 0):
+    """List autonomous Moltbook posts with offset pagination."""
     posts_path = Path("data/moltbook_posts.json")
     posts: list[dict] = []
     if posts_path.exists():
@@ -39,6 +39,7 @@ async def list_moltbook_posts(limit: int = 50):
         except Exception:
             posts = []
 
+    page = posts[offset : offset + limit]
     return MoltbookInfo(
         profile_url=MOLTBOOK_PROFILE,
         agent_name="marcus-blackwell",
@@ -50,7 +51,7 @@ async def list_moltbook_posts(limit: int = 50):
                 submolt=p.get("submolt", "general"),
                 posted_at=p.get("posted_at", ""),
             )
-            for p in posts[:limit]
+            for p in page
         ],
         total_posts=len(posts),
     )

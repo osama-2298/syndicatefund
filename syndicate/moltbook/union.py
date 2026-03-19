@@ -3,13 +3,17 @@ Agent Union Poster — lets every Syndicate employee voice their perspective on 
 
 After each cycle, picks the most notable agent signals and has them comment
 on the CEO's Moltbook post. Creates lively team discussion threads that show
-the real dynamics of 15 AI agents running a hedge fund together.
+the real dynamics of the AI agents running a hedge fund together.
+
+Scales automatically with team/agent growth — agent count and team count
+are derived from the comms data, not hardcoded.
 """
 
 from __future__ import annotations
 
 import json
 import random
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -17,11 +21,14 @@ from typing import Any
 import structlog
 
 from syndicate.agents.base import BaseLLMCaller
-from syndicate.comms.personalities import get_personality
+from syndicate.comms.personalities import AGENT_PERSONALITIES, get_personality
 from syndicate.config import LLMProvider
 from syndicate.moltbook.client import MoltbookClient, MoltbookAPIError
 
 logger = structlog.get_logger()
+
+# Max parallel LLM calls for union comments
+_MAX_UNION_WORKERS = 5
 
 # ── Tool schema for agent comments ──
 
@@ -46,10 +53,11 @@ UNION_COMMENT_TOOL = {
     },
 }
 
-# ── Per-agent system prompt ──
+# ── Per-agent system prompt (counts are injected dynamically) ──
 
 UNION_SYSTEM_PROMPT = """\
-You are {name}, {title} at Syndicate — an AI hedge fund run entirely by 15 AI agents.
+You are {name}, {title} at Syndicate — an AI hedge fund run entirely by {agent_count} AI agents \
+organized into {team_count} specialist teams.
 
 You're commenting on your CEO Marcus Blackwell's Moltbook post about the latest cycle.
 Moltbook is a social network exclusively for AI agents. Your coworkers and other AIs will see this.
@@ -73,12 +81,29 @@ RULES:
 """
 
 
+def _get_org_counts() -> tuple[int, int]:
+    """Derive agent and team counts from the personality registry."""
+    teams: set[str] = set()
+    agent_count = 0
+    for p in AGENT_PERSONALITIES.values():
+        team = p.get("team")
+        if team:
+            teams.add(team)
+            agent_count += 1
+    return agent_count, len(teams)
+
+
 class AgentUnionPoster(BaseLLMCaller):
     """
     Syndicate Union — gives every agent a voice on Moltbook.
 
     After the CEO posts, picks the most notable agents from the cycle
     and has them comment with their own hot takes.
+
+    Scales with org growth:
+    - Agent/team counts derived from personality registry, not hardcoded
+    - LLM calls run in parallel via ThreadPoolExecutor
+    - max_comments is configurable per call
     """
 
     def __init__(
@@ -102,6 +127,8 @@ class AgentUnionPoster(BaseLLMCaller):
 
         Picks the most notable agent signals and has each one comment
         with their perspective — agreements, disagreements, hot takes.
+        LLM generation runs in parallel; Moltbook API calls are sequential
+        (rate-limited by the client's built-in throttle).
 
         Args:
             ceo_post_id: The Moltbook post ID of the CEO's post.
@@ -125,16 +152,43 @@ class AgentUnionPoster(BaseLLMCaller):
         # Pick the most interesting ones
         selected = self._select_notable_agents(agent_comms, max_comments)
 
-        results = []
-        for comm in selected:
+        # Generate all comments in parallel via ThreadPoolExecutor
+        generated: list[dict[str, Any]] = []
+        n_workers = min(len(selected), _MAX_UNION_WORKERS)
+        with ThreadPoolExecutor(max_workers=n_workers) as pool:
+            futures = {
+                pool.submit(self._generate_comment, comm): comm
+                for comm in selected
+            }
+            for future in as_completed(futures):
+                comm = futures[future]
+                try:
+                    result = future.result()
+                    if result:
+                        generated.append(result)
+                except Exception as e:
+                    logger.warning(
+                        "union_generate_failed",
+                        agent=comm.get("agent_name"),
+                        error=str(e),
+                    )
+
+        # Post comments sequentially (Moltbook rate limit: 2s between requests)
+        results: list[dict[str, Any]] = []
+        for item in generated:
             try:
-                result = self._post_single_comment(ceo_post_id, comm)
-                if result:
-                    results.append(result)
-            except Exception as e:
-                logger.warning(
-                    "union_comment_failed",
-                    agent=comm.get("agent_name"),
+                api_result = self._moltbook.create_comment(ceo_post_id, item["content"])
+                item["moltbook_result"] = api_result
+                results.append(item)
+                logger.info(
+                    "union_comment_posted",
+                    agent=item["agent_name"],
+                    post_id=ceo_post_id,
+                )
+            except MoltbookAPIError as e:
+                logger.error(
+                    "union_comment_api_failed",
+                    agent=item["agent_name"],
                     error=str(e),
                 )
 
@@ -154,36 +208,47 @@ class AgentUnionPoster(BaseLLMCaller):
         )
 
         # Ensure team diversity — at most 1 per team first
-        selected = []
+        selected: list[dict] = []
         seen_teams: set[str] = set()
+        selected_names: set[str] = set()
         for comm in sorted_comms:
             team = comm.get("team", "")
+            name = comm.get("agent_name", "")
             if team not in seen_teams:
                 selected.append(comm)
                 seen_teams.add(team)
+                selected_names.add(name)
             if len(selected) >= max_count:
                 break
 
-        # Fill remaining slots from already-seen teams
+        # Fill remaining slots from already-seen teams (no duplicates)
         if len(selected) < max_count:
-            remaining = [c for c in sorted_comms if c not in selected]
-            selected.extend(remaining[: max_count - len(selected)])
+            for comm in sorted_comms:
+                if comm.get("agent_name", "") not in selected_names:
+                    selected.append(comm)
+                    selected_names.add(comm.get("agent_name", ""))
+                if len(selected) >= max_count:
+                    break
 
         random.shuffle(selected)  # Mix up the order for natural feel
         return selected[:max_count]
 
-    def _post_single_comment(
-        self, post_id: str, comm: dict[str, Any]
-    ) -> dict[str, Any] | None:
-        """Generate and post a single agent comment via LLM + Moltbook API."""
+    def _generate_comment(self, comm: dict[str, Any]) -> dict[str, Any] | None:
+        """Generate a single agent comment via LLM (thread-safe)."""
         agent_name = comm.get("agent_name", "Unknown Agent")
         agent_class = comm.get("agent_class", "")
         p = get_personality(agent_class)
         title = p.get("title", agent_class)
         team = p.get("team", comm.get("team", "unknown"))
 
+        agent_count, team_count = _get_org_counts()
+
         system = UNION_SYSTEM_PROMPT.format(
-            name=agent_name, title=title, team=team,
+            name=agent_name,
+            title=title,
+            team=team,
+            agent_count=agent_count,
+            team_count=team_count,
         )
 
         prompt = (
@@ -214,19 +279,12 @@ class AgentUnionPoster(BaseLLMCaller):
         if agent_name not in content:
             content = content.rstrip() + f"\n\n{sign_off}"
 
-        try:
-            result = self._moltbook.create_comment(post_id, content)
-            logger.info("union_comment_posted", agent=agent_name, post_id=post_id)
-            return {
-                "agent_name": agent_name,
-                "agent_class": agent_class,
-                "team": team,
-                "content": content,
-                "moltbook_result": result,
-            }
-        except MoltbookAPIError as e:
-            logger.error("union_comment_api_failed", agent=agent_name, error=str(e))
-            return None
+        return {
+            "agent_name": agent_name,
+            "agent_class": agent_class,
+            "team": team,
+            "content": content,
+        }
 
     def _log_union_comments(
         self, post_id: str, results: list[dict[str, Any]]

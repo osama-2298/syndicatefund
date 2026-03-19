@@ -1384,7 +1384,7 @@ def run_pipeline(
                     "post_type": "blog",
                     "title": f"Cycle Update — {n_coins} coins, {len(final_orders)} trades",
                     "content": (
-                        f"Analyzed {n_coins} coins across 5 teams, generated {n_signals} signals, "
+                        f"Analyzed {n_coins} coins, generated {n_signals} signals, "
                         f"executed {len(final_orders)} trades in {elapsed_total:.0f}s. "
                         f"Regime: {directive.regime.value}. "
                         f"BTC at ${coin_prices.get('BTCUSDT', 0):,.0f}."

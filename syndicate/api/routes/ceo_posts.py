@@ -32,9 +32,10 @@ async def list_posts(
     db: AsyncSession = Depends(get_db),
     post_type: str | None = None,
     limit: int = 20,
+    offset: int = 0,
 ):
-    """List CEO posts (blogs, memos, briefings)."""
-    query = select(CeoPostRow).order_by(desc(CeoPostRow.created_at)).limit(limit)
+    """List CEO posts (blogs, memos, briefings) with offset pagination."""
+    query = select(CeoPostRow).order_by(desc(CeoPostRow.created_at)).offset(offset).limit(limit)
     if post_type:
         query = query.where(CeoPostRow.post_type == post_type)
     result = await db.execute(query)
@@ -59,11 +60,11 @@ async def list_posts(
     if blog_history_path.exists():
         try:
             history = json.loads(blog_history_path.read_text())
-            results = []
-            for entry in history[:limit]:
-                if post_type and entry.get("post_type") != post_type:
-                    continue
-                results.append(CeoPost(
+            if post_type:
+                history = [e for e in history if e.get("post_type") == post_type]
+            page = history[offset : offset + limit]
+            return [
+                CeoPost(
                     id=str(uuid.uuid4()),
                     post_type=entry.get("post_type", "blog"),
                     title=entry.get("title", ""),
@@ -71,8 +72,9 @@ async def list_posts(
                     summary=entry.get("summary"),
                     market_context=entry.get("market_context"),
                     created_at=entry.get("created_at", ""),
-                ))
-            return results
+                )
+                for entry in page
+            ]
         except Exception:
             pass
 

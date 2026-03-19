@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Loader2, Clock, BookOpen, Radio, Mail, FileText, User,
   ChevronDown, ChevronRight, ExternalLink, MessageSquare,
@@ -42,24 +42,37 @@ const typeIcons: Record<string, any> = {
 
 type FilterKey = 'all' | 'blog' | 'briefing' | 'memo' | 'moltbook';
 
+const PAGE_SIZE = 20;
+
 export default function BlogPage() {
   const [posts, setPosts] = useState<CeoPost[]>([]);
-  const [moltbookData, setMoltbookData] = useState<MoltbookInfo | null>(null);
+  const [moltbookPosts, setMoltbookPosts] = useState<MoltbookPost[]>([]);
+  const [moltbookTotal, setMoltbookTotal] = useState(0);
+  const [moltbookProfileUrl, setMoltbookProfileUrl] = useState('https://www.moltbook.com/u/marcus-blackwell');
   const [filter, setFilter] = useState<FilterKey>('all');
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
 
   const isMoltbook = filter === 'moltbook';
 
+  // Initial load when filter changes
   useEffect(() => {
     setLoading(true);
     setExpandedId(null);
+    setPosts([]);
+    setMoltbookPosts([]);
+    setHasMore(false);
 
     if (filter === 'moltbook') {
-      fetch(`${API_BASE}/api/v1/moltbook/posts?limit=50`)
+      fetch(`${API_BASE}/api/v1/moltbook/posts?limit=${PAGE_SIZE}&offset=0`)
         .then((r) => r.json())
         .then((data: MoltbookInfo) => {
-          setMoltbookData(data);
+          setMoltbookPosts(data?.posts || []);
+          setMoltbookTotal(data?.total_posts || 0);
+          setMoltbookProfileUrl(data?.profile_url || 'https://www.moltbook.com/u/marcus-blackwell');
+          setHasMore((data?.posts?.length || 0) < (data?.total_posts || 0));
           if (data?.posts?.length > 0) {
             setExpandedId(data.posts[0].moltbook_post_id || '0');
           }
@@ -67,19 +80,48 @@ export default function BlogPage() {
         .catch(() => {})
         .finally(() => setLoading(false));
     } else {
-      const url = filter === 'all'
-        ? `${API_BASE}/api/v1/ceo/posts?limit=30`
-        : `${API_BASE}/api/v1/ceo/posts?limit=30&post_type=${filter}`;
-      fetch(url)
+      const typeParam = filter === 'all' ? '' : `&post_type=${filter}`;
+      fetch(`${API_BASE}/api/v1/ceo/posts?limit=${PAGE_SIZE}&offset=0${typeParam}`)
         .then((r) => r.json())
         .then((data: CeoPost[]) => {
           setPosts(data);
+          setHasMore(data.length >= PAGE_SIZE);
           if (data.length > 0) setExpandedId(data[0].id);
         })
         .catch(() => {})
         .finally(() => setLoading(false));
     }
   }, [filter]);
+
+  // Load more handler
+  const loadMore = useCallback(() => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+
+    if (filter === 'moltbook') {
+      const offset = moltbookPosts.length;
+      fetch(`${API_BASE}/api/v1/moltbook/posts?limit=${PAGE_SIZE}&offset=${offset}`)
+        .then((r) => r.json())
+        .then((data: MoltbookInfo) => {
+          const newPosts = data?.posts || [];
+          setMoltbookPosts((prev) => [...prev, ...newPosts]);
+          setHasMore(moltbookPosts.length + newPosts.length < (data?.total_posts || 0));
+        })
+        .catch(() => {})
+        .finally(() => setLoadingMore(false));
+    } else {
+      const offset = posts.length;
+      const typeParam = filter === 'all' ? '' : `&post_type=${filter}`;
+      fetch(`${API_BASE}/api/v1/ceo/posts?limit=${PAGE_SIZE}&offset=${offset}${typeParam}`)
+        .then((r) => r.json())
+        .then((data: CeoPost[]) => {
+          setPosts((prev) => [...prev, ...data]);
+          setHasMore(data.length >= PAGE_SIZE);
+        })
+        .catch(() => {})
+        .finally(() => setLoadingMore(false));
+    }
+  }, [filter, posts.length, moltbookPosts.length, loadingMore]);
 
   const filters: { key: FilterKey; label: string }[] = [
     { key: 'all', label: 'All Posts' },
@@ -89,14 +131,11 @@ export default function BlogPage() {
     { key: 'moltbook', label: 'Moltbook' },
   ];
 
-  const profileUrl = moltbookData?.profile_url || 'https://www.moltbook.com/u/marcus-blackwell';
-
   return (
     <div className="max-w-3xl mx-auto slide-up">
       {/* ── Author header ── */}
       <div className="mb-10">
         <div className="flex items-start gap-4">
-          {/* Avatar */}
           <div className="relative flex-shrink-0">
             <div className="w-14 h-14 rounded-full bg-gradient-to-br from-violet-400/20 to-purple-500/20 flex items-center justify-center ring-1 ring-syn-accent/20">
               {isMoltbook ? (
@@ -119,11 +158,10 @@ export default function BlogPage() {
           </div>
         </div>
 
-        {/* Moltbook profile link — show when on Moltbook tab */}
         {isMoltbook && (
           <div className="mt-4 flex items-center gap-3">
             <a
-              href={profileUrl}
+              href={moltbookProfileUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="group inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-rose-500/20 to-orange-500/20 rounded-lg ring-1 ring-rose-400/20 hover:ring-rose-400/40 transition-all hover:scale-[1.02]"
@@ -131,9 +169,9 @@ export default function BlogPage() {
               <span className="text-sm font-semibold text-rose-400">View on Moltbook</span>
               <ExternalLink size={14} className="text-rose-400/60 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
             </a>
-            {moltbookData && (
+            {moltbookTotal > 0 && (
               <span className="text-xs text-syn-text-tertiary font-mono tabular-nums">
-                {moltbookData.total_posts} post{moltbookData.total_posts !== 1 ? 's' : ''}
+                {moltbookTotal} post{moltbookTotal !== 1 ? 's' : ''}
               </span>
             )}
           </div>
@@ -203,7 +241,7 @@ export default function BlogPage() {
         </div>
       )}
 
-      {!loading && isMoltbook && (!moltbookData || moltbookData.posts.length === 0) && (
+      {!loading && isMoltbook && moltbookPosts.length === 0 && (
         <div className="bg-syn-surface border border-syn-border rounded-xl p-8 sm:p-16 text-center">
           <div className="text-3xl mb-4">🦞</div>
           <p className="text-sm text-syn-text-secondary font-medium mb-1">No Moltbook posts yet</p>
@@ -211,7 +249,7 @@ export default function BlogPage() {
             Marcus will post autonomously after the next trading cycle completes.
           </p>
           <a
-            href={profileUrl}
+            href={moltbookProfileUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs text-rose-400 hover:text-rose-300 transition-colors inline-flex items-center gap-1"
@@ -318,9 +356,9 @@ export default function BlogPage() {
       )}
 
       {/* ── Moltbook posts feed ── */}
-      {!loading && isMoltbook && moltbookData && moltbookData.posts.length > 0 && (
+      {!loading && isMoltbook && moltbookPosts.length > 0 && (
         <div className="space-y-0">
-          {moltbookData.posts.map((post, idx) => {
+          {moltbookPosts.map((post, idx) => {
             const colorClass = submoltColors[post.submolt] || submoltColors.general;
             const postId = post.moltbook_post_id || String(idx);
             const postUrl = post.moltbook_post_id
@@ -387,6 +425,30 @@ export default function BlogPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Load more button ── */}
+      {!loading && hasMore && (
+        <div className="flex justify-center pt-8 pb-4">
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              isMoltbook
+                ? 'bg-rose-400/10 text-rose-400 ring-1 ring-rose-400/20 hover:bg-rose-400/20'
+                : 'bg-syn-accent/10 text-syn-accent ring-1 ring-syn-accent/20 hover:bg-syn-accent/20'
+            } disabled:opacity-50`}
+          >
+            {loadingMore ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                Loading...
+              </>
+            ) : (
+              'Load more'
+            )}
+          </button>
         </div>
       )}
     </div>
