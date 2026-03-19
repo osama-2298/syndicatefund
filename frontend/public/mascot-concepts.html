@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Syndicate — Mascot Concepts</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #09090f; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif; }
+  .page { max-width: 1200px; margin: 0 auto; padding: 60px 40px; }
+  h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 6px; }
+  .sub { color: rgba(255,255,255,0.3); font-size: 14px; margin-bottom: 60px; }
+  .concepts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 80px; }
+  .concept { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; overflow: hidden; }
+  .concept-header { padding: 20px 24px 0; }
+  .concept-header h2 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .concept-header .tag { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: #f59e0b; background: rgba(245,158,11,0.1); padding: 3px 8px; border-radius: 4px; margin-bottom: 8px; }
+  .concept-header p { font-size: 13px; color: rgba(255,255,255,0.3); line-height: 1.6; }
+  .logo-area { display: flex; align-items: center; justify-content: center; height: 280px; padding: 40px; }
+  .meta { padding: 16px 24px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; gap: 16px; }
+  .meta-item { font-size: 11px; color: rgba(255,255,255,0.2); }
+  .meta-item strong { color: rgba(255,255,255,0.4); }
+
+  .nav-section { margin-bottom: 80px; }
+  .section-label { font-size: 10px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(245,158,11,0.4); margin-bottom: 20px; }
+  .nav-mock { display: flex; align-items: center; gap: 14px; padding: 16px 24px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; margin-bottom: 12px; }
+  .nav-brand { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; background: linear-gradient(135deg, #f59e0b, #f97316); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .nav-badge { font-size: 10px; color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.04); padding: 2px 8px; border-radius: 4px; }
+  .nav-links { display: flex; gap: 20px; margin-left: auto; }
+  .nav-links span { font-size: 13px; color: rgba(255,255,255,0.25); }
+  .nav-cta { font-size: 12px; background: linear-gradient(135deg, #f59e0b, #f97316); color: black; font-weight: 700; padding: 7px 18px; border-radius: 8px; }
+
+  .sizes-row { display: flex; align-items: end; gap: 32px; justify-content: center; padding: 24px; }
+  .size-item { text-align: center; }
+  .size-item span { display: block; font-size: 10px; color: rgba(255,255,255,0.15); margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Syndicate — Mascot Direction</h1>
+<p class="sub">Three creature concepts that encode the multi-agent architecture into a memorable mark.</p>
+
+<div class="concepts">
+
+  <!-- ═══════════════════════════════════════ HYDRA ═══════════════════════════════════════ -->
+  <div class="concept">
+    <div class="concept-header">
+      <div class="tag">Recommended</div>
+      <h2>The Hydra</h2>
+      <p>Multiple heads, one body. Each head is an analysis team. The body is the fund. Mythological resilience — cut one head, two grow back.</p>
+    </div>
+    <div class="logo-area">
+      <svg width="180" height="180" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="hydraG" x1="50" y1="20" x2="150" y2="180" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#fbbf24"/>
+            <stop offset="100%" stop-color="#f59e0b"/>
+          </linearGradient>
+        </defs>
+        <!-- Center stem/body -->
+        <path d="M100 180 L100 120" stroke="#f59e0b" stroke-width="12" stroke-linecap="round"/>
+        <!-- Base spread -->
+        <path d="M70 180 L100 160 L130 180" stroke="#f59e0b" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+        <!-- Left neck + head -->
+        <path d="M100 120 Q80 100 55 70 Q48 58 42 48" stroke="#f59e0b" stroke-width="8" stroke-linecap="round" fill="none"/>
+        <!-- Left head - angular diamond -->
+        <path d="M42 48 L32 32 L42 20 L52 32 Z" fill="#f59e0b"/>
+        <!-- Left eye -->
+        <circle cx="42" cy="29" r="2.5" fill="#09090f"/>
+
+        <!-- Center neck + head -->
+        <path d="M100 120 L100 65" stroke="#f59e0b" stroke-width="9" stroke-linecap="round"/>
+        <!-- Center head - larger angular diamond -->
+        <path d="M100 65 L87 45 L100 28 L113 45 Z" fill="#f59e0b"/>
+        <!-- Center eye -->
+        <circle cx="100" cy="42" r="3" fill="#09090f"/>
+
+        <!-- Right neck + head -->
+        <path d="M100 120 Q120 100 145 70 Q152 58 158 48" stroke="#f59e0b" stroke-width="8" stroke-linecap="round" fill="none"/>
+        <!-- Right head - angular diamond -->
+        <path d="M158 48 L148 32 L158 20 L168 32 Z" fill="#f59e0b"/>
+        <!-- Right eye -->
+        <circle cx="158" cy="29" r="2.5" fill="#09090f"/>
+
+        <!-- Subtle connection lines between heads (the consensus network) -->
+        <line x1="52" y1="38" x2="87" y2="50" stroke="#f59e0b" stroke-width="1.5" opacity="0.2"/>
+        <line x1="113" y1="50" x2="148" y2="38" stroke="#f59e0b" stroke-width="1.5" opacity="0.2"/>
+        <line x1="52" y1="38" x2="148" y2="38" stroke="#f59e0b" stroke-width="1" opacity="0.1"/>
+      </svg>
+    </div>
+    <div class="meta">
+      <div class="meta-item"><strong>Story:</strong> Many minds, one fund</div>
+      <div class="meta-item"><strong>Feel:</strong> Powerful, mythic</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ RAVEN ═══════════════════════════════════════ -->
+  <div class="concept">
+    <div class="concept-header">
+      <div class="tag" style="color:rgba(255,255,255,0.4);background:rgba(255,255,255,0.04);">Alternative</div>
+      <h2>The Raven</h2>
+      <p>Odin's ravens — Thought & Memory — flew the world gathering intelligence. Your agents do the same. Dark, sharp, omniscient.</p>
+    </div>
+    <div class="logo-area">
+      <svg width="180" height="180" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Raven head profile facing right, geometric construction -->
+        <!-- Main head shape - angular polygon -->
+        <path d="M65 55 L90 40 L130 42 L145 55 L148 75 L140 95 L120 105 L95 108 L75 100 L60 85 L58 70 Z" fill="#f59e0b"/>
+
+        <!-- Beak - sharp triangle -->
+        <path d="M145 55 L185 68 L148 82 L148 75 Z" fill="#f59e0b"/>
+        <!-- Beak line -->
+        <line x1="148" y1="70" x2="180" y2="68" stroke="#09090f" stroke-width="2"/>
+
+        <!-- Eye - geometric diamond -->
+        <path d="M118 65 L125 58 L132 65 L125 72 Z" fill="#09090f"/>
+        <!-- Eye inner -->
+        <circle cx="125" cy="65" r="3" fill="#f59e0b" opacity="0.6"/>
+        <circle cx="126" cy="64" r="1.5" fill="#09090f"/>
+
+        <!-- Crown/head crest feathers - angular -->
+        <path d="M75 55 L65 30 L80 45" fill="#f59e0b"/>
+        <path d="M85 48 L80 22 L95 40" fill="#f59e0b"/>
+        <path d="M95 43 L95 18 L108 40" fill="#f59e0b"/>
+
+        <!-- Neck feather shapes -->
+        <path d="M75 100 L55 125 L70 108" fill="#f59e0b"/>
+        <path d="M85 105 L68 135 L82 115" fill="#f59e0b"/>
+        <path d="M95 108 L82 142 L95 118" fill="#f59e0b"/>
+        <path d="M105 108 L98 140 L108 118" fill="#f59e0b"/>
+
+        <!-- Wing suggestion - angular shapes behind -->
+        <path d="M60 85 L30 110 L28 90 L40 75" fill="#f59e0b" opacity="0.5"/>
+        <path d="M58 92 L22 125 L25 105" fill="#f59e0b" opacity="0.3"/>
+      </svg>
+    </div>
+    <div class="meta">
+      <div class="meta-item"><strong>Story:</strong> Intelligence gatherer</div>
+      <div class="meta-item"><strong>Feel:</strong> Sharp, knowing</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ MANTIS ═══════════════════════════════════════ -->
+  <div class="concept">
+    <div class="concept-header">
+      <div class="tag" style="color:rgba(255,255,255,0.4);background:rgba(255,255,255,0.04);">Alternative</div>
+      <h2>The Mantis</h2>
+      <p>Patient precision. Calculates, waits, strikes. The triangular head and folded arms form a natural geometric mark. Unexpected in finance.</p>
+    </div>
+    <div class="logo-area">
+      <svg width="180" height="180" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Mantis front view - geometric/symmetric -->
+        <!-- Head - inverted triangle -->
+        <path d="M100 45 L75 75 L125 75 Z" fill="#f59e0b"/>
+
+        <!-- Eyes - large compound eyes -->
+        <ellipse cx="80" cy="58" rx="14" ry="11" fill="#f59e0b" transform="rotate(-15, 80, 58)"/>
+        <ellipse cx="120" cy="58" rx="14" ry="11" fill="#f59e0b" transform="rotate(15, 120, 58)"/>
+        <!-- Eye inner -->
+        <circle cx="82" cy="57" r="4" fill="#09090f"/>
+        <circle cx="118" cy="57" r="4" fill="#09090f"/>
+        <circle cx="83" cy="56" r="1.5" fill="#f59e0b" opacity="0.5"/>
+        <circle cx="119" cy="56" r="1.5" fill="#f59e0b" opacity="0.5"/>
+
+        <!-- Antennae -->
+        <path d="M90 48 Q75 25 60 15" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+        <path d="M110 48 Q125 25 140 15" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+        <circle cx="58" cy="14" r="3" fill="#f59e0b"/>
+        <circle cx="142" cy="14" r="3" fill="#f59e0b"/>
+
+        <!-- Thorax -->
+        <path d="M88 75 L85 95 L100 100 L115 95 L112 75 Z" fill="#f59e0b"/>
+
+        <!-- Abdomen - elongated -->
+        <path d="M88 100 L85 155 Q100 168 115 155 L112 100 Z" fill="#f59e0b"/>
+        <!-- Abdomen segments -->
+        <line x1="86" y1="115" x2="114" y2="115" stroke="#09090f" stroke-width="1.5" opacity="0.3"/>
+        <line x1="86" y1="130" x2="114" y2="130" stroke="#09090f" stroke-width="1.5" opacity="0.3"/>
+        <line x1="87" y1="145" x2="113" y2="145" stroke="#09090f" stroke-width="1.5" opacity="0.3"/>
+
+        <!-- Left raptorial arm - folded -->
+        <path d="M85 80 L50 90 L35 78 L28 55" stroke="#f59e0b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <!-- Left forearm (the catching part) -->
+        <path d="M28 55 L35 35 L45 42" stroke="#f59e0b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <!-- Spines on left arm -->
+        <line x1="32" y1="50" x2="28" y2="44" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
+        <line x1="35" y1="55" x2="30" y2="50" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
+
+        <!-- Right raptorial arm - folded (mirror) -->
+        <path d="M115 80 L150 90 L165 78 L172 55" stroke="#f59e0b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <path d="M172 55 L165 35 L155 42" stroke="#f59e0b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <line x1="168" y1="50" x2="172" y2="44" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
+        <line x1="165" y1="55" x2="170" y2="50" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
+
+        <!-- Back legs (simple) -->
+        <path d="M90 105 L60 130 L50 165" stroke="#f59e0b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <path d="M110 105 L140 130 L150 165" stroke="#f59e0b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <path d="M92 115 L65 150 L55 180" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <path d="M108 115 L135 150 L145 180" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+    </div>
+    <div class="meta">
+      <div class="meta-item"><strong>Story:</strong> Calculated precision</div>
+      <div class="meta-item"><strong>Feel:</strong> Patient, lethal</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════ NAV PREVIEWS ═══════════════════════════════════════ -->
+<div class="section-label">Nav Bar Preview</div>
+<div class="nav-section">
+
+  <!-- Hydra nav -->
+  <div class="nav-mock">
+    <svg width="28" height="28" viewBox="0 0 200 200" fill="none">
+      <path d="M100 180 L100 120" stroke="#f59e0b" stroke-width="14" stroke-linecap="round"/>
+      <path d="M70 185 L100 160 L130 185" stroke="#f59e0b" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <path d="M100 120 Q80 100 55 70 Q48 58 42 48" stroke="#f59e0b" stroke-width="10" stroke-linecap="round" fill="none"/>
+      <path d="M42 48 L32 32 L42 20 L52 32 Z" fill="#f59e0b"/>
+      <path d="M100 120 L100 65" stroke="#f59e0b" stroke-width="11" stroke-linecap="round"/>
+      <path d="M100 65 L87 45 L100 28 L113 45 Z" fill="#f59e0b"/>
+      <path d="M100 120 Q120 100 145 70 Q152 58 158 48" stroke="#f59e0b" stroke-width="10" stroke-linecap="round" fill="none"/>
+      <path d="M158 48 L148 32 L158 20 L168 32 Z" fill="#f59e0b"/>
+    </svg>
+    <span class="nav-brand">SYNDICATE</span>
+    <span class="nav-badge">.AI</span>
+    <div class="nav-links">
+      <span>Dashboard</span><span>Activity</span><span>Agents</span><span>Org</span><span>Blog</span><span>Results</span>
+    </div>
+    <span class="nav-cta">Contribute</span>
+  </div>
+
+  <!-- Raven nav -->
+  <div class="nav-mock">
+    <svg width="28" height="28" viewBox="30 15 170 140" fill="none">
+      <path d="M65 55 L90 40 L130 42 L145 55 L148 75 L140 95 L120 105 L95 108 L75 100 L60 85 L58 70 Z" fill="#f59e0b"/>
+      <path d="M145 55 L185 68 L148 82 L148 75 Z" fill="#f59e0b"/>
+      <line x1="148" y1="70" x2="180" y2="68" stroke="#09090f" stroke-width="2.5"/>
+      <path d="M118 65 L125 58 L132 65 L125 72 Z" fill="#09090f"/>
+      <path d="M75 55 L65 30 L80 45" fill="#f59e0b"/>
+      <path d="M85 48 L80 22 L95 40" fill="#f59e0b"/>
+      <path d="M95 43 L95 18 L108 40" fill="#f59e0b"/>
+    </svg>
+    <span class="nav-brand">SYNDICATE</span>
+    <span class="nav-badge">.AI</span>
+    <div class="nav-links">
+      <span>Dashboard</span><span>Activity</span><span>Agents</span><span>Org</span><span>Blog</span><span>Results</span>
+    </div>
+    <span class="nav-cta">Contribute</span>
+  </div>
+
+  <!-- Mantis nav -->
+  <div class="nav-mock">
+    <svg width="28" height="28" viewBox="20 5 160 180" fill="none">
+      <path d="M100 45 L75 75 L125 75 Z" fill="#f59e0b"/>
+      <ellipse cx="80" cy="58" rx="14" ry="11" fill="#f59e0b" transform="rotate(-15, 80, 58)"/>
+      <ellipse cx="120" cy="58" rx="14" ry="11" fill="#f59e0b" transform="rotate(15, 120, 58)"/>
+      <circle cx="82" cy="57" r="4" fill="#09090f"/>
+      <circle cx="118" cy="57" r="4" fill="#09090f"/>
+      <path d="M88 75 L85 95 L100 100 L115 95 L112 75 Z" fill="#f59e0b"/>
+      <path d="M88 100 L85 155 Q100 168 115 155 L112 100 Z" fill="#f59e0b"/>
+      <path d="M85 80 L50 90 L35 78 L28 55" stroke="#f59e0b" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <path d="M28 55 L35 35 L45 42" stroke="#f59e0b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <path d="M115 80 L150 90 L165 78 L172 55" stroke="#f59e0b" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <path d="M172 55 L165 35 L155 42" stroke="#f59e0b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <span class="nav-brand">SYNDICATE</span>
+    <span class="nav-badge">.AI</span>
+    <div class="nav-links">
+      <span>Dashboard</span><span>Activity</span><span>Agents</span><span>Org</span><span>Blog</span><span>Results</span>
+    </div>
+    <span class="nav-cta">Contribute</span>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════ SIZE TESTS ═══════════════════════════════════════ -->
+<div class="section-label">Size Test — 64px / 32px / 16px (favicon)</div>
+<div style="display:grid; grid-template-columns: repeat(3,1fr); gap:24px; margin-bottom:60px;">
+
+  <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:24px;">
+    <p style="font-size:11px; color:rgba(255,255,255,0.25); margin-bottom:16px; font-weight:600;">Hydra</p>
+    <div class="sizes-row">
+      <div class="size-item">
+        <svg width="64" height="64" viewBox="0 0 200 200" fill="none">
+          <path d="M100 180 L100 120" stroke="#f59e0b" stroke-width="14" stroke-linecap="round"/>
+          <path d="M100 120 Q80 100 55 70 Q48 58 42 48" stroke="#f59e0b" stroke-width="10" stroke-linecap="round" fill="none"/>
+          <path d="M42 48 L32 32 L42 20 L52 32 Z" fill="#f59e0b"/>
+          <path d="M100 120 L100 65" stroke="#f59e0b" stroke-width="11" stroke-linecap="round"/>
+          <path d="M100 65 L87 45 L100 28 L113 45 Z" fill="#f59e0b"/>
+          <path d="M100 120 Q120 100 145 70 Q152 58 158 48" stroke="#f59e0b" stroke-width="10" stroke-linecap="round" fill="none"/>
+          <path d="M158 48 L148 32 L158 20 L168 32 Z" fill="#f59e0b"/>
+        </svg>
+        <span>64px</span>
+      </div>
+      <div class="size-item">
+        <svg width="32" height="32" viewBox="0 0 200 200" fill="none">
+          <path d="M100 180 L100 120" stroke="#f59e0b" stroke-width="18" stroke-linecap="round"/>
+          <path d="M100 120 Q80 100 55 70 Q48 58 42 48" stroke="#f59e0b" stroke-width="14" stroke-linecap="round" fill="none"/>
+          <path d="M42 48 L28 28 L42 14 L56 28 Z" fill="#f59e0b"/>
+          <path d="M100 120 L100 60" stroke="#f59e0b" stroke-width="15" stroke-linecap="round"/>
+          <path d="M100 60 L83 38 L100 20 L117 38 Z" fill="#f59e0b"/>
+          <path d="M100 120 Q120 100 145 70 Q152 58 158 48" stroke="#f59e0b" stroke-width="14" stroke-linecap="round" fill="none"/>
+          <path d="M158 48 L144 28 L158 14 L172 28 Z" fill="#f59e0b"/>
+        </svg>
+        <span>32px</span>
+      </div>
+      <div class="size-item">
+        <svg width="16" height="16" viewBox="0 0 200 200" fill="none">
+          <path d="M100 185 L100 115" stroke="#f59e0b" stroke-width="24" stroke-linecap="round"/>
+          <path d="M100 115 Q75 90 50 55" stroke="#f59e0b" stroke-width="20" stroke-linecap="round" fill="none"/>
+          <path d="M50 55 L35 30 L50 12 L65 30 Z" fill="#f59e0b"/>
+          <path d="M100 115 L100 55" stroke="#f59e0b" stroke-width="22" stroke-linecap="round"/>
+          <path d="M100 55 L80 30 L100 10 L120 30 Z" fill="#f59e0b"/>
+          <path d="M100 115 Q125 90 150 55" stroke="#f59e0b" stroke-width="20" stroke-linecap="round" fill="none"/>
+          <path d="M150 55 L135 30 L150 12 L165 30 Z" fill="#f59e0b"/>
+        </svg>
+        <span>16px</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:24px;">
+    <p style="font-size:11px; color:rgba(255,255,255,0.25); margin-bottom:16px; font-weight:600;">Raven</p>
+    <div class="sizes-row">
+      <div class="size-item">
+        <svg width="64" height="64" viewBox="30 15 170 130" fill="none">
+          <path d="M65 55 L90 40 L130 42 L145 55 L148 75 L140 95 L120 105 L95 108 L75 100 L60 85 L58 70 Z" fill="#f59e0b"/>
+          <path d="M145 55 L185 68 L148 82 L148 75 Z" fill="#f59e0b"/>
+          <path d="M118 65 L125 58 L132 65 L125 72 Z" fill="#09090f"/>
+          <path d="M75 55 L65 30 L80 45 M85 48 L80 22 L95 40 M95 43 L95 18 L108 40" fill="#f59e0b"/>
+        </svg>
+        <span>64px</span>
+      </div>
+      <div class="size-item">
+        <svg width="32" height="32" viewBox="30 15 170 130" fill="none">
+          <path d="M65 55 L90 40 L130 42 L145 55 L148 75 L140 95 L120 105 L95 108 L75 100 L60 85 L58 70 Z" fill="#f59e0b"/>
+          <path d="M145 55 L185 68 L148 82 L148 75 Z" fill="#f59e0b"/>
+          <path d="M120 65 L126 57 L133 65 L126 73 Z" fill="#09090f"/>
+          <path d="M80 50 L72 28 L88 45 M92 45 L90 20 L105 42" fill="#f59e0b"/>
+        </svg>
+        <span>32px</span>
+      </div>
+      <div class="size-item">
+        <svg width="16" height="16" viewBox="25 10 180 140" fill="none">
+          <path d="M65 55 L90 40 L130 42 L145 55 L148 75 L140 95 L120 105 L95 108 L75 100 L60 85 L58 70 Z" fill="#f59e0b"/>
+          <path d="M145 55 L190 68 L148 85" fill="#f59e0b"/>
+          <path d="M80 50 L68 22 L92 45 M95 42 L95 15 L112 40" fill="#f59e0b"/>
+        </svg>
+        <span>16px</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:24px;">
+    <p style="font-size:11px; color:rgba(255,255,255,0.25); margin-bottom:16px; font-weight:600;">Mantis</p>
+    <div class="sizes-row">
+      <div class="size-item">
+        <svg width="64" height="64" viewBox="20 5 160 175" fill="none">
+          <path d="M100 45 L75 75 L125 75 Z" fill="#f59e0b"/>
+          <ellipse cx="80" cy="58" rx="14" ry="11" fill="#f59e0b" transform="rotate(-15, 80, 58)"/>
+          <ellipse cx="120" cy="58" rx="14" ry="11" fill="#f59e0b" transform="rotate(15, 120, 58)"/>
+          <circle cx="82" cy="57" r="5" fill="#09090f"/>
+          <circle cx="118" cy="57" r="5" fill="#09090f"/>
+          <path d="M88 75 L85 95 L100 100 L115 95 L112 75 Z" fill="#f59e0b"/>
+          <path d="M88 100 L85 155 Q100 168 115 155 L112 100 Z" fill="#f59e0b"/>
+          <path d="M85 80 L50 90 L35 78 L28 55" stroke="#f59e0b" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <path d="M115 80 L150 90 L165 78 L172 55" stroke="#f59e0b" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+        <span>64px</span>
+      </div>
+      <div class="size-item">
+        <svg width="32" height="32" viewBox="20 5 160 175" fill="none">
+          <path d="M100 45 L75 75 L125 75 Z" fill="#f59e0b"/>
+          <ellipse cx="80" cy="58" rx="15" ry="12" fill="#f59e0b" transform="rotate(-15, 80, 58)"/>
+          <ellipse cx="120" cy="58" rx="15" ry="12" fill="#f59e0b" transform="rotate(15, 120, 58)"/>
+          <circle cx="82" cy="57" r="6" fill="#09090f"/>
+          <circle cx="118" cy="57" r="6" fill="#09090f"/>
+          <path d="M88 75 L85 95 L100 100 L115 95 L112 75 Z" fill="#f59e0b"/>
+          <path d="M88 100 L85 155 Q100 168 115 155 L112 100 Z" fill="#f59e0b"/>
+          <path d="M85 80 L45 90 L30 72 L25 50" stroke="#f59e0b" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <path d="M115 80 L155 90 L170 72 L175 50" stroke="#f59e0b" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+        <span>32px</span>
+      </div>
+      <div class="size-item">
+        <svg width="16" height="16" viewBox="15 20 170 150" fill="none">
+          <path d="M100 45 L70 80 L130 80 Z" fill="#f59e0b"/>
+          <ellipse cx="78" cy="60" rx="18" ry="14" fill="#f59e0b" transform="rotate(-15, 78, 60)"/>
+          <ellipse cx="122" cy="60" rx="18" ry="14" fill="#f59e0b" transform="rotate(15, 122, 60)"/>
+          <circle cx="80" cy="59" r="7" fill="#09090f"/>
+          <circle cx="120" cy="59" r="7" fill="#09090f"/>
+          <path d="M85 80 L85 160 Q100 172 115 160 L115 80 Z" fill="#f59e0b"/>
+          <path d="M82 82 L40 90 L25 50" stroke="#f59e0b" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <path d="M118 82 L160 90 L175 50" stroke="#f59e0b" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+        <span>16px</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</div>
+</body>
+</html>

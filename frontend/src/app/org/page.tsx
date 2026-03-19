@@ -33,21 +33,29 @@ interface Team {
 
 /* ━━━ Constants ━━━ */
 
-const TEAM_DOT: Record<string, string> = {
-  technical: 'bg-blue-400',
-  sentiment: 'bg-rose-400',
-  fundamental: 'bg-emerald-400',
-  macro: 'bg-cyan-400',
-  onchain: 'bg-purple-400',
+const TEAM_PALETTE = [
+  { dot: 'bg-blue-400', accent: 'text-blue-400' },
+  { dot: 'bg-rose-400', accent: 'text-rose-400' },
+  { dot: 'bg-emerald-400', accent: 'text-emerald-400' },
+  { dot: 'bg-cyan-400', accent: 'text-cyan-400' },
+  { dot: 'bg-purple-400', accent: 'text-purple-400' },
+  { dot: 'bg-amber-400', accent: 'text-amber-400' },
+  { dot: 'bg-pink-400', accent: 'text-pink-400' },
+  { dot: 'bg-teal-400', accent: 'text-teal-400' },
+  { dot: 'bg-indigo-400', accent: 'text-indigo-400' },
+  { dot: 'bg-orange-400', accent: 'text-orange-400' },
+];
+
+const KNOWN_TEAM_IDX: Record<string, number> = {
+  technical: 0, sentiment: 1, fundamental: 2, macro: 3, onchain: 4,
 };
 
-const TEAM_ACCENT: Record<string, string> = {
-  technical: 'text-blue-400',
-  sentiment: 'text-rose-400',
-  fundamental: 'text-emerald-400',
-  macro: 'text-cyan-400',
-  onchain: 'text-purple-400',
-};
+/** Deterministic color for any team — known teams get their fixed color, new teams get a hash-based pick */
+function teamColor(name: string) {
+  if (name in KNOWN_TEAM_IDX) return TEAM_PALETTE[KNOWN_TEAM_IDX[name]];
+  const hash = name.split('').reduce((h, c) => h + c.charCodeAt(0), 0);
+  return TEAM_PALETTE[hash % TEAM_PALETTE.length];
+}
 
 const STATUS_DOT: Record<string, string> = {
   founding: 'bg-violet-400',
@@ -220,7 +228,7 @@ function TeamCard({ team, agents }: { team: Team; agents: Agent[] }) {
   const [open, setOpen] = useState(false);
   const managerName = MANAGER_NAMES[team.name] || 'Manager';
   const managerPersona = getPersona(managerName);
-  const accent = TEAM_ACCENT[team.name] || 'text-gray-400';
+  const accent = teamColor(team.name).accent;
 
   return (
     <div>
@@ -381,8 +389,8 @@ export default function OrgPage() {
         <p className="text-sm text-syn-text-secondary mt-1">
           Full corporate hierarchy.{' '}
           <span className="font-mono tabular-nums">{teams.length}</span> teams,{' '}
-          <span className="font-mono tabular-nums">{agents.length}</span> analysts, 3 researchers,
-          6 executives. Zero humans. Click nodes to expand.
+          <span className="font-mono tabular-nums">{agents.length}</span> agents. Zero humans. Click
+          nodes to expand.
         </p>
       </div>
 
@@ -493,7 +501,7 @@ export default function OrgPage() {
             />
             <TreeGroup className="mt-2">
               {teams.map((team) => (
-                <TreeNode key={team.id} dot={TEAM_DOT[team.name] || 'bg-gray-400'}>
+                <TreeNode key={team.id} dot={teamColor(team.name).dot}>
                   <TeamCard team={team} agents={agentsByTeam[team.name] || []} />
                 </TreeNode>
               ))}

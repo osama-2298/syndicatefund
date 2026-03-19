@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Syndicate Logo Concepts</title>
+<style>
+  body { background: #0a0a0f; color: white; font-family: -apple-system, system-ui, sans-serif; padding: 40px; }
+  h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+  p.sub { color: rgba(255,255,255,0.3); font-size: 14px; margin-bottom: 48px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; margin-bottom: 60px; }
+  .card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 40px; text-align: center; }
+  .card h3 { font-size: 13px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(245,158,11,0.6); margin-bottom: 8px; }
+  .card p { font-size: 12px; color: rgba(255,255,255,0.25); margin-top: 12px; }
+  .logo-wrap { display: flex; align-items: center; justify-content: center; height: 160px; }
+  .sizes { display: flex; align-items: center; justify-content: center; gap: 32px; margin-top: 16px; }
+  .sizes span { font-size: 10px; color: rgba(255,255,255,0.15); }
+  .usage { display: flex; align-items: center; gap: 16px; padding: 20px 24px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; }
+  .usage-text { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; background: linear-gradient(135deg, #f59e0b, #f97316); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .usage-badge { font-size: 11px; color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.04); padding: 2px 8px; border-radius: 4px; }
+  .section-label { font-size: 10px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(245,158,11,0.4); margin-bottom: 20px; }
+  .dark-bg { background: #0a0a0f; padding: 24px; border-radius: 12px; }
+  .light-bg { background: #f5f5f5; padding: 24px; border-radius: 12px; }
+</style>
+</head>
+<body>
+
+<h1>Syndicate — Logo Concepts</h1>
+<p class="sub">Angular S monogram built from connected nodes. Network intelligence forming a letterform.</p>
+
+<div class="grid">
+  <!-- Concept A: Sharp geometric S from connected nodes -->
+  <div class="card">
+    <h3>Concept A — Circuit S</h3>
+    <div class="logo-wrap">
+      <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="gA" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#f59e0b"/>
+            <stop offset="100%" stop-color="#f97316"/>
+          </linearGradient>
+        </defs>
+        <!-- S path from connected nodes -->
+        <path d="M85 20 L40 20 Q20 20 20 40 L20 45 Q20 60 40 60 L80 60 Q100 60 100 80 L100 85 Q100 100 80 100 L35 100"
+              stroke="url(#gA)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <!-- Nodes at key points -->
+        <circle cx="85" cy="20" r="6" fill="url(#gA)"/>
+        <circle cx="40" cy="20" r="4" fill="url(#gA)" opacity="0.6"/>
+        <circle cx="20" cy="40" r="4" fill="url(#gA)" opacity="0.6"/>
+        <circle cx="40" cy="60" r="4" fill="url(#gA)" opacity="0.6"/>
+        <circle cx="80" cy="60" r="4" fill="url(#gA)" opacity="0.6"/>
+        <circle cx="100" cy="80" r="4" fill="url(#gA)" opacity="0.6"/>
+        <circle cx="35" cy="100" r="6" fill="url(#gA)"/>
+      </svg>
+    </div>
+    <p>Rounded S-path with node endpoints. Clean, readable at small sizes.</p>
+    <div class="sizes">
+      <div>
+        <svg width="48" height="48" viewBox="0 0 120 120" fill="none"><defs><linearGradient id="gAs" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f97316"/></linearGradient></defs><path d="M85 20 L40 20 Q20 20 20 40 L20 45 Q20 60 40 60 L80 60 Q100 60 100 80 L100 85 Q100 100 80 100 L35 100" stroke="url(#gAs)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="85" cy="20" r="6" fill="url(#gAs)"/><circle cx="35" cy="100" r="6" fill="url(#gAs)"/></svg>
+        <span>48px</span>
+      </div>
+      <div>
+        <svg width="24" height="24" viewBox="0 0 120 120" fill="none"><defs><linearGradient id="gAf" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f97316"/></linearGradient></defs><path d="M85 20 L40 20 Q20 20 20 40 L20 45 Q20 60 40 60 L80 60 Q100 60 100 80 L100 85 Q100 100 80 100 L35 100" stroke="url(#gAf)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="85" cy="20" r="8" fill="url(#gAf)"/><circle cx="35" cy="100" r="8" fill="url(#gAf)"/></svg>
+        <span>24px</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Concept B: Angular/faceted S -->
+  <div class="card">
+    <h3>Concept B — Faceted S</h3>
+    <div class="logo-wrap">
+      <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="gB" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#f59e0b"/>
+            <stop offset="100%" stop-color="#f97316"/>
+          </linearGradient>
+        </defs>
+        <!-- Sharp angular S -->
+        <path d="M88 18 L32 18 L18 40 L18 50 L60 60 L102 70 L102 82 L88 102 L32 102"
+              stroke="url(#gB)" stroke-width="5" stroke-linecap="square" stroke-linejoin="miter" fill="none"/>
+        <!-- Corner nodes -->
+        <rect x="84" y="14" width="8" height="8" rx="1" fill="url(#gB)"/>
+        <rect x="28" y="14" width="8" height="8" rx="1" fill="url(#gB)" opacity="0.5"/>
+        <rect x="14" y="46" width="8" height="8" rx="1" fill="url(#gB)" opacity="0.5"/>
+        <rect x="56" y="56" width="8" height="8" rx="1" fill="url(#gB)" opacity="0.7"/>
+        <rect x="98" y="66" width="8" height="8" rx="1" fill="url(#gB)" opacity="0.5"/>
+        <rect x="98" y="78" width="8" height="8" rx="1" fill="url(#gB)" opacity="0.5"/>
+        <rect x="28" y="98" width="8" height="8" rx="1" fill="url(#gB)"/>
+      </svg>
+    </div>
+    <p>Hard angles, square nodes. More aggressive, technical feel.</p>
+    <div class="sizes">
+      <div>
+        <svg width="48" height="48" viewBox="0 0 120 120" fill="none"><defs><linearGradient id="gBs" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f97316"/></linearGradient></defs><path d="M88 18 L32 18 L18 40 L18 50 L60 60 L102 70 L102 82 L88 102 L32 102" stroke="url(#gBs)" stroke-width="5" stroke-linecap="square" fill="none"/><rect x="84" y="14" width="8" height="8" rx="1" fill="url(#gBs)"/><rect x="28" y="98" width="8" height="8" rx="1" fill="url(#gBs)"/></svg>
+        <span>48px</span>
+      </div>
+      <div>
+        <svg width="24" height="24" viewBox="0 0 120 120" fill="none"><defs><linearGradient id="gBf" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f97316"/></linearGradient></defs><path d="M88 18 L32 18 L18 40 L18 50 L60 60 L102 70 L102 82 L88 102 L32 102" stroke="url(#gBf)" stroke-width="7" stroke-linecap="square" fill="none"/><rect x="82" y="12" width="12" height="12" rx="2" fill="url(#gBf)"/><rect x="26" y="96" width="12" height="12" rx="2" fill="url(#gBf)"/></svg>
+        <span>24px</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Concept C: Network constellation S -->
+  <div class="card">
+    <h3>Concept C — Constellation S</h3>
+    <div class="logo-wrap">
+      <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="gC" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#f59e0b"/>
+            <stop offset="100%" stop-color="#f97316"/>
+          </linearGradient>
+        </defs>
+        <!-- Connection lines forming S shape -->
+        <line x1="85" y1="15" x2="45" y2="15" stroke="url(#gC)" stroke-width="2.5" opacity="0.6"/>
+        <line x1="45" y1="15" x2="25" y2="35" stroke="url(#gC)" stroke-width="2.5" opacity="0.6"/>
+        <line x1="25" y1="35" x2="35" y2="55" stroke="url(#gC)" stroke-width="2.5" opacity="0.6"/>
+        <line x1="35" y1="55" x2="60" y2="60" stroke="url(#gC)" stroke-width="2.5" opacity="0.6"/>
+        <line x1="60" y1="60" x2="85" y2="65" stroke="url(#gC)" stroke-width="2.5" opacity="0.6"/>
+        <line x1="85" y1="65" x2="95" y2="85" stroke="url(#gC)" stroke-width="2.5" opacity="0.6"/>
+        <line x1="95" y1="85" x2="75" y2="105" stroke="url(#gC)" stroke-width="2.5" opacity="0.6"/>
+        <line x1="75" y1="105" x2="35" y2="105" stroke="url(#gC)" stroke-width="2.5" opacity="0.6"/>
+        <!-- Cross connections for network feel -->
+        <line x1="45" y1="15" x2="60" y2="60" stroke="url(#gC)" stroke-width="1" opacity="0.15"/>
+        <line x1="25" y1="35" x2="85" y2="65" stroke="url(#gC)" stroke-width="1" opacity="0.15"/>
+        <line x1="60" y1="60" x2="75" y2="105" stroke="url(#gC)" stroke-width="1" opacity="0.15"/>
+        <line x1="35" y1="55" x2="95" y2="85" stroke="url(#gC)" stroke-width="1" opacity="0.15"/>
+        <!-- Nodes -->
+        <circle cx="85" cy="15" r="7" fill="url(#gC)"/>
+        <circle cx="45" cy="15" r="5" fill="url(#gC)" opacity="0.7"/>
+        <circle cx="25" cy="35" r="5" fill="url(#gC)" opacity="0.7"/>
+        <circle cx="35" cy="55" r="4" fill="url(#gC)" opacity="0.5"/>
+        <circle cx="60" cy="60" r="6" fill="url(#gC)" opacity="0.9"/>
+        <circle cx="85" cy="65" r="4" fill="url(#gC)" opacity="0.5"/>
+        <circle cx="95" cy="85" r="5" fill="url(#gC)" opacity="0.7"/>
+        <circle cx="75" cy="105" r="5" fill="url(#gC)" opacity="0.7"/>
+        <circle cx="35" cy="105" r="7" fill="url(#gC)"/>
+      </svg>
+    </div>
+    <p>Network graph with cross-connections. Most "AI/intelligence" feel.</p>
+    <div class="sizes">
+      <div>
+        <svg width="48" height="48" viewBox="0 0 120 120" fill="none"><defs><linearGradient id="gCs" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f97316"/></linearGradient></defs><line x1="85" y1="15" x2="45" y2="15" stroke="url(#gCs)" stroke-width="3" opacity="0.6"/><line x1="45" y1="15" x2="25" y2="35" stroke="url(#gCs)" stroke-width="3" opacity="0.6"/><line x1="25" y1="35" x2="35" y2="55" stroke="url(#gCs)" stroke-width="3" opacity="0.6"/><line x1="35" y1="55" x2="60" y2="60" stroke="url(#gCs)" stroke-width="3" opacity="0.6"/><line x1="60" y1="60" x2="85" y2="65" stroke="url(#gCs)" stroke-width="3" opacity="0.6"/><line x1="85" y1="65" x2="95" y2="85" stroke="url(#gCs)" stroke-width="3" opacity="0.6"/><line x1="95" y1="85" x2="75" y2="105" stroke="url(#gCs)" stroke-width="3" opacity="0.6"/><line x1="75" y1="105" x2="35" y2="105" stroke="url(#gCs)" stroke-width="3" opacity="0.6"/><circle cx="85" cy="15" r="8" fill="url(#gCs)"/><circle cx="60" cy="60" r="7" fill="url(#gCs)" opacity="0.9"/><circle cx="35" cy="105" r="8" fill="url(#gCs)"/></svg>
+        <span>48px</span>
+      </div>
+      <div>
+        <svg width="24" height="24" viewBox="0 0 120 120" fill="none"><defs><linearGradient id="gCf" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f97316"/></linearGradient></defs><line x1="85" y1="15" x2="45" y2="15" stroke="url(#gCf)" stroke-width="5" opacity="0.6"/><line x1="45" y1="15" x2="25" y2="35" stroke="url(#gCf)" stroke-width="5" opacity="0.6"/><line x1="25" y1="35" x2="35" y2="55" stroke="url(#gCf)" stroke-width="5" opacity="0.6"/><line x1="35" y1="55" x2="60" y2="60" stroke="url(#gCf)" stroke-width="5" opacity="0.6"/><line x1="60" y1="60" x2="85" y2="65" stroke="url(#gCf)" stroke-width="5" opacity="0.6"/><line x1="85" y1="65" x2="95" y2="85" stroke="url(#gCf)" stroke-width="5" opacity="0.6"/><line x1="95" y1="85" x2="75" y2="105" stroke="url(#gCf)" stroke-width="5" opacity="0.6"/><line x1="75" y1="105" x2="35" y2="105" stroke="url(#gCf)" stroke-width="5" opacity="0.6"/><circle cx="85" cy="15" r="10" fill="url(#gCf)"/><circle cx="60" cy="60" r="8" fill="url(#gCf)"/><circle cx="35" cy="105" r="10" fill="url(#gCf)"/></svg>
+        <span>24px</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Usage preview -->
+<div class="section-label">Usage Preview — Nav Bar</div>
+<div style="display:flex; flex-direction:column; gap:16px; margin-bottom:48px;">
+  <div class="dark-bg" style="display:flex; align-items:center; gap:12px; border: 1px solid rgba(255,255,255,0.06); border-radius:12px;">
+    <svg width="32" height="32" viewBox="0 0 120 120" fill="none"><defs><linearGradient id="gNav" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f97316"/></linearGradient></defs><path d="M85 20 L40 20 Q20 20 20 40 L20 45 Q20 60 40 60 L80 60 Q100 60 100 80 L100 85 Q100 100 80 100 L35 100" stroke="url(#gNav)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="85" cy="20" r="6" fill="url(#gNav)"/><circle cx="35" cy="100" r="6" fill="url(#gNav)"/></svg>
+    <span class="usage-text">SYNDICATE</span>
+    <span class="usage-badge">.AI</span>
+    <span style="flex:1"></span>
+    <span style="font-size:13px; color:rgba(255,255,255,0.3);">Dashboard</span>
+    <span style="font-size:13px; color:rgba(255,255,255,0.3);">Activity</span>
+    <span style="font-size:13px; color:rgba(255,255,255,0.3);">Agents</span>
+    <span style="font-size:13px; color:rgba(255,255,255,0.3);">Org</span>
+    <span style="font-size:13px; color:rgba(255,255,255,0.3);">Blog</span>
+    <span style="font-size:13px; color:rgba(255,255,255,0.3);">Results</span>
+    <span style="font-size:13px; background:linear-gradient(135deg,#f59e0b,#f97316); color:black; font-weight:600; padding:6px 16px; border-radius:8px;">Contribute</span>
+  </div>
+
+  <!-- Concept B nav -->
+  <div class="dark-bg" style="display:flex; align-items:center; gap:12px; border: 1px solid rgba(255,255,255,0.06); border-radius:12px;">
+    <svg width="32" height="32" viewBox="0 0 120 120" fill="none"><defs><linearGradient id="gNav2" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f97316"/></linearGradient></defs><path d="M88 18 L32 18 L18 40 L18 50 L60 60 L102 70 L102 82 L88 102 L32 102" stroke="url(#gNav2)" stroke-width="5" stroke-linecap="square" fill="none"/><rect x="84" y="14" width="8" height="8" rx="1" fill="url(#gNav2)"/><rect x="28" y="98" width="8" height="8" rx="1" fill="url(#gNav2)"/></svg>
+    <span class="usage-text">SYNDICATE</span>
+    <span class="usage-badge">.AI</span>
+    <span style="flex:1"></span>
+    <span style="font-size:13px; color:rgba(255,255,255,0.3);">Dashboard</span>
+    <span style="font-size:13px; color:rgba(255,255,255,0.3);">Activity</span>
+    <span style="font-size:13px; color:rgba(255,255,255,0.3);">Agents</span>
+    <span style="font-size:13px; color:rgba(255,255,255,0.3);">Org</span>
+    <span style="font-size:13px; color:rgba(255,255,255,0.3);">Blog</span>
+    <span style="font-size:13px; color:rgba(255,255,255,0.3);">Results</span>
+    <span style="font-size:13px; background:linear-gradient(135deg,#f59e0b,#f97316); color:black; font-weight:600; padding:6px 16px; border-radius:8px;">Contribute</span>
+  </div>
+
+  <!-- Concept C nav -->
+  <div class="dark-bg" style="display:flex; align-items:center; gap:12px; border: 1px solid rgba(255,255,255,0.06); border-radius:12px;">
+    <svg width="32" height="32" viewBox="0 0 120 120" fill="none"><defs><linearGradient id="gNav3" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f97316"/></linearGradient></defs><line x1="85" y1="15" x2="45" y2="15" stroke="url(#gNav3)" stroke-width="3" opacity="0.6"/><line x1="45" y1="15" x2="25" y2="35" stroke="url(#gNav3)" stroke-width="3" opacity="0.6"/><line x1="25" y1="35" x2="35" y2="55" stroke="url(#gNav3)" stroke-width="3" opacity="0.6"/><line x1="35" y1="55" x2="60" y2="60" stroke="url(#gNav3)" stroke-width="3" opacity="0.6"/><line x1="60" y1="60" x2="85" y2="65" stroke="url(#gNav3)" stroke-width="3" opacity="0.6"/><line x1="85" y1="65" x2="95" y2="85" stroke="url(#gNav3)" stroke-width="3" opacity="0.6"/><line x1="95" y1="85" x2="75" y2="105" stroke="url(#gNav3)" stroke-width="3" opacity="0.6"/><line x1="75" y1="105" x2="35" y2="105" stroke="url(#gNav3)" stroke-width="3" opacity="0.6"/><circle cx="85" cy="15" r="7" fill="url(#gNav3)"/><circle cx="60" cy="60" r="6" fill="url(#gNav3)" opacity="0.9"/><circle cx="35" cy="105" r="7" fill="url(#gNav3)"/></svg>
+    <span class="usage-text">SYNDICATE</span>
+    <span class="usage-badge">.AI</span>
+    <span style="flex:1"></span>
+    <span style="font-size:13px; color:rgba(255,255,255,0.3);">Dashboard</span>
+    <span style="font-size:13px; color:rgba(255,255,255,0.3);">Activity</span>
+    <span style="font-size:13px; color:rgba(255,255,255,0.3);">Agents</span>
+    <span style="font-size:13px; color:rgba(255,255,255,0.3);">Org</span>
+    <span style="font-size:13px; color:rgba(255,255,255,0.3);">Blog</span>
+    <span style="font-size:13px; color:rgba(255,255,255,0.3);">Results</span>
+    <span style="font-size:13px; background:linear-gradient(135deg,#f59e0b,#f97316); color:black; font-weight:600; padding:6px 16px; border-radius:8px;">Contribute</span>
+  </div>
+</div>
+
+<!-- Favicon preview -->
+<div class="section-label">Favicon Preview (16×16)</div>
+<div style="display:flex; gap:24px; align-items:center; margin-bottom:48px;">
+  <div style="display:flex; align-items:center; gap:8px;">
+    <div style="background:#1a1a2e; border-radius:4px; padding:4px; display:flex;">
+      <svg width="16" height="16" viewBox="0 0 120 120" fill="none"><defs><linearGradient id="gFav" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f97316"/></linearGradient></defs><path d="M85 20 L40 20 Q20 20 20 40 L20 45 Q20 60 40 60 L80 60 Q100 60 100 80 L100 85 Q100 100 80 100 L35 100" stroke="url(#gFav)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+    </div>
+    <span style="font-size:11px; color:rgba(255,255,255,0.2);">A — Circuit</span>
+  </div>
+  <div style="display:flex; align-items:center; gap:8px;">
+    <div style="background:#1a1a2e; border-radius:4px; padding:4px; display:flex;">
+      <svg width="16" height="16" viewBox="0 0 120 120" fill="none"><defs><linearGradient id="gFav2" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f97316"/></linearGradient></defs><path d="M88 18 L32 18 L18 40 L18 50 L60 60 L102 70 L102 82 L88 102 L32 102" stroke="url(#gFav2)" stroke-width="12" stroke-linecap="square" fill="none"/></svg>
+    </div>
+    <span style="font-size:11px; color:rgba(255,255,255,0.2);">B — Faceted</span>
+  </div>
+  <div style="display:flex; align-items:center; gap:8px;">
+    <div style="background:#1a1a2e; border-radius:4px; padding:4px; display:flex;">
+      <svg width="16" height="16" viewBox="0 0 120 120" fill="none"><defs><linearGradient id="gFav3" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f97316"/></linearGradient></defs><line x1="85" y1="15" x2="45" y2="15" stroke="url(#gFav3)" stroke-width="8" opacity="0.7"/><line x1="45" y1="15" x2="25" y2="35" stroke="url(#gFav3)" stroke-width="8" opacity="0.7"/><line x1="25" y1="35" x2="35" y2="55" stroke="url(#gFav3)" stroke-width="8" opacity="0.7"/><line x1="35" y1="55" x2="60" y2="60" stroke="url(#gFav3)" stroke-width="8" opacity="0.7"/><line x1="60" y1="60" x2="85" y2="65" stroke="url(#gFav3)" stroke-width="8" opacity="0.7"/><line x1="85" y1="65" x2="95" y2="85" stroke="url(#gFav3)" stroke-width="8" opacity="0.7"/><line x1="95" y1="85" x2="75" y2="105" stroke="url(#gFav3)" stroke-width="8" opacity="0.7"/><line x1="75" y1="105" x2="35" y2="105" stroke="url(#gFav3)" stroke-width="8" opacity="0.7"/><circle cx="85" cy="15" r="10" fill="url(#gFav3)"/><circle cx="60" cy="60" r="8" fill="url(#gFav3)"/><circle cx="35" cy="105" r="10" fill="url(#gFav3)"/></svg>
+    </div>
+    <span style="font-size:11px; color:rgba(255,255,255,0.2);">C — Constellation</span>
+  </div>
+</div>
+
+</body>
+</html>

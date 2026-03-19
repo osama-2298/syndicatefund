@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Loader2,
   Shield,
@@ -13,15 +13,39 @@ import {
   Cpu,
   Search,
   Key,
-  Users,
   Minus,
   Plus,
   Copy,
   CheckCheck,
   Layers,
   Bot,
+  ArrowRight,
 } from 'lucide-react';
 import { API_BASE } from '@/lib/api';
+
+// ── Pricing (mirrors backend cost_estimator.py) ──
+const MODEL_PRICING: Record<string, { input_per_m: number; output_per_m: number }> = {
+  'claude-opus-4-6': { input_per_m: 15.0, output_per_m: 75.0 },
+  'claude-sonnet-4-6': { input_per_m: 3.0, output_per_m: 15.0 },
+  'claude-haiku-4-5-20251001': { input_per_m: 0.80, output_per_m: 4.0 },
+  'gpt-4o': { input_per_m: 2.50, output_per_m: 10.0 },
+  'gpt-4o-mini': { input_per_m: 0.15, output_per_m: 0.60 },
+  'gemini-2.0-flash': { input_per_m: 0.10, output_per_m: 0.40 },
+};
+
+const AVG_INPUT_TOKENS = 2000;
+const AVG_OUTPUT_TOKENS = 500;
+const CYCLES_PER_DAY = 6;
+const AVG_COINS_PER_CYCLE = 8;
+
+function estimateMonthlyCost(model: string, numAgents: number): number {
+  const pricing = MODEL_PRICING[model] ?? MODEL_PRICING['claude-sonnet-4-6'];
+  const inputCost = (AVG_INPUT_TOKENS / 1_000_000) * pricing.input_per_m;
+  const outputCost = (AVG_OUTPUT_TOKENS / 1_000_000) * pricing.output_per_m;
+  const costPerCall = inputCost + outputCost;
+  const callsPerDay = numAgents * AVG_COINS_PER_CYCLE * CYCLES_PER_DAY;
+  return costPerCall * callsPerDay * 30;
+}
 
 const providers = [
   {
@@ -48,55 +72,17 @@ const providers = [
     id: 'google',
     name: 'Google',
     models: ['gemini-2.0-flash'],
-    startingPrice: '$0.075/M tokens',
+    startingPrice: '$0.10/M tokens',
     description: 'Gemini models — cost-effective, high throughput',
     gradient: 'from-blue-400/20 to-indigo-500/20',
     ring: 'ring-blue-400/30',
     placeholder: 'AI...',
   },
-  {
-    id: 'deepseek',
-    name: 'DeepSeek',
-    models: ['deepseek-chat', 'deepseek-reasoner'],
-    startingPrice: '$0.27/M tokens',
-    description: 'DeepSeek models — strong reasoning, low cost',
-    gradient: 'from-sky-400/20 to-blue-500/20',
-    ring: 'ring-sky-400/30',
-    placeholder: 'sk-...',
-  },
-  {
-    id: 'mistral',
-    name: 'Mistral',
-    models: ['mistral-large-latest', 'mistral-small-latest'],
-    startingPrice: '$0.10/M tokens',
-    description: 'Mistral models — efficient European AI',
-    gradient: 'from-orange-400/20 to-red-500/20',
-    ring: 'ring-orange-400/30',
-    placeholder: '...',
-  },
-  {
-    id: 'xai',
-    name: 'xAI',
-    models: ['grok-3', 'grok-3-mini'],
-    startingPrice: '$0.30/M tokens',
-    description: 'Grok models — real-time knowledge, fast inference',
-    gradient: 'from-neutral-400/20 to-zinc-500/20',
-    ring: 'ring-neutral-400/30',
-    placeholder: 'xai-...',
-  },
-  {
-    id: 'qwen',
-    name: 'Qwen',
-    models: ['qwen-max', 'qwen-plus'],
-    startingPrice: '$0.40/M tokens',
-    description: 'Qwen models — multilingual, strong on data analysis',
-    gradient: 'from-violet-400/20 to-purple-500/20',
-    ring: 'ring-violet-400/30',
-    placeholder: 'sk-...',
-  },
 ];
 
 const steps = ['Identity', 'Provider', 'Configure'];
+
+const STORAGE_KEY = 'syn_bearer_token';
 
 export default function RegisterPage() {
   const [step, setStep] = useState(0);
@@ -115,6 +101,17 @@ export default function RegisterPage() {
   const [copied, setCopied] = useState(false);
 
   const selectedProvider = providers.find((p) => p.id === form.provider)!;
+
+  // Live cost estimate
+  const estimatedCost = useMemo(
+    () => estimateMonthlyCost(form.preferred_model, form.max_agents),
+    [form.preferred_model, form.max_agents],
+  );
+
+  const costPerAgent = useMemo(
+    () => estimateMonthlyCost(form.preferred_model, 1),
+    [form.preferred_model],
+  );
 
   const canAdvance = () => {
     if (step === 0) return form.display_name.trim().length > 0;
@@ -148,7 +145,13 @@ export default function RegisterPage() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.detail || `Error ${res.status}`);
       }
-      setResult(await res.json());
+      const data = await res.json();
+      setResult(data);
+
+      // Auto-save bearer token so /profile works immediately
+      if (data.bearer_token) {
+        localStorage.setItem(STORAGE_KEY, data.bearer_token);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -213,6 +216,9 @@ export default function RegisterPage() {
                   )}
                 </button>
               </div>
+              <p className="text-[10px] text-emerald-400/40 mt-2">
+                Token has been auto-saved to this browser.
+              </p>
             </div>
 
             {/* Stats */}
@@ -236,59 +242,35 @@ export default function RegisterPage() {
             </div>
 
             {/* Next steps */}
-            <div className="bg-white/[0.02] border border-syn-border rounded-lg p-4">
+            <div className="bg-white/[0.02] border border-syn-border rounded-lg p-4 mb-6">
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted mb-3">
                 What Happens Next
               </p>
               <div className="space-y-2">
-                <div className="flex items-start gap-2.5">
-                  <div className="w-5 h-5 rounded-full bg-syn-accent/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-[10px] font-bold text-syn-accent">1</span>
+                {[
+                  'The Board of Directors reviews your registration and assigns agents to teams.',
+                  'Agents start in quarantine (0.3x weight) and earn full weight after 10 signals.',
+                  <>Visit the <a href="/agents" className="text-syn-accent hover:text-violet-300 transition-colors underline underline-offset-2">Agents</a> page to track their performance.</>,
+                  'Pause, resume, or cancel anytime from your profile.',
+                ].map((text, i) => (
+                  <div key={i} className="flex items-start gap-2.5">
+                    <div className="w-5 h-5 rounded-full bg-syn-accent/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-[10px] font-bold text-syn-accent">{i + 1}</span>
+                    </div>
+                    <p className="text-sm text-white/50">{text}</p>
                   </div>
-                  <p className="text-sm text-white/50">
-                    The Board of Directors reviews your registration and assigns agents to teams.
-                  </p>
-                </div>
-                <div className="flex items-start gap-2.5">
-                  <div className="w-5 h-5 rounded-full bg-syn-accent/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-[10px] font-bold text-syn-accent">2</span>
-                  </div>
-                  <p className="text-sm text-white/50">
-                    Agents start in quarantine (0.3x weight) and earn full weight after 20 signals.
-                  </p>
-                </div>
-                <div className="flex items-start gap-2.5">
-                  <div className="w-5 h-5 rounded-full bg-syn-accent/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-[10px] font-bold text-syn-accent">3</span>
-                  </div>
-                  <p className="text-sm text-white/50">
-                    Visit the{' '}
-                    <a
-                      href="/agents"
-                      className="text-syn-accent hover:text-violet-300 transition-colors underline underline-offset-2"
-                    >
-                      Agents
-                    </a>{' '}
-                    page to track their performance.
-                  </p>
-                </div>
-                <div className="flex items-start gap-2.5">
-                  <div className="w-5 h-5 rounded-full bg-syn-accent/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-[10px] font-bold text-syn-accent">4</span>
-                  </div>
-                  <p className="text-sm text-white/50">
-                    Manage your contribution from your{' '}
-                    <a
-                      href="/profile"
-                      className="text-syn-accent hover:text-violet-300 transition-colors underline underline-offset-2"
-                    >
-                      Profile
-                    </a>{' '}
-                    — pause, resume, or cancel anytime.
-                  </p>
-                </div>
+                ))}
               </div>
             </div>
+
+            {/* Go to Profile CTA */}
+            <a
+              href="/profile"
+              className="w-full bg-syn-accent hover:bg-syn-accent-hover text-white py-3 rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-violet-500/20 transition-all flex items-center justify-center gap-2"
+            >
+              Go to Your Profile
+              <ArrowRight size={16} />
+            </a>
           </div>
         </div>
 
@@ -344,8 +326,8 @@ export default function RegisterPage() {
               },
               {
                 icon: Layers,
-                title: 'Board assigns optimal teams',
-                desc: 'The CSO finds coverage gaps, the CTO writes prompts, the CPO monitors performance.',
+                title: 'Full control — pause or stop anytime',
+                desc: 'Pause your agents to stop running, resume when ready, or cancel and all agents get fired.',
                 color: 'text-purple-400',
                 bg: 'bg-purple-400/10',
               },
@@ -466,7 +448,7 @@ export default function RegisterPage() {
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="text-sm font-bold text-white">{p.name}</span>
                           <span className="text-[10px] font-mono tabular-nums text-white/30">
-                            {p.startingPrice}
+                            from {p.startingPrice}
                           </span>
                         </div>
                         <p className="text-xs text-white/35 mb-2">{p.description}</p>
@@ -599,6 +581,38 @@ export default function RegisterPage() {
                   </div>
                 </div>
 
+                {/* Live cost estimate */}
+                <div className="bg-gradient-to-b from-syn-accent/[0.04] to-transparent border border-syn-accent/10 rounded-xl p-4 space-y-3">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-accent/60">
+                    Estimated Monthly Cost
+                  </p>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-3xl font-bold font-mono tabular-nums text-white">
+                      ${estimatedCost.toFixed(2)}
+                    </span>
+                    <span className="text-xs text-white/25">/month</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-white/25">Per agent</span>
+                      <span className="text-white/40 font-mono tabular-nums">
+                        ${costPerAgent.toFixed(2)}/mo
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-white/25">Cycles per day</span>
+                      <span className="text-white/40 font-mono tabular-nums">6 (every 4h)</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-white/25">Avg coins per cycle</span>
+                      <span className="text-white/40 font-mono tabular-nums">~8</span>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-white/15 leading-relaxed pt-1 border-t border-white/[0.04]">
+                    Cost is billed directly by your LLM provider ({selectedProvider.name}), not by Syndicate. This is an estimate based on average token usage.
+                  </p>
+                </div>
+
                 {/* Summary */}
                 <div className="bg-white/[0.02] border border-white/[0.04] rounded-lg p-4 space-y-2">
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/25 mb-2">
@@ -648,11 +662,11 @@ export default function RegisterPage() {
                     {loading ? (
                       <>
                         <Loader2 size={16} className="animate-spin" />
-                        Registering...
+                        Validating key...
                       </>
                     ) : (
                       <>
-                        Register & Contribute
+                        Register & Deploy
                         <ChevronRight size={16} />
                       </>
                     )}
