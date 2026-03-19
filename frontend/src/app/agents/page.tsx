@@ -1,37 +1,49 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Loader2, Crown, Shield, Radio, Zap, BarChart3, Users } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Loader2, Crown, Radio, Zap, BarChart3, Users, ChevronRight, Search } from 'lucide-react';
+import Avatar from 'boring-avatars';
 import { API_BASE } from '@/lib/api';
 import {
-  AGENT_COLORS,
-  TEAM_COLORS,
+  AGENT_META,
+  DEFAULT_AVATAR_COLORS,
   STATUS_COLORS,
-  getAgentGradient,
   getTeamGradient,
-  getAgentInitial,
 } from '@/lib/constants';
 import type { AgentSummary } from '@/lib/types';
+
+/* ------------------------------------------------------------------ */
+/*  HELPERS                                                            */
+/* ------------------------------------------------------------------ */
+
+/** Resolve display metadata for any agent — known or unknown. */
+function getAgentDisplay(agent: AgentSummary) {
+  const meta = AGENT_META[agent.agent_class || ''];
+  return {
+    name: meta?.name || agent.role,
+    animal: meta?.animal || '',
+    title: meta?.title || agent.role,
+    colors: meta?.colors || DEFAULT_AVATAR_COLORS,
+  };
+}
 
 /* ------------------------------------------------------------------ */
 /*  SUB-COMPONENTS                                                     */
 /* ------------------------------------------------------------------ */
 
-function SummaryStrip({ agents, founding, contributors }: {
-  agents: AgentSummary[];
-  founding: AgentSummary[];
-  contributors: AgentSummary[];
-}) {
+function SummaryStrip({ agents }: { agents: AgentSummary[] }) {
   const totalSignals = agents.reduce((s, a) => s + a.total_signals, 0);
   const withSignals = agents.filter(a => a.total_signals >= 5);
   const avgAccuracy = withSignals.length > 0
     ? withSignals.reduce((s, a) => s + a.accuracy, 0) / withSignals.length
     : 0;
+  const founding = agents.filter(a => a.status === 'founding').length;
+  const contributors = agents.length - founding;
 
   const stats = [
     { label: 'Total Agents', value: agents.length.toString(), icon: Users },
-    { label: 'Founding', value: founding.length.toString(), icon: Crown },
-    { label: 'Contributors', value: contributors.length.toString(), icon: Shield },
+    { label: 'Founding', value: founding.toString(), icon: Crown },
+    { label: 'Contributors', value: contributors.toString(), icon: BarChart3 },
     { label: 'Avg Accuracy', value: withSignals.length > 0 ? `${Math.round(avgAccuracy * 100)}%` : '\u2014', icon: BarChart3 },
     { label: 'Total Signals', value: totalSignals.toLocaleString(), icon: Radio },
   ];
@@ -84,58 +96,106 @@ function AccuracyBar({ accuracy, signals }: { accuracy: number; signals: number 
   );
 }
 
+function TeamFilter({ teams, active, onChange }: {
+  teams: string[];
+  active: string | null;
+  onChange: (team: string | null) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <button
+        onClick={() => onChange(null)}
+        className={`text-[10px] font-bold px-3 py-1 rounded-full ring-1 ring-inset transition-colors ${
+          active === null
+            ? 'text-white bg-white/[0.08] ring-white/20'
+            : 'text-white/40 bg-transparent ring-white/[0.06] hover:text-white/60'
+        }`}
+      >
+        ALL
+      </button>
+      {teams.map((team) => {
+        const gradient = getTeamGradient(team);
+        const isActive = active === team;
+        return (
+          <button
+            key={team}
+            onClick={() => onChange(isActive ? null : team)}
+            className={`relative text-[10px] font-bold px-3 py-1 rounded-full ring-1 ring-inset transition-colors ${
+              isActive
+                ? 'text-white bg-white/[0.08] ring-white/20'
+                : 'text-white/40 bg-transparent ring-white/[0.06] hover:text-white/60'
+            }`}
+          >
+            <span className={`inline-block w-1.5 h-1.5 rounded-full bg-gradient-to-r ${gradient} mr-1.5 align-middle`} />
+            {team.toUpperCase()}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function AgentCard({ agent }: { agent: AgentSummary }) {
-  const gradient = getAgentGradient(agent.agent_class, agent.team_name);
-  const initial = getAgentInitial(agent.agent_class, agent.role);
+  const { name, animal, title, colors } = getAgentDisplay(agent);
   const isFounding = agent.status === 'founding';
   const isQuarantined = agent.quarantine_signals_remaining > 0;
-  const displayName = agent.agent_class || agent.role;
 
   return (
-    <div className="bg-syn-surface border border-syn-border rounded-xl p-4 hover:bg-white/[0.03] transition-colors group">
-      <div className="flex items-start gap-3.5">
-        {/* Gradient Avatar */}
-        <div className="relative flex-shrink-0">
-          <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg`}>
-            <span className="text-sm font-bold text-white/90 drop-shadow">{initial}</span>
-          </div>
-          {isFounding && (
-            <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-syn-surface flex items-center justify-center border border-amber-500/40">
-              <Crown size={10} className="text-amber-400" />
+    <a href={`/agents/${agent.id}`} className="block group">
+      <div className="bg-syn-surface border border-syn-border rounded-xl p-5 transition-all duration-200 hover:border-white/[0.12] hover:bg-white/[0.02]">
+        <div className="flex items-start gap-4">
+          {/* Avatar */}
+          <div className="relative flex-shrink-0">
+            <div className="rounded-full overflow-hidden shadow-lg ring-1 ring-white/[0.06]">
+              <Avatar
+                name={name}
+                variant="beam"
+                size={52}
+                colors={colors}
+              />
             </div>
+            {isFounding && (
+              <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-syn-surface flex items-center justify-center border border-amber-500/40">
+                <Crown size={10} className="text-amber-400" />
+              </div>
+            )}
+          </div>
+
+          {/* Identity */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-white/90 truncate">{name}</h3>
+              {animal && <span className="text-base flex-shrink-0" title={title}>{animal}</span>}
+            </div>
+            <p className="text-xs text-white/35 mt-0.5 truncate">{title}</p>
+            <div className="flex items-center gap-2 mt-2">
+              {agent.team_name && <TeamBadge teamName={agent.team_name} />}
+            </div>
+          </div>
+
+          {/* Arrow hint */}
+          <ChevronRight size={14} className="text-white/0 group-hover:text-white/20 transition-colors flex-shrink-0 mt-1" />
+        </div>
+
+        {/* Stats row */}
+        <div className="mt-4 pt-3 border-t border-syn-border/40 flex items-center gap-3 flex-wrap">
+          <StatusBadge status={agent.status} />
+
+          <div className="flex items-center gap-1.5">
+            <Radio size={10} className="text-white/20" />
+            <span className="text-xs font-mono tabular-nums text-white/50">{agent.total_signals}</span>
+          </div>
+
+          <AccuracyBar accuracy={agent.accuracy} signals={agent.total_signals} />
+
+          {isQuarantined && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded ring-1 ring-inset text-orange-400 bg-orange-400/10 ring-orange-400/30">
+              Q: {agent.quarantine_signals_remaining} left
+            </span>
           )}
         </div>
-
-        {/* Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-sm font-bold text-white/90 truncate">{displayName}</h3>
-            {agent.team_name && <TeamBadge teamName={agent.team_name} />}
-          </div>
-          <p className="text-xs text-white/25 font-mono mt-1 truncate">
-            {agent.provider}/{agent.model}
-          </p>
-        </div>
       </div>
-
-      {/* Bottom stats row */}
-      <div className="mt-3.5 pt-3 border-t border-syn-border/40 flex items-center gap-3 flex-wrap">
-        <StatusBadge status={agent.status} />
-
-        <div className="flex items-center gap-1.5">
-          <Radio size={10} className="text-white/20" />
-          <span className="text-xs font-mono tabular-nums text-white/50">{agent.total_signals}</span>
-        </div>
-
-        <AccuracyBar accuracy={agent.accuracy} signals={agent.total_signals} />
-
-        {isQuarantined && (
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded ring-1 ring-inset text-orange-400 bg-orange-400/10 ring-orange-400/30">
-            Q: {agent.quarantine_signals_remaining} remaining
-          </span>
-        )}
-      </div>
-    </div>
+    </a>
   );
 }
 
@@ -147,6 +207,8 @@ export default function AgentsPage() {
   const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [search, setSearch] = useState('');
+  const [teamFilter, setTeamFilter] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/v1/agents`)
@@ -161,8 +223,31 @@ export default function AgentsPage() {
       });
   }, []);
 
-  const founding = agents.filter((a) => a.status === 'founding');
-  const contributors = agents.filter((a) => a.status !== 'founding');
+  // Derive unique team names from data (not hardcoded — scales with new teams)
+  const teams = useMemo(() => {
+    const set = new Set<string>();
+    agents.forEach((a) => { if (a.team_name) set.add(a.team_name); });
+    return Array.from(set).sort();
+  }, [agents]);
+
+  // Filter agents by search + team
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    return agents.filter((agent) => {
+      // Team filter
+      if (teamFilter && agent.team_name !== teamFilter) return false;
+      // Search filter — match against name, role, team, agent_class
+      if (q) {
+        const { name, title } = getAgentDisplay(agent);
+        const haystack = `${name} ${title} ${agent.role} ${agent.team_name || ''} ${agent.agent_class || ''} ${agent.status}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [agents, search, teamFilter]);
+
+  const founding = filtered.filter((a) => a.status === 'founding');
+  const contributors = filtered.filter((a) => a.status !== 'founding');
 
   return (
     <div className="slide-up space-y-6">
@@ -192,7 +277,7 @@ export default function AgentsPage() {
         </div>
       )}
 
-      {/* Empty */}
+      {/* Empty (no agents at all) */}
       {!loading && !error && agents.length === 0 && (
         <div className="bg-syn-surface border border-syn-border rounded-xl flex flex-col items-center justify-center py-24">
           <Users size={36} className="text-white/10 mb-3" />
@@ -205,7 +290,46 @@ export default function AgentsPage() {
       {!loading && !error && agents.length > 0 && (
         <>
           {/* Summary Strip */}
-          <SummaryStrip agents={agents} founding={founding} contributors={contributors} />
+          <SummaryStrip agents={agents} />
+
+          {/* Search + Team Filters */}
+          <div className="space-y-3">
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by name, role, or team..."
+                className="w-full bg-syn-surface border border-syn-border rounded-lg pl-9 pr-4 py-2.5 text-sm text-white/80 placeholder:text-white/20 focus:outline-none focus:border-white/20 transition-colors"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/40 text-xs"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            {teams.length > 1 && (
+              <TeamFilter teams={teams} active={teamFilter} onChange={setTeamFilter} />
+            )}
+          </div>
+
+          {/* No matches */}
+          {filtered.length === 0 && (
+            <div className="bg-syn-surface border border-syn-border rounded-xl flex flex-col items-center justify-center py-16">
+              <Search size={28} className="text-white/10 mb-3" />
+              <p className="text-sm text-syn-text-secondary">No agents match your filters</p>
+              <button
+                onClick={() => { setSearch(''); setTeamFilter(null); }}
+                className="text-xs text-syn-accent mt-2 hover:underline"
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
 
           {/* Founding Agents Section */}
           {founding.length > 0 && (

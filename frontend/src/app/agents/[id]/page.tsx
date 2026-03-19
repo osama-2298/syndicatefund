@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Activity, ArrowLeft, Flame, Snowflake, Target } from 'lucide-react';
+import Avatar from 'boring-avatars';
 import { API_BASE } from '@/lib/api';
-import { AGENT_NAMES, STATUS_COLORS, OUTCOME_COLORS } from '@/lib/constants';
+import { AGENT_META, DEFAULT_AVATAR_COLORS, AGENT_NAMES, STATUS_COLORS, OUTCOME_COLORS } from '@/lib/constants';
 import type { SignalItem, AgentStats } from '@/lib/types';
 
 interface AgentDetail {
@@ -60,7 +61,11 @@ export default function AgentProfilePage() {
     );
   }
 
-  const personaName = AGENT_NAMES[agent.agent_class || ''] || agent.role;
+  const meta = AGENT_META[agent.agent_class || ''];
+  const personaName = meta?.name || AGENT_NAMES[agent.agent_class || ''] || agent.role;
+  const animal = meta?.animal || '';
+  const title = meta?.title || agent.role;
+  const avatarColors = meta?.colors || DEFAULT_AVATAR_COLORS;
   const accuracyPct = agent.accuracy * 100;
   const statusColor = STATUS_COLORS[agent.status] || STATUS_COLORS.registered;
 
@@ -74,19 +79,33 @@ export default function AgentProfilePage() {
       {/* Hero card */}
       <div className="bg-syn-surface border border-syn-border rounded-lg p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{personaName}</h1>
-            <p className="text-sm text-syn-muted mt-1">{agent.role}</p>
-            <div className="flex items-center gap-2 sm:gap-3 mt-3 flex-wrap">
-              {agent.team_name && (
-                <span className="text-[10px] font-medium bg-blue-500/10 text-blue-400 ring-1 ring-inset ring-blue-500/20 px-2 py-0.5 rounded capitalize">
-                  {agent.team_name}
+          <div className="flex items-start gap-4 min-w-0">
+            {/* Avatar */}
+            <div className="flex-shrink-0 rounded-full overflow-hidden shadow-lg ring-1 ring-white/[0.06]">
+              <Avatar
+                name={personaName}
+                variant="beam"
+                size={64}
+                colors={avatarColors}
+              />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{personaName}</h1>
+                {animal && <span className="text-xl">{animal}</span>}
+              </div>
+              <p className="text-sm text-syn-muted mt-0.5">{title}</p>
+              <div className="flex items-center gap-2 sm:gap-3 mt-3 flex-wrap">
+                {agent.team_name && (
+                  <span className="text-[10px] font-medium bg-blue-500/10 text-blue-400 ring-1 ring-inset ring-blue-500/20 px-2 py-0.5 rounded capitalize">
+                    {agent.team_name}
+                  </span>
+                )}
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ring-1 ring-inset ${statusColor}`}>
+                  {agent.status.toUpperCase()}
                 </span>
-              )}
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded ring-1 ring-inset ${statusColor}`}>
-                {agent.status.toUpperCase()}
-              </span>
-              <span className="text-[10px] text-syn-muted truncate">{agent.model} / {agent.provider}</span>
+                <span className="text-[10px] text-syn-muted truncate">{agent.model} / {agent.provider}</span>
+              </div>
             </div>
           </div>
           {stats && stats.streak_count >= 3 && (
