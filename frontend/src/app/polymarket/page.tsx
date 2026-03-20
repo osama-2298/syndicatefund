@@ -38,6 +38,8 @@ interface Portfolio {
   total_bets: number;
   wins: number;
   losses: number;
+  total_value?: number;
+  win_rate?: number;
 }
 
 interface Position {
@@ -48,6 +50,7 @@ interface Position {
   quantity: number;
   model_prob: number;
   edge: number;
+  edge_at_entry: number;
   condition_id: string;
   placed_at: string;
 }
@@ -253,7 +256,7 @@ export default function PolymarketPage() {
             Portfolio Value
           </div>
           <div className="text-2xl font-bold text-white font-mono">
-            {status ? fmtUsd(status.portfolio_value) : '--'}
+            {fmtUsd(portfolio?.total_value ?? status?.portfolio_value ?? 0)}
           </div>
           <div className="text-xs text-syn-text-tertiary mt-1">
             {portfolio ? `${fmtUsd(portfolio.cash)} cash` : ''}
@@ -344,7 +347,7 @@ export default function PolymarketPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-syn-text-secondary">
-                        {pos.entry_price.toFixed(2)}c
+                        {(pos.entry_price * 100).toFixed(1)}c
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-white">
                         {fmtUsd(pos.quantity)}
@@ -353,9 +356,9 @@ export default function PolymarketPage() {
                         {(pos.model_prob * 100).toFixed(1)}%
                       </td>
                       <td className={`px-4 py-3 text-right font-mono ${
-                        pos.edge >= 0 ? 'text-syn-accent' : 'text-red-400'
+                        (pos.edge_at_entry ?? pos.edge ?? 0) >= 0 ? 'text-syn-accent' : 'text-red-400'
                       }`}>
-                        {fmtEdge(pos.edge)}
+                        {fmtEdge(pos.edge_at_entry ?? pos.edge ?? 0)}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span className="text-xs text-syn-text-tertiary bg-syn-bg px-2 py-0.5 rounded">
@@ -420,7 +423,7 @@ export default function PolymarketPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-syn-text-secondary">
-                        {trade.entry_price.toFixed(2)}c
+                        {(trade.entry_price * 100).toFixed(1)}c
                       </td>
                       <td className="px-4 py-3 text-center">
                         {trade.outcome === true ? (
