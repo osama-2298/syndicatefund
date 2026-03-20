@@ -32,8 +32,18 @@ async def get_markets():
     if not markets:
         return {"markets": [], "count": 0}
 
+    def _sanitize_market(m):
+        d = m.model_dump(mode="json")
+        # Replace inf/-inf with None (JSON can't serialize infinity)
+        for b in d.get("bins", []):
+            if b.get("lower") is not None and (b["lower"] == float("inf") or b["lower"] == float("-inf")):
+                b["lower"] = None
+            if b.get("upper") is not None and (b["upper"] == float("inf") or b["upper"] == float("-inf")):
+                b["upper"] = None
+        return d
+
     return {
-        "markets": [m.model_dump(mode="json") for m in markets],
+        "markets": [_sanitize_market(m) for m in markets],
         "count": len(markets),
     }
 

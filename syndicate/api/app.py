@@ -680,7 +680,10 @@ app.add_middleware(
     allow_origins=[
         "https://syndicatefund.ai",
         "https://www.syndicatefund.ai",
-        "http://localhost:3000",  # Local dev
+        "https://api.hivemindfund.com",
+        "https://hivemindfund.com",
+        "https://www.hivemindfund.com",
+        "http://localhost:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],

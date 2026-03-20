@@ -101,17 +101,20 @@ interface EdgeOpportunity {
 
 /* ── Helpers ── */
 
-function fmtUsd(n: number): string {
-  if (Math.abs(n) >= 1000) return `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-  return `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+function fmtUsd(n: number | undefined | null): string {
+  const v = n ?? 0;
+  if (Math.abs(v) >= 1000) return `$${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  return `$${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 }
 
-function fmtPct(n: number): string {
-  return `${n >= 0 ? '+' : ''}${(n * 100).toFixed(1)}%`;
+function fmtPct(n: number | undefined | null): string {
+  const v = n ?? 0;
+  return `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`;
 }
 
-function fmtEdge(n: number): string {
-  return `${n >= 0 ? '+' : ''}${(n * 100).toFixed(1)}%`;
+function fmtEdge(n: number | undefined | null): string {
+  const v = n ?? 0;
+  return `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`;
 }
 
 function timeAgo(iso: string | null): string {
