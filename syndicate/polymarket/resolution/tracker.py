@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 import structlog
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from syndicate.polymarket.execution.paper_trader import WeatherPaperTrader
 from syndicate.polymarket.models import TemperatureBin, TemperatureUnit, WeatherMarket
@@ -17,19 +17,22 @@ logger = structlog.get_logger()
 async def check_resolutions(
     trader: WeatherPaperTrader,
     markets: list[WeatherMarket],
+    calibration_tracker=None,
+    bias_tracker=None,
+    emos=None,
+    model_weights=None,
 ) -> list[dict]:
     """Check if any open positions have resolved.
 
     For each unresolved position:
-    1. Check if the market date has passed
+    1. Check if the market date has passed (with buffer for WU data availability)
     2. Fetch actual temperature from Wunderground
     3. Determine which bin the actual temp falls in
     4. Resolve the position (won/lost)
+    5. Feed actual data back to calibration components
 
     Returns list of resolution results.
     """
-    # Import here to avoid circular imports and allow the module to be
-    # optional if wunderground isn't available yet.
     from syndicate.polymarket.data.wunderground import fetch_actual_high
 
     results: list[dict] = []
@@ -39,11 +42,12 @@ async def check_resolutions(
         if pos.resolved:
             continue
 
-        # Check if date has passed (need at least 1 day after for WU data)
+        # Wait until next day 06:00 UTC for WU/NWS data to be finalized
         target = datetime.strptime(pos.date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
         now = datetime.now(timezone.utc)
-        if now < target.replace(hour=23, minute=59):
-            continue  # Market day hasn't ended yet
+        next_day_morning = target.replace(hour=6, minute=0) + timedelta(days=1)
+        if now < next_day_morning:
+            continue  # Data not yet available
 
         # Find city config
         city_key = pos.city
@@ -95,30 +99,37 @@ async def check_resolutions(
             "quantity": pos.quantity,
         })
 
-        # Feed resolution data to calibration tracker
+        # Feed resolution data back to calibration components
         try:
-            from syndicate.polymarket.resolution.calibration import CalibrationTracker
-
-            cal = CalibrationTracker()
-            # Find which bin index won
             winning_bin = -1
             for b in (market.bins if market else []):
                 if b.lower <= actual < b.upper:
                     winning_bin = b.index
                     break
-            if winning_bin >= 0:
-                cal.record(
+
+            # Use forecast data stored on the position (if available)
+            forecast_mean = getattr(pos, 'forecast_mean', None) or 0.0
+            forecast_std = getattr(pos, 'forecast_std', None) or 0.0
+
+            if calibration_tracker and winning_bin >= 0:
+                calibration_tracker.record(
                     city=pos.city,
                     date=pos.date,
-                    horizon_hours=0,  # Not available at resolution time
-                    forecast_mean=0,  # Would need to store this at bet time
-                    forecast_std=0,
+                    horizon_hours=0,
+                    forecast_mean=forecast_mean,
+                    forecast_std=forecast_std,
                     bin_probabilities=[],
                     actual_high=actual,
                     winning_bin_index=winning_bin,
                 )
-        except Exception:
-            pass  # Don't let calibration tracking break resolution
+
+            # Feed back to bias tracker and EMOS for continuous learning
+            if forecast_mean and bias_tracker:
+                bias_tracker.update(pos.city, forecast_mean, actual)
+            if forecast_mean and forecast_std and emos:
+                emos.add_training_point(pos.city, forecast_mean, forecast_std, actual)
+        except Exception as cal_err:
+            logger.debug("calibration_feedback_error", error=str(cal_err))
 
         logger.info(
             "position_resolved",

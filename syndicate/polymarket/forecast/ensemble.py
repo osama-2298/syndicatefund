@@ -59,8 +59,9 @@ def blend_ensembles(forecast: EnsembleForecast) -> dict:
     # Agreement metric: 1 - (std of model means / overall std)
     # High when all models predict similar means; low when they diverge.
     if len(model_means) <= 1 or overall_std == 0.0:
-        # Single model or zero spread — perfect agreement by definition
-        agreement = 1.0
+        # Single model — flag as LOW confidence, not high
+        # A single model gives 0 inter-model validation
+        agreement = 0.5 if len(model_means) <= 1 else 1.0
     else:
         means_list = list(model_means.values())
         std_of_means = statistics.stdev(means_list)

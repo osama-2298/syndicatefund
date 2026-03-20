@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import random
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -13,12 +14,36 @@ from syndicate.polymarket.models import WeatherPortfolio, WeatherPosition
 
 logger = structlog.get_logger()
 
+# Spread/slippage simulation parameters for realistic paper trading
+DEFAULT_HALF_SPREAD = 0.015   # 1.5% half-spread (bid-ask gap / 2)
+DEFAULT_SLIPPAGE = 0.005      # 0.5% additional slippage on market orders
+
+
+def simulate_fill_price(
+    market_price: float,
+    half_spread: float = DEFAULT_HALF_SPREAD,
+    slippage: float = DEFAULT_SLIPPAGE,
+) -> float:
+    """Simulate a realistic fill price for a BUY order.
+
+    A market mid-price of 0.40 with 1.5% half-spread means the ask is ~0.415.
+    Add random slippage of 0-0.5% to model market impact.
+
+    Returns the simulated fill price (always >= market_price).
+    """
+    ask_price = market_price + half_spread
+    random_slip = random.uniform(0, slippage)
+    fill = ask_price + random_slip
+    return min(fill, 0.99)  # Can't pay more than 99c
+
 
 class WeatherPaperTrader:
     """Paper trader for Polymarket weather markets.
 
     Manages a virtual USDC portfolio: place bets, resolve outcomes,
     and persist state to JSON between restarts.
+
+    Includes spread/slippage simulation for realistic P&L tracking.
     """
 
     def __init__(self, portfolio: WeatherPortfolio | None = None):
@@ -66,8 +91,13 @@ class WeatherPaperTrader:
         quantity: float,
         model_prob: float,
         edge: float,
+        forecast_mean: float = 0.0,
+        forecast_std: float = 0.0,
     ) -> WeatherPosition | None:
-        """Place a paper bet and deduct quantity from cash.
+        """Place a paper bet with simulated spread/slippage.
+
+        The fill price is worse than the mid-price by ~2% (spread + slippage).
+        This makes paper trading realistic — real Polymarket fills are never at mid.
 
         Args:
             condition_id: Polymarket condition ID.
@@ -75,16 +105,32 @@ class WeatherPaperTrader:
             city: City name (e.g. "New York").
             date: Resolution date YYYY-MM-DD.
             bin_label: Human-readable bin label (e.g. "40-41F").
-            entry_price: YES share price at entry (0-1).
+            entry_price: YES share mid-price at entry (0-1).
             quantity: USDC amount to spend.
             model_prob: Our model's probability for this bin.
             edge: model_prob - entry_price at time of entry.
+            forecast_mean: Ensemble forecast mean (stored for calibration at resolution).
+            forecast_std: Ensemble forecast std (stored for calibration at resolution).
 
         Returns:
             The created WeatherPosition, or None if blocked by safety rails.
         """
         if self.check_daily_loss_limit():
             logger.warning("paper_bet_blocked.daily_loss_limit", city=city, date=date)
+            return None
+
+        # Simulate realistic fill price (worse than mid by spread + slippage)
+        fill_price = simulate_fill_price(entry_price)
+
+        # Recheck edge after simulated fill — if fill eats the edge, skip
+        effective_edge = model_prob - fill_price
+        if effective_edge <= 0:
+            logger.info(
+                "paper_bet_skipped.edge_eaten_by_spread",
+                city=city, date=date, bin=bin_label,
+                mid=round(entry_price, 4), fill=round(fill_price, 4),
+                model_prob=round(model_prob, 4),
+            )
             return None
 
         position = WeatherPosition(
@@ -94,9 +140,12 @@ class WeatherPaperTrader:
             date=date,
             bin_label=bin_label,
             entry_price=entry_price,
+            fill_price=fill_price,
             quantity=quantity,
             model_prob=model_prob,
-            edge_at_entry=edge,
+            edge_at_entry=effective_edge,
+            forecast_mean=forecast_mean,
+            forecast_std=forecast_std,
             placed_at=datetime.now(timezone.utc),
         )
 
@@ -109,9 +158,10 @@ class WeatherPaperTrader:
             city=city,
             date=date,
             bin=bin_label,
-            price=round(entry_price, 4),
+            mid_price=round(entry_price, 4),
+            fill_price=round(fill_price, 4),
             qty=round(quantity, 2),
-            edge=round(edge, 4),
+            edge=round(effective_edge, 4),
             cash_remaining=round(self._portfolio.cash, 2),
         )
 
@@ -121,32 +171,29 @@ class WeatherPaperTrader:
     # ── Resolution ────────────────────────────────────────────────────────
 
     def resolve_position(self, condition_id: str, won: bool) -> float:
-        """Resolve a position and compute P&L.
+        """Resolve a position and compute P&L using simulated fill price.
 
-        If won: each YES share pays $1. Shares = quantity / entry_price.
-                Payout = quantity / entry_price. PnL = payout - quantity.
+        If won: each YES share pays $1. Shares = quantity / fill_price.
+                Payout = quantity / fill_price. PnL = payout - quantity.
         If lost: payout = 0. PnL = -quantity (already deducted at entry).
 
-        Args:
-            condition_id: Polymarket condition ID to resolve.
-            won: Whether the position's outcome occurred.
-
-        Returns:
-            The realized P&L in USDC.
+        Uses fill_price (not mid entry_price) for realistic P&L.
         """
         for pos in self._portfolio.positions:
             if pos.condition_id == condition_id and not pos.resolved:
                 pos.resolved = True
                 pos.outcome = won
 
+                # Use fill_price for P&L — this is the realistic execution price
+                price = pos.fill_price if pos.fill_price > 0 else pos.entry_price
+
                 if won:
-                    payout = pos.quantity / pos.entry_price
+                    payout = pos.quantity / price
                     pnl = payout - pos.quantity
                     self._portfolio.cash += payout
                     self._portfolio.wins += 1
                 else:
                     pnl = -pos.quantity
-                    # Cash already deducted at entry; lost position pays nothing.
                     self._portfolio.losses += 1
 
                 pos.pnl = pnl
@@ -158,6 +205,7 @@ class WeatherPaperTrader:
                     city=pos.city,
                     date=pos.date,
                     won=won,
+                    fill_price=round(price, 4),
                     pnl=round(pnl, 2),
                     total_pnl=round(self._portfolio.total_pnl, 2),
                 )

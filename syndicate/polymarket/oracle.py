@@ -13,6 +13,11 @@ from syndicate.polymarket.data.gamma_client import discover_weather_markets
 from syndicate.polymarket.data.open_meteo import fetch_ensemble_forecast
 from syndicate.polymarket.forecast.ensemble import blend_ensembles
 from syndicate.polymarket.forecast.probability import compute_bin_probabilities
+from syndicate.polymarket.forecast.emos import EMOSCalibrator
+from syndicate.polymarket.forecast.bias_correction import BiasTracker
+from syndicate.polymarket.forecast.model_weighting import ModelWeightTracker
+from syndicate.polymarket.forecast.probability import compute_bin_probabilities_calibrated
+from syndicate.polymarket.resolution.calibration import CalibrationTracker
 from syndicate.polymarket.markets.edge import compute_horizon_hours, detect_edges
 from syndicate.polymarket.markets.sizing import size_position
 from syndicate.polymarket.execution.paper_trader import WeatherPaperTrader
@@ -35,6 +40,35 @@ class WeatherOracle:
         self._start_time = time.monotonic()
         self._last_markets: list = []
         self._calibration_ready = False
+
+        # Persistent calibration components — loaded once, updated continuously
+        self._emos = EMOSCalibrator()
+        self._bias_tracker = BiasTracker()
+        self._model_weights = ModelWeightTracker()
+        self._calibration_tracker = CalibrationTracker()
+        self._load_calibration()
+
+    def _load_calibration(self) -> None:
+        """Load all persisted calibration state from disk."""
+        data_dir = self.settings.polymarket_data_dir
+        emos_path = data_dir / "emos_params.json"
+        bias_path = data_dir / "bias_history.json"
+        weights_path = data_dir / "model_weights.json"
+
+        if emos_path.exists():
+            self._emos.load(emos_path)
+            self._calibration_ready = True
+        self._bias_tracker.load(bias_path)
+        self._model_weights.load(weights_path)
+        self._calibration_tracker.load()
+
+    def _save_calibration(self) -> None:
+        """Persist all calibration state to disk."""
+        data_dir = self.settings.polymarket_data_dir
+        self._emos.save(data_dir / "emos_params.json")
+        self._bias_tracker.save(data_dir / "bias_history.json")
+        self._model_weights.save(data_dir / "model_weights.json")
+        self._calibration_tracker.save()
 
     async def run_cycle(self) -> dict:
         """Run one full cycle: discover -> forecast -> analyze -> trade -> resolve.
@@ -95,23 +129,23 @@ class WeatherOracle:
 
                     # Try calibrated probabilities if EMOS is trained
                     try:
-                        from syndicate.polymarket.forecast.emos import EMOSCalibrator
-                        from syndicate.polymarket.forecast.bias_correction import BiasTracker
-                        from syndicate.polymarket.forecast.probability import compute_bin_probabilities_calibrated
-
-                        bias_tracker = BiasTracker()
-                        emos = EMOSCalibrator()
-                        emos_path = self.settings.polymarket_data_dir / "emos_params.json"
-                        if emos_path.exists():
-                            emos.load(emos_path)
-                            corrected_mean = bias_tracker.correct(market.city, blend["mean"])
-                            cal_mean, cal_std = emos.calibrate(corrected_mean, blend["std"])
+                        if self._calibration_ready:
+                            corrected_mean = self._bias_tracker.correct(
+                                market.city, blend["mean"],
+                            )
+                            cal_mean, cal_std = self._emos.calibrate(
+                                market.city, corrected_mean, blend["std"],
+                            )
                             bin_probs = compute_bin_probabilities_calibrated(
                                 forecast, market.bins, cal_mean, cal_std,
                             )
-                            self._calibration_ready = True
-                    except Exception:
-                        pass  # Fall back to raw member counting
+                    except Exception as cal_err:
+                        logger.debug(
+                            "calibration_fallback",
+                            city=market.city,
+                            error=str(cal_err),
+                        )
+                        # Fall back to raw member counting (bin_probs unchanged)
 
                     # Build analysis
                     analysis = MarketAnalysis(
@@ -170,6 +204,8 @@ class WeatherOracle:
                                     quantity=amount,
                                     model_prob=opp.model_prob,
                                     edge=opp.edge,
+                                    forecast_mean=blend["mean"],
+                                    forecast_std=blend["std"],
                                 )
                                 if result is not None:
                                     summary["bets_placed"] += 1
@@ -183,12 +219,19 @@ class WeatherOracle:
                         error=str(e),
                     )
 
-            # 3. Check resolutions
-            results = await check_resolutions(self.trader, markets)
+            # 3. Check resolutions — pass calibration components for feedback
+            results = await check_resolutions(
+                self.trader, markets,
+                calibration_tracker=self._calibration_tracker,
+                bias_tracker=self._bias_tracker,
+                emos=self._emos,
+                model_weights=self._model_weights,
+            )
             summary["positions_resolved"] = len(results)
 
-            # 4. Save state
+            # 4. Save state + calibration
             self.trader.save()
+            self._save_calibration()
 
             # 5. Update status
             portfolio = self.trader.get_portfolio()
@@ -252,14 +295,22 @@ async def _auto_bootstrap_calibration() -> None:
 
         for city, points in data.items():
             for p in points:
-                em, es, actual = p.get("ensemble_mean"), p.get("ensemble_std", 2.0), p.get("actual")
+                em = p.get("ensemble_mean")
+                es = p.get("ensemble_std")
+                actual = p.get("actual")
                 if em is None or actual is None:
+                    continue
+                # Skip points where ensemble_std is missing — don't use default 2.0
+                # which contaminates EMOS training with fake spread values
+                if es is None or es <= 0:
+                    bias.update(city, em, actual)
                     continue
                 emos.add_training_point(city, em, es, actual)
                 bias.update(city, em, actual)
                 for model, mean in p.get("model_means", {}).items():
+                    model_std = p.get("model_stds", {}).get(model, es)
                     if mean is not None:
-                        mw.update(model, mean, 2.0, actual)
+                        mw.update(model, mean, model_std or es, actual)
             emos.fit_city(city)
 
         emos.save(emos_path)

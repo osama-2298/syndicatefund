@@ -269,9 +269,9 @@ TOTAL_ENSEMBLE_MEMBERS: int = sum(m.members for m in ENSEMBLE_MODELS)  # 173
 # horizons. Anything beyond 72 hours is skipped entirely.
 
 EDGE_THRESHOLDS: dict[str, float] = {
-    "0-24h": 0.08,
-    "25-48h": 0.12,
-    "49-72h": 0.15,
+    "0-24h": 0.05,   # Was 0.08 — too conservative, missing profitable trades
+    "25-48h": 0.08,   # Was 0.12 — 8% edge at 1-2 day horizon is solid
+    "49-72h": 0.12,   # Was 0.15 — 12% for longer horizon
 }
 
 MAX_HORIZON_HOURS: int = 72  # Skip markets beyond this horizon

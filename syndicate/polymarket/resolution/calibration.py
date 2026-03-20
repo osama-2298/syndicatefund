@@ -313,6 +313,14 @@ class CalibrationTracker:
 
     # ── Persistence ──────────────────────────────────────────────────────
 
+    def save(self) -> None:
+        """Persist records to JSON (public alias for _save)."""
+        self._save()
+
+    def load(self) -> None:
+        """Load records from JSON (public alias for _load)."""
+        self._load()
+
     def _save(self) -> None:
         """Persist records to JSON."""
         try:

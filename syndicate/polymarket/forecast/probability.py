@@ -11,8 +11,9 @@ from syndicate.polymarket.models import BinProbability, EnsembleForecast, Temper
 
 log = structlog.get_logger(__name__)
 
-# Minimum probability floor per bin — prevents 0% on bins that could still hit
-PROB_FLOOR = 0.01
+# Minimum probability floor per bin — prevents 0% on bins that could still hit.
+# 0.1% floor: with 10 bins this adds only 1% total artificial probability (vs 10% at 0.01).
+PROB_FLOOR = 0.001
 
 
 def compute_bin_probabilities(

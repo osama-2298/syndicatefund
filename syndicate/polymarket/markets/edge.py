@@ -12,9 +12,9 @@ log = structlog.get_logger(__name__)
 
 # Edge thresholds by forecast horizon — further out = need more edge
 HORIZON_THRESHOLDS = {
-    24: 0.08,   # <=24h: 8% minimum edge
-    48: 0.12,   # 25-48h: 12%
-    72: 0.15,   # 49-72h: 15%
+    24: 0.05,   # <=24h: 5% minimum edge (was 8% — too conservative)
+    48: 0.08,   # 25-48h: 8% (was 12%)
+    72: 0.12,   # 49-72h: 12% (was 15%)
 }
 MAX_HORIZON_HOURS = 72  # Skip markets >72h out
 
@@ -44,11 +44,11 @@ def get_min_edge(horizon_hours: float) -> float:
     Beyond MAX_HORIZON_HOURS, returns 1.0 (effectively impossible edge).
     """
     if horizon_hours <= 24:
-        return 0.08
+        return 0.05
     elif horizon_hours <= 48:
-        return 0.12
+        return 0.08
     elif horizon_hours <= 72:
-        return 0.15
+        return 0.12
     else:
         return 1.0  # Effectively skip — forecast too far out
 

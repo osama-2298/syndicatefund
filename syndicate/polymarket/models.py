@@ -125,9 +125,12 @@ class WeatherPosition(BaseModel):
     bin_label: str
     side: str = "YES"  # always YES for weather
     entry_price: float
+    fill_price: float = 0.0  # simulated fill price (after spread/slippage)
     quantity: float  # USDC amount
     model_prob: float
     edge_at_entry: float
+    forecast_mean: float = 0.0  # stored for calibration feedback at resolution
+    forecast_std: float = 0.0   # stored for calibration feedback at resolution
     placed_at: datetime
     resolved: bool = False
     outcome: bool | None = None  # True if won

@@ -27,8 +27,9 @@ log = structlog.get_logger(__name__)
 # Rolling training window size (days)
 TRAINING_WINDOW = 90
 
-# Minimum training samples before fitting
-MIN_TRAINING_SAMPLES = 10
+# Minimum training samples before fitting — 10 was too low (3-5 per city causes
+# overfitting). 30 requires ~2 weeks of data per city for reasonable calibration.
+MIN_TRAINING_SAMPLES = 30
 
 
 class EMOSParams(BaseModel):
@@ -159,6 +160,20 @@ class EMOSCalibrator:
         # Enforce c > 0 (variance intercept must be non-negative)
         c = max(c, 0.0)
         d = max(d, 0.0)
+
+        # Validate fitted parameters — flag suspicious values
+        if abs(b) > 3.0:
+            log.warning(
+                "emos.fit.suspicious_b",
+                b=round(b, 4),
+                msg="slope b far from 1.0 — ensemble mean may be systematically scaled",
+            )
+        if abs(a) > 20.0:
+            log.warning(
+                "emos.fit.suspicious_a",
+                a=round(a, 4),
+                msg="intercept a too large — possible overfitting on few samples",
+            )
 
         fitted = EMOSParams(a=float(a), b=float(b), c=float(c), d=float(d))
 

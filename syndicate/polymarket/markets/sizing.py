@@ -116,7 +116,7 @@ def size_position(
     max_fraction: float = 0.25,
     max_per_city: float = 0.15,
     max_per_day: float = 0.30,
-    min_bet: float = 1.0,  # Minimum $1 bet
+    min_bet: float = 5.0,  # Minimum $5 bet (matches MIN_BET_SIZE)
 ) -> float:
     """Full sizing pipeline: Kelly -> exposure limits -> minimum check.
 
@@ -140,11 +140,13 @@ def size_position(
     Returns:
         Final USDC amount to bet, or 0.0 if not worth it.
     """
-    # Step 1: Kelly sizing
+    # Step 1: Kelly sizing — use current cash, not initial bankroll
+    # Using bankroll when cash is depleted leads to reckless over-sizing.
+    effective_bankroll = min(portfolio.bankroll, portfolio.cash)
     raw_size = kelly_size(
         model_prob=prob.model_prob,
         market_price=prob.market_price,
-        bankroll=portfolio.bankroll,
+        bankroll=effective_bankroll,
         fractional=fractional,
         max_fraction=max_fraction,
     )

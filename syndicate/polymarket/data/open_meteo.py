@@ -176,13 +176,43 @@ async def _fetch_single_model(
             )
         )
 
-    logger.debug(
-        "open_meteo.model_fetched",
-        model=model_cfg.name,
-        members_parsed=len(members),
-        expected=model_cfg.members,
-        target_date=target_date,
-    )
+    # Warn if significant number of members are missing
+    missing_pct = 1.0 - (len(members) / model_cfg.members) if model_cfg.members > 0 else 0
+    if missing_pct > 0.1:
+        logger.warning(
+            "open_meteo.members_missing",
+            model=model_cfg.name,
+            members_parsed=len(members),
+            expected=model_cfg.members,
+            missing_pct=round(missing_pct * 100, 1),
+            target_date=target_date,
+        )
+    else:
+        logger.debug(
+            "open_meteo.model_fetched",
+            model=model_cfg.name,
+            members_parsed=len(members),
+            expected=model_cfg.members,
+            target_date=target_date,
+        )
+
+    # Validate data quality — reject members with extreme outlier values
+    if members:
+        highs = [m.daily_high for m in members]
+        median = sorted(highs)[len(highs) // 2]
+        # Reject members deviating by more than 30°F/15°C from median (likely bad data)
+        MAX_DEVIATION = 30.0
+        valid_members = [m for m in members if abs(m.daily_high - median) <= MAX_DEVIATION]
+        if len(valid_members) < len(members):
+            rejected = len(members) - len(valid_members)
+            logger.warning(
+                "open_meteo.outliers_rejected",
+                model=model_cfg.name,
+                rejected=rejected,
+                median=round(median, 1),
+            )
+            members = valid_members
+
     return members
 
 
