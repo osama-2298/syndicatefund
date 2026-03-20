@@ -47,12 +47,18 @@ interface Position {
   date: string;
   bin_label: string;
   entry_price: number;
+  fill_price: number;
   quantity: number;
   model_prob: number;
   edge: number;
   edge_at_entry: number;
+  forecast_mean: number;
+  forecast_std: number;
   condition_id: string;
   placed_at: string;
+  resolved: boolean;
+  outcome: boolean | null;
+  pnl: number;
 }
 
 interface MarketInfo {

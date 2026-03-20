@@ -167,29 +167,51 @@ const DE = [
 
 const DN_MAP = Object.fromEntries(DN.map(n => [n.id, n]));
 
+// Compute when each node activates — derived from edge timing, not hardcoded.
+// A node lights up when the first particle arrives at it (t1 of incoming edges).
+// Origin nodes (no incoming edges) light up when their first outgoing edge starts.
+const NODE_ACTIVATE: Record<string, number> = {};
+for (const node of DN) {
+  const incoming = DE.filter(e => e.to === node.id);
+  if (incoming.length > 0) {
+    NODE_ACTIVATE[node.id] = Math.min(...incoming.map(e => e.t1));
+  } else {
+    const outgoing = DE.filter(e => e.from === node.id);
+    NODE_ACTIVATE[node.id] = outgoing.length > 0 ? Math.min(...outgoing.map(e => e.t0)) : 0;
+  }
+}
+// CEO=0.01, COO=0.09, CRO=0.17, Teams=0.34, Agg=0.50, Risk=0.62, Exec=0.74, Mon=0.88
+
 /* ─── Desktop Pipeline (SVG with RAF-animated flowing dots) ─── */
 
 function PipelineDiagram() {
   const dotsRef = useRef<SVGGElement>(null);
   const edgesRef = useRef<SVGGElement>(null);
   const burstsRef = useRef<SVGGElement>(null);
+  const ringsRef = useRef<SVGGElement>(null);
+  const glowsRef = useRef<SVGGElement>(null);
   const R = 22;
-  // 3 trailing particles per edge for a comet-trail effect
   const TRAILS = 3;
 
   useEffect(() => {
     let raf: number;
     const start = performance.now();
     const DUR = 8000;
+    const BURST_DUR = 0.07; // duration of burst effect (fraction of cycle)
 
     const tick = (now: number) => {
       const t = ((now - start) % DUR) / DUR;
       const dots = dotsRef.current;
       const edges = edgesRef.current;
       const bursts = burstsRef.current;
-      if (!dots || !edges || !bursts) { raf = requestAnimationFrame(tick); return; }
+      const rings = ringsRef.current;
+      const glows = glowsRef.current;
+      if (!dots || !edges || !bursts || !rings || !glows) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
 
-      // Animate edge glow — edges light up when data is flowing through them
+      // Animate edge glow — edges light up when data flows through
       for (let i = 0; i < DE.length; i++) {
         const { t0, t1 } = DE[i];
         const edgeLine = edges.children[i] as SVGLineElement;
@@ -199,21 +221,40 @@ function PipelineDiagram() {
         edgeLine.setAttribute('stroke-width', active ? '2' : '1');
       }
 
-      // Animate node bursts — nodes flash when the wave arrives
+      // Animate nodes — burst + ring + glow all synced to particle arrival
       for (let n = 0; n < DN.length; n++) {
         const node = DN[n];
         const burst = bursts.children[n] as SVGCircleElement;
-        if (!burst) continue;
-        // Each node activates when its delay fraction is reached
-        const activateT = node.delay / (DUR / 1000);
+        const ring = rings.children[n] as SVGCircleElement;
+        const glow = glows.children[n] as SVGCircleElement;
+        if (!burst || !ring || !glow) continue;
+
+        const activateT = NODE_ACTIVATE[node.id] || 0;
         const dt = t - activateT;
-        if (dt >= 0 && dt < 0.06) {
-          const p = dt / 0.06;
-          const scale = R + 12 + p * 18;
-          burst.setAttribute('r', String(scale));
-          burst.setAttribute('opacity', String(0.4 * (1 - p)));
+        // Wrap-around: also check if we're just past the end of the cycle
+        const dtWrapped = dt < 0 ? dt + 1 : dt;
+
+        if (dtWrapped >= 0 && dtWrapped < BURST_DUR) {
+          // Burst expanding ring
+          const p = dtWrapped / BURST_DUR;
+          burst.setAttribute('r', String(R + 14 + p * 22));
+          burst.setAttribute('opacity', String(0.5 * (1 - p)));
+
+          // Ring brightens on impact
+          const ringBright = 1 - p * 0.7;
+          ring.setAttribute('stroke-opacity', String(ringBright));
+          ring.setAttribute('stroke-width', String(1.5 + (1 - p) * 1.5));
+
+          // Outer glow flares
+          glow.setAttribute('opacity', String(0.5 * (1 - p)));
         } else {
           burst.setAttribute('opacity', '0');
+
+          // Gentle ambient pulse for ring (not completely dark)
+          const idle = 0.25 + 0.05 * Math.sin(now / 800 + n);
+          ring.setAttribute('stroke-opacity', String(idle));
+          ring.setAttribute('stroke-width', '1.5');
+          glow.setAttribute('opacity', '0');
         }
       }
 
@@ -225,8 +266,7 @@ function PipelineDiagram() {
         for (let tr = 0; tr < TRAILS; tr++) {
           const circle = dots.children[i * TRAILS + tr] as SVGCircleElement;
           if (!circle) continue;
-          // Each trail particle is offset slightly behind the lead
-          const offset = tr * 0.025;
+          const offset = tr * 0.02;
           const adjustedT = t - offset;
 
           if (adjustedT < t0 || adjustedT > t1) {
@@ -235,8 +275,7 @@ function PipelineDiagram() {
             const p = (adjustedT - t0) / (t1 - t0);
             circle.setAttribute('cx', String(a.x + (b.x - a.x) * p));
             circle.setAttribute('cy', String(a.y + (b.y - a.y) * p));
-            const fade = p < 0.12 ? p / 0.12 : p > 0.85 ? (1 - p) / 0.15 : 1;
-            // Trail particles get smaller and dimmer
+            const fade = p < 0.1 ? p / 0.1 : p > 0.88 ? (1 - p) / 0.12 : 1;
             const trailFade = 1 - tr * 0.3;
             circle.setAttribute('opacity', String(Math.max(0, fade * 0.9 * trailFade)));
           }
@@ -337,18 +376,33 @@ function PipelineDiagram() {
             cx={node.x} cy={node.y} r={R + 20}
             fill={node.color} opacity="0.04"
             filter="url(#node-ambient)"
-            className="pipe-ring" style={{ animationDelay: `${node.delay}s` }}
           />
         ))}
 
-        {/* Nodes (drawn last, on top) */}
+        {/* Node rings (RAF-driven brightness) */}
+        <g ref={ringsRef}>
+          {DN.map((node) => (
+            <circle key={`ring-${node.id}`}
+              cx={node.x} cy={node.y} r={R}
+              fill="none" stroke={node.color} strokeWidth="1.5" strokeOpacity="0.25"
+            />
+          ))}
+        </g>
+
+        {/* Node outer glows (RAF-driven) */}
+        <g ref={glowsRef}>
+          {DN.map((node) => (
+            <circle key={`glow-${node.id}`}
+              cx={node.x} cy={node.y} r={R + 8}
+              fill="none" stroke={node.color} strokeWidth="0.5" opacity="0"
+            />
+          ))}
+        </g>
+
+        {/* Nodes (backgrounds + labels, drawn last on top) */}
         {DN.map((node) => (
           <g key={node.id}>
             <circle cx={node.x} cy={node.y} r={R} fill="#0f0f13" />
-            <circle cx={node.x} cy={node.y} r={R} fill="none" stroke={node.color} strokeWidth="1.5"
-              className="pipe-ring" style={{ animationDelay: `${node.delay}s` }} />
-            <circle cx={node.x} cy={node.y} r={R + 8} fill="none" stroke={node.color} strokeWidth="0.5"
-              className="pipe-glow" style={{ animationDelay: `${node.delay}s` }} />
             <text x={node.x} y={node.y + 1} textAnchor="middle" dominantBaseline="middle"
               fill="#fafafa" fontSize="10" fontWeight="700"
               style={{ fontFamily: 'system-ui, sans-serif' }}>

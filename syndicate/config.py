@@ -103,7 +103,7 @@ class Settings(BaseSettings):
     polymarket_private_key: str = ""
     polymarket_api_key: str = ""
     polymarket_bankroll: float = 10_000.0
-    polymarket_min_edge: float = 0.08
+    polymarket_min_edge: float = 0.05
     polymarket_max_kelly_fraction: float = 0.25
     polymarket_scan_interval_seconds: int = 300
 
