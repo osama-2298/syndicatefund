@@ -85,8 +85,11 @@ async def _validate_api_key(
 
             elif provider == ProviderType.GOOGLE and api_key_google:
                 resp = await http.post(
-                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key_google}",
-                    headers={"Content-Type": "application/json"},
+                    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+                    headers={
+                        "Content-Type": "application/json",
+                        "x-goog-api-key": api_key_google,
+                    },
                     json={"contents": [{"parts": [{"text": "hi"}]}]},
                 )
                 if resp.status_code == 400 and "API_KEY_INVALID" in resp.text:

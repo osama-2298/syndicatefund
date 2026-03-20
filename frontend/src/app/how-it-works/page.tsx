@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
 import {
   Crown, Users, Shield, Zap, Target,
@@ -130,6 +130,241 @@ const TEAMS = [
 const COINS = ['BTC', 'ETH', 'SOL', 'AAVE', 'LINK', 'DOT', 'AVAX', 'ADA', 'DOGE', 'UNI', 'MATIC', 'ATOM'];
 const SELECTED = new Set(['BTC', 'ETH', 'SOL', 'AAVE', 'LINK', 'DOT', 'AVAX', 'ADA']);
 
+/* ─── Animated Pipeline Diagram ─── */
+
+const DN = [
+  { id: 'ceo', x: 60, y: 170, label: 'CEO', sub: 'Regime', color: '#f59e0b', letter: 'CE', delay: 0 },
+  { id: 'coo', x: 165, y: 170, label: 'COO', sub: 'Coins', color: '#06b6d4', letter: 'CO', delay: 0.45 },
+  { id: 'cro', x: 270, y: 170, label: 'CRO', sub: 'Risk', color: '#ef4444', letter: 'CR', delay: 0.9 },
+  { id: 'tech', x: 440, y: 42, label: 'Technical', sub: '3 agents', color: '#3b82f6', letter: 'Te', delay: 1.5 },
+  { id: 'sent', x: 440, y: 106, label: 'Sentiment', sub: '3 agents', color: '#a855f7', letter: 'Se', delay: 1.5 },
+  { id: 'fund', x: 440, y: 170, label: 'Fundamental', sub: '2 agents', color: '#eab308', letter: 'Fu', delay: 1.5 },
+  { id: 'macro', x: 440, y: 234, label: 'Macro', sub: '2 agents', color: '#22d3ee', letter: 'Ma', delay: 1.5 },
+  { id: 'chain', x: 440, y: 298, label: 'On-Chain', sub: '2 agents', color: '#10b981', letter: 'On', delay: 1.5 },
+  { id: 'agg', x: 610, y: 170, label: 'Fusion', sub: 'Bayesian', color: '#10b981', letter: '\u03A3', delay: 2.2 },
+  { id: 'risk', x: 740, y: 170, label: 'Risk Gate', sub: 'Filter', color: '#f97316', letter: 'Ri', delay: 2.65 },
+  { id: 'exec', x: 875, y: 170, label: 'Execute', sub: 'Trade', color: '#22c55e', letter: 'Ex', delay: 3.1 },
+  { id: 'mon', x: 1010, y: 170, label: 'Monitor', sub: 'SL/TP', color: '#14b8a6', letter: 'Mo', delay: 3.55 },
+];
+
+const DE = [
+  { from: 'ceo', to: 'coo', t0: 0.01, t1: 0.09 },
+  { from: 'coo', to: 'cro', t0: 0.09, t1: 0.17 },
+  { from: 'cro', to: 'tech', t0: 0.20, t1: 0.34 },
+  { from: 'cro', to: 'sent', t0: 0.20, t1: 0.34 },
+  { from: 'cro', to: 'fund', t0: 0.20, t1: 0.34 },
+  { from: 'cro', to: 'macro', t0: 0.20, t1: 0.34 },
+  { from: 'cro', to: 'chain', t0: 0.20, t1: 0.34 },
+  { from: 'tech', to: 'agg', t0: 0.37, t1: 0.50 },
+  { from: 'sent', to: 'agg', t0: 0.37, t1: 0.50 },
+  { from: 'fund', to: 'agg', t0: 0.37, t1: 0.50 },
+  { from: 'macro', to: 'agg', t0: 0.37, t1: 0.50 },
+  { from: 'chain', to: 'agg', t0: 0.37, t1: 0.50 },
+  { from: 'agg', to: 'risk', t0: 0.53, t1: 0.62 },
+  { from: 'risk', to: 'exec', t0: 0.64, t1: 0.74 },
+  { from: 'exec', to: 'mon', t0: 0.76, t1: 0.88 },
+];
+
+const DN_MAP = Object.fromEntries(DN.map(n => [n.id, n]));
+
+/* ─── Desktop Pipeline (SVG with RAF-animated flowing dots) ─── */
+
+function PipelineDiagram() {
+  const dotsRef = useRef<SVGGElement>(null);
+  const R = 22;
+
+  useEffect(() => {
+    let raf: number;
+    const start = performance.now();
+    const DUR = 8000;
+
+    const tick = (now: number) => {
+      const t = ((now - start) % DUR) / DUR;
+      const g = dotsRef.current;
+      if (!g) { raf = requestAnimationFrame(tick); return; }
+
+      const circles = g.children;
+      for (let i = 0; i < DE.length; i++) {
+        const { from, to, t0, t1 } = DE[i];
+        const circle = circles[i] as SVGCircleElement;
+        if (!circle) continue;
+
+        if (t < t0 || t > t1) {
+          circle.setAttribute('opacity', '0');
+        } else {
+          const p = (t - t0) / (t1 - t0);
+          const a = DN_MAP[from], b = DN_MAP[to];
+          circle.setAttribute('cx', String(a.x + (b.x - a.x) * p));
+          circle.setAttribute('cy', String(a.y + (b.y - a.y) * p));
+          const fade = p < 0.12 ? p / 0.12 : p > 0.85 ? (1 - p) / 0.15 : 1;
+          circle.setAttribute('opacity', String(Math.max(0, fade * 0.85)));
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  return (
+    <FadeIn delay={0.6} className="w-full max-w-5xl mx-auto mt-8 mb-2 hidden md:block">
+      <svg viewBox="0 0 1070 360" className="w-full h-auto" role="img" aria-label="Syndicate pipeline flow diagram">
+        <defs>
+          <filter id="dg" x="-200%" y="-200%" width="500%" height="500%">
+            <feGaussianBlur stdDeviation="5" result="b" />
+            <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+
+        {/* Connection lines with flowing dashes */}
+        {DE.map(({ from, to }, i) => (
+          <line key={`e${i}`}
+            x1={DN_MAP[from].x} y1={DN_MAP[from].y}
+            x2={DN_MAP[to].x} y2={DN_MAP[to].y}
+            className="pipe-edge"
+            stroke="rgba(139,92,246,0.1)" strokeWidth="1.5"
+          />
+        ))}
+
+        {/* Loop arc (Monitor → CEO) */}
+        <path
+          d={`M ${DN_MAP.mon.x} ${170 + R + 8} Q ${(DN_MAP.mon.x + DN_MAP.ceo.x) / 2} ${170 + R + 70} ${DN_MAP.ceo.x} ${170 + R + 8}`}
+          fill="none" stroke="rgba(139,92,246,0.06)" strokeWidth="1" strokeDasharray="4 4"
+        />
+        <text x={(DN_MAP.mon.x + DN_MAP.ceo.x) / 2} y={170 + R + 58}
+          textAnchor="middle" fill="rgba(139,92,246,0.2)" fontSize="8"
+          style={{ fontFamily: 'system-ui, sans-serif' }}>
+          ↻ repeat every 4 hours
+        </text>
+
+        {/* Flowing dots (animated via RAF) */}
+        <g ref={dotsRef}>
+          {DE.map((_, i) => (
+            <circle key={`d${i}`} r="3" fill="#8b5cf6" opacity="0" filter="url(#dg)" />
+          ))}
+        </g>
+
+        {/* Nodes (drawn last, on top) */}
+        {DN.map((node) => (
+          <g key={node.id}>
+            <circle cx={node.x} cy={node.y} r={R} fill="#0f0f13" />
+            <circle cx={node.x} cy={node.y} r={R} fill="none" stroke={node.color} strokeWidth="1.5"
+              className="pipe-ring" style={{ animationDelay: `${node.delay}s` }} />
+            <circle cx={node.x} cy={node.y} r={R + 6} fill="none" stroke={node.color} strokeWidth="0.5"
+              className="pipe-glow" style={{ animationDelay: `${node.delay}s` }} />
+            <text x={node.x} y={node.y + 1} textAnchor="middle" dominantBaseline="middle"
+              fill="#fafafa" fontSize="10" fontWeight="700"
+              style={{ fontFamily: 'system-ui, sans-serif' }}>
+              {node.letter}
+            </text>
+            <text x={node.x} y={node.y + R + 14} textAnchor="middle"
+              fill="#a1a1aa" fontSize="9" fontWeight="600"
+              style={{ fontFamily: 'system-ui, sans-serif' }}>
+              {node.label}
+            </text>
+            <text x={node.x} y={node.y + R + 25} textAnchor="middle"
+              fill="#52525b" fontSize="7.5"
+              style={{ fontFamily: 'system-ui, sans-serif' }}>
+              {node.sub}
+            </text>
+          </g>
+        ))}
+      </svg>
+    </FadeIn>
+  );
+}
+
+/* ─── Mobile Pipeline (animated vertical flow) ─── */
+
+const MOBILE_STAGES = [
+  { label: 'CEO', sub: 'Regime', color: '#f59e0b', letter: 'CE' },
+  { label: 'COO', sub: 'Coins', color: '#06b6d4', letter: 'CO' },
+  { label: 'CRO', sub: 'Risk', color: '#ef4444', letter: 'CR' },
+];
+
+const MOBILE_TEAMS = [
+  { label: 'Tech', color: '#3b82f6', letter: 'Te' },
+  { label: 'Sent', color: '#a855f7', letter: 'Se' },
+  { label: 'Fund', color: '#eab308', letter: 'Fu' },
+  { label: 'Macro', color: '#22d3ee', letter: 'Ma' },
+  { label: 'Chain', color: '#10b981', letter: 'On' },
+];
+
+const MOBILE_POST = [
+  { label: 'Fusion', sub: 'Bayesian', color: '#10b981', letter: 'Σ' },
+  { label: 'Risk', sub: 'Filter', color: '#f97316', letter: 'Ri' },
+  { label: 'Execute', sub: 'Trade', color: '#22c55e', letter: 'Ex' },
+  { label: 'Monitor', sub: 'SL/TP', color: '#14b8a6', letter: 'Mo' },
+];
+
+function MobilePipeline() {
+  return (
+    <FadeIn delay={0.6} className="md:hidden mt-8 mb-2 w-full max-w-sm mx-auto">
+      <div className="relative flex flex-col items-center">
+        {/* Executives: vertical */}
+        {MOBILE_STAGES.map((stage, i) => (
+          <div key={stage.label} className="flex flex-col items-center">
+            <MobileNode {...stage} delay={i * 0.7} />
+            <div className="w-px h-5 mobile-connector" />
+          </div>
+        ))}
+
+        {/* Fan-out label */}
+        <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/15 my-1">5 teams · 12 agents</div>
+
+        {/* Teams: horizontal row */}
+        <div className="flex items-center justify-center gap-3 my-2">
+          {MOBILE_TEAMS.map((team, i) => (
+            <MobileNode key={team.label} {...team} sub="" delay={2.1 + i * 0.1} size={36} fontSize={8} />
+          ))}
+        </div>
+
+        {/* Converge label */}
+        <div className="w-px h-5 mobile-connector" />
+
+        {/* Post-analysis: vertical */}
+        {MOBILE_POST.map((stage, i) => (
+          <div key={stage.label} className="flex flex-col items-center">
+            <MobileNode {...stage} delay={3.1 + i * 0.5} />
+            {i < MOBILE_POST.length - 1 && <div className="w-px h-5 mobile-connector" />}
+          </div>
+        ))}
+
+        {/* Loop indicator */}
+        <div className="mt-3 flex items-center gap-1.5 text-[10px] text-white/15">
+          <RefreshCw size={10} />
+          <span>repeat every 4h</span>
+        </div>
+      </div>
+    </FadeIn>
+  );
+}
+
+function MobileNode({
+  label, sub, color, letter, delay, size = 44, fontSize = 10,
+}: {
+  label: string; sub?: string; color: string; letter: string; delay: number; size?: number; fontSize?: number;
+}) {
+  return (
+    <div className="flex flex-col items-center">
+      <div
+        className="rounded-full flex items-center justify-center mobile-node"
+        style={{
+          width: size,
+          height: size,
+          border: `1.5px solid ${color}`,
+          background: '#0f0f13',
+          animationDelay: `${delay}s`,
+        }}
+      >
+        <span className="font-bold text-white/90" style={{ fontSize }}>{letter}</span>
+      </div>
+      <span className="text-[9px] font-semibold text-white/50 mt-1">{label}</span>
+      {sub && <span className="text-[8px] text-white/25">{sub}</span>}
+    </div>
+  );
+}
+
 /* ─── Page ─── */
 
 export default function HowItWorksPage() {
@@ -171,12 +406,46 @@ export default function HowItWorksPage() {
           0%, 100% { opacity: 0.015; }
           50% { opacity: 0.03; }
         }
+        .pipe-edge {
+          stroke-dasharray: 8 6;
+          animation: pipeEdgeFlow 1.5s linear infinite;
+        }
+        @keyframes pipeEdgeFlow {
+          to { stroke-dashoffset: -14; }
+        }
+        .pipe-ring {
+          animation: pipeRingWave 5.5s ease-in-out infinite;
+        }
+        @keyframes pipeRingWave {
+          0%, 100% { stroke-opacity: 0.3; }
+          6% { stroke-opacity: 1; }
+          16% { stroke-opacity: 0.3; }
+        }
+        .pipe-glow {
+          animation: pipeGlowWave 5.5s ease-in-out infinite;
+        }
+        @keyframes pipeGlowWave {
+          0%, 100% { opacity: 0; }
+          6% { opacity: 0.3; }
+          16% { opacity: 0; }
+        }
+        .mobile-node {
+          animation: mobileNodePulse 5.5s ease-in-out infinite;
+        }
+        @keyframes mobileNodePulse {
+          0%, 100% { opacity: 0.4; box-shadow: 0 0 0 0 transparent; }
+          8% { opacity: 1; box-shadow: 0 0 16px 2px var(--node-glow, rgba(139,92,246,0.3)); }
+          20% { opacity: 0.4; box-shadow: 0 0 0 0 transparent; }
+        }
+        .mobile-connector {
+          background: linear-gradient(to bottom, rgba(139,92,246,0.15), rgba(139,92,246,0.04));
+        }
       `}</style>
 
       {/* ═══════════════════════════════════════════════
           HERO
       ═══════════════════════════════════════════════ */}
-      <section className="relative min-h-[85vh] flex flex-col items-center justify-center text-center px-6 overflow-hidden">
+      <section className="relative flex flex-col items-center text-center px-6 pt-16 sm:pt-20 pb-8 overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-[-15%] left-1/2 -translate-x-1/2 w-[700px] h-[500px] bg-violet-500/[0.06] rounded-full blur-[120px]" />
           <div className="absolute bottom-[10%] right-[15%] w-[300px] h-[300px] bg-cyan-500/[0.04] rounded-full blur-[80px]" />
@@ -214,7 +483,7 @@ export default function HowItWorksPage() {
           </FadeIn>
 
           <FadeIn delay={0.5}>
-            <p className="text-lg sm:text-xl text-syn-muted max-w-2xl mx-auto mb-12 leading-relaxed">
+            <p className="text-lg sm:text-xl text-syn-muted max-w-2xl mx-auto leading-relaxed">
               A CEO reads the market. A COO picks coins. 12 agents analyze them in parallel.
               They argue. Math decides who&apos;s right. If the signal survives every gate — the fund trades.
               <br className="hidden sm:block" />
@@ -223,57 +492,15 @@ export default function HowItWorksPage() {
           </FadeIn>
         </div>
 
-        <div className="absolute bottom-8 animate-bounce">
+        {/* Animated pipeline diagram — desktop: horizontal SVG, mobile: vertical flow */}
+        <div className="relative z-10 w-full">
+          <PipelineDiagram />
+          <MobilePipeline />
+        </div>
+
+        <div className="mt-6 animate-bounce">
           <ChevronDown size={20} className="text-syn-text-tertiary" />
         </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════
-          PIPELINE OVERVIEW
-      ═══════════════════════════════════════════════ */}
-      <section className="relative border-y border-syn-border bg-syn-surface/30 py-16 px-6 overflow-hidden">
-        <FadeIn className="max-w-5xl mx-auto">
-          <div className="text-center mb-12">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-accent/60 mb-3">The Pipeline</p>
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">One cycle. Eight stages. Fully autonomous.</h2>
-          </div>
-
-          {/* Desktop: horizontal flow */}
-          <div className="hidden md:flex items-center justify-between relative">
-            <div className="absolute top-6 left-[6%] right-[6%] h-[2px]" style={{
-              background: 'linear-gradient(90deg, transparent, rgba(139,92,246,0.25), rgba(6,182,212,0.2), rgba(139,92,246,0.25), transparent)',
-              backgroundSize: '200% 100%',
-              animation: 'lineShimmer 4s linear infinite',
-            }} />
-            {PIPELINE.map((step, i) => (
-              <div key={step.label} className="relative z-10 flex flex-col items-center gap-2 group">
-                <div
-                  className="w-12 h-12 rounded-full bg-syn-surface ring-1 ring-syn-border flex items-center justify-center transition-all duration-300 group-hover:ring-syn-accent/50"
-                  style={{ animation: 'nodeTravel 8s ease-in-out infinite', animationDelay: `${i}s` }}
-                >
-                  <step.icon size={18} className="text-syn-text-secondary group-hover:text-syn-accent transition-colors" />
-                </div>
-                <span className="text-xs font-bold text-syn-text">{step.label}</span>
-                <span className="text-[10px] text-syn-muted">{step.sub}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Mobile: 2-row grid */}
-          <div className="md:hidden grid grid-cols-4 gap-y-6 gap-x-4">
-            {PIPELINE.map((step, i) => (
-              <div key={step.label} className="flex flex-col items-center gap-1.5">
-                <div
-                  className="w-10 h-10 rounded-full bg-syn-surface ring-1 ring-syn-border flex items-center justify-center"
-                  style={{ animation: 'nodeTravel 8s ease-in-out infinite', animationDelay: `${i}s` }}
-                >
-                  <step.icon size={14} className="text-syn-text-secondary" />
-                </div>
-                <span className="text-[10px] font-bold text-syn-text text-center">{step.label}</span>
-              </div>
-            ))}
-          </div>
-        </FadeIn>
       </section>
 
       {/* ═══════════════════════════════════════════════

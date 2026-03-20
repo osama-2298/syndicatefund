@@ -77,6 +77,9 @@ class Settings(BaseSettings):
     # ── Encryption ──
     syndicate_encryption_key: str = ""  # 32-byte hex for AES-256-GCM
 
+    # ── Admin ──
+    admin_token: str = ""  # Required for admin endpoints; generate with: python -c "import secrets; print(secrets.token_urlsafe(32))"
+
     # ── Server ──
     serve_host: str = "0.0.0.0"
     serve_port: int = 8000

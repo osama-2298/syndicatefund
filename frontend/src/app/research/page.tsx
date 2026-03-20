@@ -154,23 +154,78 @@ function formatPercent(value: number): string {
 }
 
 /* ------------------------------------------------------------------ */
+/*  FORMULA-AWARE TEXT RENDERING                                        */
+/* ------------------------------------------------------------------ */
+
+// Regex for math-like expressions to render as styled formula blocks
+const FORMULA_RE = /(?:P\([^)]+\))|(?:(?:Binomial test|z|IC|MAE|ATR|PnL|accuracy|avg|correlation|Sharpe|Sortino)\s*[:=<>≥≤~]+\s*[-+]?[\d.]+(?:%|pp)?(?:\s*[,|]\s*[-+\w.\s=<>()/*]+)*)|(?:\([^)]*\)\s*\/\s*(?:sqrt\([^)]*\)|[^\s,;.]+)\s*=\s*[-+]?\d+\.?\d*)|(?:sqrt\([^)]*\))|(?:~\d+-sigma\b)|(?:n\s*=\s*\d+)|(?:p\s*[<>≥≤]+\s*\d+\.?\d*)/gi;
+
+function FormulaText({ text }: { text: string }) {
+  const parts: { text: string; isFormula: boolean }[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  // Reset regex state
+  FORMULA_RE.lastIndex = 0;
+  while ((match = FORMULA_RE.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ text: text.slice(lastIndex, match.index), isFormula: false });
+    }
+    parts.push({ text: match[0], isFormula: true });
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    parts.push({ text: text.slice(lastIndex), isFormula: false });
+  }
+
+  if (parts.length === 0) return <>{text}</>;
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.isFormula ? (
+          <code
+            key={i}
+            className="text-[11px] font-mono text-cyan-300/90 bg-cyan-400/[0.08] px-1.5 py-0.5 rounded border border-cyan-400/10 whitespace-nowrap"
+          >
+            {part.text}
+          </code>
+        ) : (
+          <span key={i}>{part.text}</span>
+        )
+      )}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  EXPANDABLE TEXT                                                     */
 /* ------------------------------------------------------------------ */
 
-function ExpandableText({ text, maxLength = 280 }: { text: string; maxLength?: number }) {
+function ExpandableText({
+  text,
+  maxLength = 280,
+  renderFormulas = false,
+}: {
+  text: string;
+  maxLength?: number;
+  renderFormulas?: boolean;
+}) {
   const [expanded, setExpanded] = useState(false);
-  if (text.length <= maxLength) {
-    return <span>{text}</span>;
-  }
+  const isLong = text.length > maxLength;
+  const displayText = isLong && !expanded ? text.slice(0, maxLength) + '...' : text;
+
   return (
     <span>
-      {expanded ? text : text.slice(0, maxLength) + '...'}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="ml-1.5 text-syn-accent hover:text-syn-accent/80 text-xs font-medium transition-colors"
-      >
-        {expanded ? 'Show less' : 'Read more'}
-      </button>
+      {renderFormulas ? <FormulaText text={displayText} /> : displayText}
+      {isLong && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="ml-1.5 text-syn-accent hover:text-syn-accent/80 text-xs font-medium transition-colors"
+        >
+          {expanded ? 'Show less' : 'Read more'}
+        </button>
+      )}
     </span>
   );
 }
@@ -241,63 +296,44 @@ function CriticalAlerts({ reports }: { reports: ResearchReport[] }) {
   if (critical.length === 0) return null;
 
   return (
-    <div className="mb-8 space-y-3">
-      <div className="flex items-center gap-2">
+    <div className="mb-8 space-y-2">
+      <div className="flex items-center gap-2 mb-1">
         <AlertTriangle size={14} className="text-red-400" />
         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-400/80">
           Critical Alerts
         </p>
       </div>
       {critical.map((report) => {
-        const config = researcherConfig[report.researcher];
-        const alerts: string[] = [];
-
+        // Count critical items for the badge
+        let criticalCount = 0;
         if (isFindingsArray(report.findings)) {
-          report.findings
-            .filter((f) => f.severity === 'critical')
-            .forEach((f) => alerts.push(f.label || f.detail || JSON.stringify(f)));
+          criticalCount = report.findings.filter((f) => f.severity === 'critical').length;
         } else if (report.findings) {
           const f = report.findings as Record<string, any>;
-          if (Array.isArray(f.critical_alerts)) {
-            alerts.push(...f.critical_alerts);
-          }
-          if (Array.isArray(f.agents_flagged)) {
-            f.agents_flagged
-              .filter((a: any) => a.severity === 'critical')
-              .forEach((a: any) => alerts.push(a.issue || a.evidence || ''));
-          }
-          if (Array.isArray(f.key_findings)) {
-            f.key_findings
-              .filter((kf: any) => kf.severity === 'critical')
-              .forEach((kf: any) => alerts.push(kf.finding || kf.evidence || ''));
-          }
+          const flagged = (f.agents_flagged || []).filter((a: any) => a.severity === 'critical');
+          const keyF = (f.key_findings || []).filter((kf: any) => kf.severity === 'critical');
+          const alerts = f.critical_alerts || [];
+          criticalCount = flagged.length + keyF.length + alerts.length;
         }
 
         return (
           <div
             key={`alert-${report.id}`}
-            className="bg-red-500/[0.06] border border-red-500/20 rounded-xl p-4"
+            className="bg-red-500/[0.06] border border-red-500/20 rounded-xl px-4 py-3 flex items-center gap-3"
           >
-            <div className="flex items-start gap-3">
-              <div className="w-2 h-2 rounded-full bg-red-400 mt-1.5 flex-shrink-0 animate-pulse" />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                  <span className="text-sm font-bold text-white">{report.title}</span>
-                  <span className="text-[10px] font-mono tabular-nums text-syn-text-tertiary">
-                    {formatRelative(report.created_at)}
-                  </span>
-                </div>
-                {alerts.map((alert, i) => (
-                  <p key={i} className="text-sm text-red-400/80 leading-relaxed">
-                    {alert}
-                  </p>
-                ))}
-                {config && (
-                  <p className="text-[10px] text-syn-text-tertiary mt-2 font-mono">
-                    {config.name}
-                  </p>
-                )}
-              </div>
+            <div className="w-2 h-2 rounded-full bg-red-400 flex-shrink-0 animate-pulse" />
+            <div className="min-w-0 flex-1">
+              <span className="text-sm font-semibold text-white">{report.title}</span>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {criticalCount > 0 && (
+                <span className="text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-0.5 rounded-full">
+                  {criticalCount} critical
+                </span>
+              )}
+              <span className="text-[10px] font-mono tabular-nums text-syn-text-tertiary">
+                {formatRelative(report.created_at)}
+              </span>
             </div>
           </div>
         );
@@ -343,7 +379,9 @@ function SignalHealthFindings({ findings }: { findings: Record<string, any> }) {
       </div>
 
       {decaySummary && (
-        <p className="mt-3 text-sm text-syn-text-secondary leading-relaxed">{decaySummary}</p>
+        <p className="mt-3 text-sm text-syn-text-secondary leading-relaxed">
+          <ExpandableText text={decaySummary} maxLength={300} renderFormulas />
+        </p>
       )}
 
       {/* Flagged agents */}
@@ -355,28 +393,31 @@ function SignalHealthFindings({ findings }: { findings: Record<string, any> }) {
                 key={i}
                 className={`rounded-lg border p-3 ${severityBg(agent.severity || 'informational')}`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-mono font-semibold text-white">
-                        {formatKey(agent.agent_id || agent.agent || 'Unknown')}
-                      </span>
-                      {agent.severity && (
-                        <span
-                          className={`text-[9px] font-bold uppercase ${severityColor(agent.severity)}`}
-                        >
-                          {agent.severity}
-                        </span>
-                      )}
-                    </div>
-                    {agent.issue && (
-                      <p className="text-sm text-syn-text-secondary leading-relaxed">{agent.issue}</p>
-                    )}
-                    {agent.evidence && (
-                      <p className="text-xs text-syn-text-tertiary mt-1 font-mono">{agent.evidence}</p>
-                    )}
-                  </div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-mono font-semibold text-white">
+                    {formatKey(agent.agent_id || agent.agent || 'Unknown')}
+                  </span>
+                  {agent.severity && (
+                    <span
+                      className={`text-[9px] font-bold uppercase ${severityColor(agent.severity)}`}
+                    >
+                      {agent.severity}
+                    </span>
+                  )}
                 </div>
+                {agent.issue && (
+                  <p className="text-sm text-syn-text-secondary leading-relaxed">
+                    <ExpandableText text={agent.issue} maxLength={200} renderFormulas />
+                  </p>
+                )}
+                {agent.evidence && (
+                  <div className="mt-2 bg-black/20 rounded-lg px-3 py-2">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-syn-muted mb-1">Evidence</p>
+                    <p className="text-xs text-syn-text-tertiary leading-relaxed">
+                      <ExpandableText text={agent.evidence} maxLength={180} renderFormulas />
+                    </p>
+                  </div>
+                )}
                 {agent.recommendation && (
                   <p className="text-xs text-syn-accent/70 mt-2 flex items-start gap-1.5">
                     <Target size={10} className="mt-0.5 flex-shrink-0" />
@@ -439,7 +480,9 @@ function AttributionFindings({ findings }: { findings: Record<string, any> }) {
   return (
     <>
       {overall && (
-        <p className="mt-4 text-sm text-syn-text-secondary leading-relaxed">{overall}</p>
+        <p className="mt-4 text-sm text-syn-text-secondary leading-relaxed">
+          <ExpandableText text={overall} maxLength={300} renderFormulas />
+        </p>
       )}
 
       {convictionCal && (
@@ -450,7 +493,9 @@ function AttributionFindings({ findings }: { findings: Record<string, any> }) {
               Conviction Calibration
             </span>
           </div>
-          <p className="text-sm text-syn-text-secondary leading-relaxed">{convictionCal}</p>
+          <p className="text-sm text-syn-text-secondary leading-relaxed">
+            <FormulaText text={convictionCal} />
+          </p>
         </div>
       )}
 
@@ -514,7 +559,11 @@ function AttributionFindings({ findings }: { findings: Record<string, any> }) {
               <div key={i} className="flex items-start gap-2.5 bg-red-500/[0.04] border border-red-500/10 rounded-lg px-3 py-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 flex-shrink-0" />
                 <p className="text-sm text-red-400/80 leading-relaxed">
-                  {typeof pattern === 'string' ? pattern : pattern.detail || pattern.label || JSON.stringify(pattern)}
+                  <ExpandableText
+                    text={typeof pattern === 'string' ? pattern : pattern.detail || pattern.label || JSON.stringify(pattern)}
+                    maxLength={250}
+                    renderFormulas
+                  />
                 </p>
               </div>
             ))}
@@ -758,7 +807,9 @@ function WeeklyDigestFindings({ findings }: { findings: Record<string, any> }) {
     <>
       {execSummary && (
         <div className="mt-4 bg-white/[0.02] border-l-2 border-syn-accent/30 pl-4 py-2">
-          <p className="text-sm text-white font-medium leading-relaxed">{execSummary}</p>
+          <p className="text-sm text-white font-medium leading-relaxed">
+            <ExpandableText text={execSummary} maxLength={300} renderFormulas />
+          </p>
         </div>
       )}
 
@@ -768,7 +819,9 @@ function WeeklyDigestFindings({ findings }: { findings: Record<string, any> }) {
             {criticalAlerts.map((alert: string, i: number) => (
               <div key={i} className="flex items-start gap-2.5 bg-red-500/[0.04] border border-red-500/10 rounded-lg px-3 py-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 flex-shrink-0 animate-pulse" />
-                <p className="text-sm text-red-400/80">{alert}</p>
+                <p className="text-sm text-red-400/80">
+                  <ExpandableText text={alert} maxLength={200} renderFormulas />
+                </p>
               </div>
             ))}
           </div>
@@ -794,10 +847,15 @@ function WeeklyDigestFindings({ findings }: { findings: Record<string, any> }) {
                   )}
                 </div>
                 <p className="text-sm text-syn-text-secondary leading-relaxed">
-                  {kf.finding || kf.label || kf.detail}
+                  <ExpandableText text={kf.finding || kf.label || kf.detail || ''} maxLength={250} renderFormulas />
                 </p>
                 {kf.evidence && (
-                  <p className="text-xs text-syn-text-tertiary mt-1 font-mono">{kf.evidence}</p>
+                  <div className="mt-2 bg-black/20 rounded-lg px-3 py-2">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-syn-muted mb-1">Evidence</p>
+                    <p className="text-xs text-syn-text-tertiary leading-relaxed">
+                      <ExpandableText text={kf.evidence} maxLength={180} renderFormulas />
+                    </p>
+                  </div>
                 )}
               </div>
             ))}
@@ -980,7 +1038,7 @@ function FindingsSection({
                   )}
                   {finding.detail && (
                     <p className="text-sm text-syn-text-secondary leading-relaxed">
-                      <ExpandableText text={finding.detail} />
+                      <ExpandableText text={finding.detail} maxLength={250} renderFormulas />
                     </p>
                   )}
                   {!finding.label && !finding.detail && (
@@ -1201,7 +1259,7 @@ function ReportCard({ report }: { report: ResearchReport }) {
       {/* Summary */}
       {report.summary && (
         <p className="text-sm text-syn-text-secondary leading-relaxed">
-          <ExpandableText text={report.summary} maxLength={350} />
+          <ExpandableText text={report.summary} maxLength={300} renderFormulas />
         </p>
       )}
 
