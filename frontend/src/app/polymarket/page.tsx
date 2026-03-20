@@ -174,9 +174,9 @@ export default function PolymarketPage() {
 
       if (statusRes) setStatus(statusRes);
       if (portfolioRes) setPortfolio(portfolioRes);
-      if (marketsRes) setMarkets(Array.isArray(marketsRes) ? marketsRes : []);
+      if (marketsRes) setMarkets(marketsRes?.markets ?? (Array.isArray(marketsRes) ? marketsRes : []));
       if (tradesRes) setTrades(tradesRes);
-      if (oppsRes) setOpportunities(Array.isArray(oppsRes) ? oppsRes : []);
+      if (oppsRes) setOpportunities(oppsRes?.opportunities ?? (Array.isArray(oppsRes) ? oppsRes : []));
 
       setError(null);
     } catch (err) {

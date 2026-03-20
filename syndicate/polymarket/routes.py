@@ -9,10 +9,7 @@ from fastapi import APIRouter
 
 from syndicate.polymarket.oracle import get_oracle
 from syndicate.polymarket.constants import CITY_STATIONS
-from syndicate.polymarket.markets.edge import detect_edges, compute_horizon_hours
-from syndicate.polymarket.forecast.ensemble import blend_ensembles
-from syndicate.polymarket.forecast.probability import compute_bin_probabilities
-from syndicate.polymarket.models import MarketAnalysis
+from syndicate.polymarket.markets.edge import compute_horizon_hours
 
 logger = structlog.get_logger()
 
@@ -110,105 +107,42 @@ async def get_forecast(city: str):
             "station": config.model_dump(),
         }
 
-    # Fetch fresh ensemble forecast
-    try:
-        from syndicate.polymarket.data.open_meteo import fetch_ensemble_forecast
-
-        forecast = await fetch_ensemble_forecast(
-            city=city,
-            lat=config.latitude,
-            lon=config.longitude,
-            unit=config.unit,
-            target_date=market.date,
-        )
-
-        blend = blend_ensembles(forecast)
-        bin_probs = compute_bin_probabilities(forecast, market.bins)
-
-        return {
-            "city": city,
-            "date": market.date,
-            "n_members": len(forecast.members),
-            "mean": round(blend["mean"], 2),
-            "std": round(blend["std"], 2),
-            "agreement": round(blend["agreement"], 3),
-            "model_counts": blend["model_counts"],
-            "model_means": {k: round(v, 2) for k, v in blend["model_means"].items()},
-            "bin_probabilities": [bp.model_dump() for bp in bin_probs],
-        }
-    except Exception as e:
-        logger.error("forecast_endpoint_failed", city=city, error=str(e))
-        return {"city": city, "error": str(e)}
+    # Return market bin data (no live API call — uses cached data from last oracle cycle)
+    return {
+        "city": city,
+        "date": market.date,
+        "bins": [
+            {"label": b.label, "lower": b.lower, "upper": b.upper, "market_price": b.market_price}
+            for b in market.bins
+        ],
+        "total_volume": market.total_volume,
+        "station": config.model_dump(),
+    }
 
 
 @router.get("/opportunities")
 async def get_opportunities():
-    """Current edge opportunities — bins where model_prob > market_price by threshold."""
+    """Current edge opportunities from the last oracle cycle (no live API calls)."""
     oracle = get_oracle()
-    opportunities: list[dict] = []
+    portfolio = oracle.trader.get_portfolio()
 
-    for market in oracle._last_markets:
-        config = CITY_STATIONS.get(market.city)
-        if not config:
-            continue
-
-        horizon = compute_horizon_hours(market.date)
-        if horizon < 0 or horizon > oracle.settings.polymarket_max_horizon_hours:
-            continue
-
-        try:
-            from syndicate.polymarket.data.open_meteo import fetch_ensemble_forecast
-
-            forecast = await fetch_ensemble_forecast(
-                city=market.city,
-                lat=config.latitude,
-                lon=config.longitude,
-                unit=config.unit,
-                target_date=market.date,
-            )
-            if not forecast.members:
-                continue
-
-            bin_probs = compute_bin_probabilities(forecast, market.bins)
-            blend = blend_ensembles(forecast)
-
-            analysis = MarketAnalysis(
-                condition_id=market.condition_id,
-                city=market.city,
-                date=market.date,
-                horizon_hours=horizon,
-                forecast_mean=blend["mean"],
-                forecast_std=blend["std"],
-                bin_probabilities=bin_probs,
-                best_edge=max((bp.edge for bp in bin_probs), default=0),
-                best_edge_bin=(
-                    max(bin_probs, key=lambda bp: bp.edge).bin_index
-                    if bin_probs
-                    else 0
-                ),
-                analyzed_at=datetime.now(timezone.utc),
-            )
-
-            edges = detect_edges(analysis)
-            for e in edges:
-                opportunities.append({
-                    "city": market.city,
-                    "date": market.date,
-                    "condition_id": market.condition_id,
-                    "horizon_hours": round(horizon, 1),
-                    **e.model_dump(),
-                })
-
-        except Exception as exc:
-            logger.error(
-                "opportunities_endpoint_failed",
-                city=market.city,
-                date=market.date,
-                error=str(exc),
-            )
+    # Return open positions as "opportunities" — these are the edges the oracle found
+    open_positions = [p for p in portfolio.positions if not p.resolved]
+    opportunities = [
+        {
+            "city": p.city,
+            "date": p.date,
+            "bin_label": p.bin_label,
+            "model_prob": p.model_prob,
+            "market_price": p.entry_price,
+            "edge": p.edge_at_entry,
+            "quantity": p.quantity,
+        }
+        for p in open_positions
+    ]
 
     return {
-        "opportunities": sorted(opportunities, key=lambda x: x["edge"], reverse=True),
+        "opportunities": sorted(opportunities, key=lambda x: x.get("edge", 0), reverse=True),
         "count": len(opportunities),
     }
 
