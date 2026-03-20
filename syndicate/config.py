@@ -94,6 +94,16 @@ class Settings(BaseSettings):
     # "daily": collect data every 4h, but only execute trades at 00:00 UTC cycle
     decision_mode: str = "every_cycle"
 
+    # ── Polymarket ──
+    polymarket_enabled: bool = False
+    polymarket_paper_trading: bool = True
+    polymarket_private_key: str = ""
+    polymarket_api_key: str = ""
+    polymarket_bankroll: float = 10_000.0
+    polymarket_min_edge: float = 0.08
+    polymarket_max_kelly_fraction: float = 0.25
+    polymarket_scan_interval_seconds: int = 300
+
     # ── Paths ──
     project_root: Path = Field(default_factory=lambda: Path(__file__).parent.parent)
 
@@ -133,6 +143,11 @@ class Settings(BaseSettings):
             return self.performance_history_path
         return str(self.data_dir / "performance_history.json")
 
+    @property
+    def polymarket_data_dir(self) -> Path:
+        d = self.data_dir / "polymarket"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
 
     @field_validator("decision_mode")
     @classmethod

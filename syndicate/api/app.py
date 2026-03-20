@@ -11,6 +11,7 @@ import structlog
 from fastapi import FastAPI
 
 from syndicate.api.routes import agents, backtest, ceo_posts, comms, contributors, cycles, events, leaderboard, moltbook, portfolio, research, signals, teams
+from syndicate.polymarket.routes import router as polymarket_router
 from syndicate.config import settings
 
 logger = structlog.get_logger()
@@ -612,6 +613,18 @@ async def _weekly_research_task(shutdown_event: asyncio.Event):
     print("[RESEARCH] Weekly research task stopped.", flush=True)
 
 
+async def _weather_oracle_loop(shutdown_event: asyncio.Event):
+    """Background task that runs the Weather Oracle for Polymarket weather markets."""
+    from syndicate.config import settings
+    if not settings.polymarket_enabled:
+        print("[ORACLE] Polymarket disabled (POLYMARKET_ENABLED=false)", flush=True)
+        return
+
+    print("[ORACLE] Weather Oracle starting...", flush=True)
+    from syndicate.polymarket.oracle import oracle_loop
+    await oracle_loop(shutdown_event)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan — startup and shutdown."""
@@ -630,6 +643,7 @@ async def lifespan(app: FastAPI):
     blog_task = asyncio.create_task(_weekly_blog_task(shutdown_event))
     daily_research_task = asyncio.create_task(_daily_research_task(shutdown_event))
     weekly_research_task = asyncio.create_task(_weekly_research_task(shutdown_event))
+    oracle_task = asyncio.create_task(_weather_oracle_loop(shutdown_event))
 
     yield
 
@@ -637,7 +651,7 @@ async def lifespan(app: FastAPI):
     shutdown_event.set()
     all_tasks = [
         cycle_task, monitor_task, briefing_task, blog_task,
-        daily_research_task, weekly_research_task,
+        daily_research_task, weekly_research_task, oracle_task,
     ]
     for task in all_tasks:
         task.cancel()
@@ -687,6 +701,7 @@ app.include_router(moltbook.router, prefix="/api/v1")
 app.include_router(comms.router, prefix="/api/v1")
 app.include_router(events.router, prefix="/api/v1")
 app.include_router(leaderboard.router, prefix="/api/v1")
+app.include_router(polymarket_router, prefix="/api/v1")
 
 
 @app.get("/health")

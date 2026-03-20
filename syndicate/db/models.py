@@ -308,3 +308,115 @@ class AgentCommRow(Base):
     content     = Column(Text, nullable=False)      # Main message body
     metadata_   = Column("metadata", JSONB, nullable=False, default=dict)
     created_at  = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+# ── Polymarket Tables ──────────────────────────────────────────────────────
+
+class PmMarketRow(Base):
+    __tablename__ = "pm_markets"
+    __table_args__ = (
+        Index("ix_pm_markets_city", "city"),
+        Index("ix_pm_markets_date", "date"),
+        Index("ix_pm_markets_condition_id", "condition_id"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    condition_id = Column(String, unique=True, nullable=False)
+    event_slug = Column(String, nullable=True)
+    city = Column(String, nullable=False)
+    date = Column(String, nullable=False)
+    unit = Column(String, nullable=False, default="fahrenheit")
+    bins = Column(JSONB, nullable=False, default=list)
+    total_volume = Column(Float, nullable=True, default=0.0)
+    discovered_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+    actual_high = Column(Float, nullable=True)
+    winning_bin = Column(Integer, nullable=True)
+
+
+class PmForecastRow(Base):
+    __tablename__ = "pm_forecasts"
+    __table_args__ = (
+        Index("ix_pm_forecasts_city_date", "city", "target_date"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    city = Column(String, nullable=False)
+    target_date = Column(String, nullable=False)
+    model = Column(String, nullable=False)
+    member_highs = Column(JSONB, nullable=False, default=list)
+    mean = Column(Float, nullable=True)
+    std = Column(Float, nullable=True)
+    fetched_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+class PmAnalysisRow(Base):
+    __tablename__ = "pm_analyses"
+    __table_args__ = (
+        Index("ix_pm_analyses_condition_id", "condition_id"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    condition_id = Column(String, nullable=False)
+    city = Column(String, nullable=False)
+    date = Column(String, nullable=False)
+    horizon_hours = Column(Float, nullable=False)
+    forecast_mean = Column(Float, nullable=True)
+    forecast_std = Column(Float, nullable=True)
+    bin_probabilities = Column(JSONB, nullable=False, default=list)
+    best_edge = Column(Float, nullable=True)
+    best_edge_bin = Column(Integer, nullable=True)
+    analyzed_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+class PmTradeRow(Base):
+    __tablename__ = "pm_trades"
+    __table_args__ = (
+        Index("ix_pm_trades_city", "city"),
+        Index("ix_pm_trades_date", "date"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    condition_id = Column(String, nullable=False)
+    token_id = Column(String, nullable=True)
+    city = Column(String, nullable=False)
+    date = Column(String, nullable=False)
+    bin_label = Column(String, nullable=False)
+    side = Column(String, nullable=False, default="YES")
+    entry_price = Column(Float, nullable=False)
+    quantity = Column(Float, nullable=False)
+    model_prob = Column(Float, nullable=True)
+    edge_at_entry = Column(Float, nullable=True)
+    placed_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+    outcome = Column(Boolean, nullable=True)
+    pnl = Column(Float, nullable=True, default=0.0)
+    is_paper = Column(Boolean, nullable=False, default=True)
+
+
+class PmCalibrationRow(Base):
+    __tablename__ = "pm_calibration"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    city = Column(String, nullable=False)
+    date = Column(String, nullable=False)
+    model = Column(String, nullable=False)
+    forecast_mean = Column(Float, nullable=True)
+    forecast_std = Column(Float, nullable=True)
+    actual_high = Column(Float, nullable=True)
+    error = Column(Float, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+class PmPortfolioSnapshotRow(Base):
+    __tablename__ = "pm_portfolio_snapshots"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    bankroll = Column(Float, nullable=False)
+    cash = Column(Float, nullable=False)
+    open_positions = Column(Integer, nullable=False, default=0)
+    total_pnl = Column(Float, nullable=False, default=0.0)
+    total_bets = Column(Integer, nullable=False, default=0)
+    wins = Column(Integer, nullable=False, default=0)
+    losses = Column(Integer, nullable=False, default=0)
+    snapshot_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))

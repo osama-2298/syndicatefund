@@ -57,6 +57,7 @@ hmmlearn = "^0.3.0"
 scikit-learn = "^1.5.0"
 xgboost = {version = "^2.1.0", optional = true}
 scipy = "^1.14.0"
+py-clob-client = "*"
 
 # Utilities
 structlog = "^24.4.0"

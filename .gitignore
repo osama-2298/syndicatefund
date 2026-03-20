@@ -50,6 +50,7 @@ data/performance_history.json
 data/team_weights.json
 data/moltbook_credentials.json
 data/moltbook_posts.json
+data/polymarket/
 
 # Next.js
 .next/

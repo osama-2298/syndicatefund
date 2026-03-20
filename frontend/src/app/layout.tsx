@@ -18,6 +18,7 @@ const navLinks = [
   { href: '/blog', label: 'Blog' },
   { href: '/results', label: 'Results' },
   { href: '/research', label: 'Research' },
+  { href: '/polymarket', label: 'Polymarket' },
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
