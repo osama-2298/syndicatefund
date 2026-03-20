@@ -161,9 +161,8 @@ async def get_opportunities():
 async def get_calibration():
     """Calibration quality metrics: Brier scores, MAE, reliability."""
     try:
-        from syndicate.polymarket.resolution.calibration import CalibrationTracker
-        cal = CalibrationTracker()
-        return cal.summary()
+        oracle = get_oracle()
+        return oracle._calibration_tracker.summary()
     except Exception as e:
         logger.error("calibration_endpoint_failed", error=str(e))
         return {"error": str(e), "records": 0}
@@ -173,8 +172,8 @@ async def get_calibration():
 async def get_reliability():
     """Reliability diagram data — predicted vs observed frequency."""
     try:
-        from syndicate.polymarket.resolution.calibration import CalibrationTracker
-        cal = CalibrationTracker()
+        oracle = get_oracle()
+        cal = oracle._calibration_tracker
         return {"reliability": cal.reliability(), "total_records": len(cal._records)}
     except Exception as e:
         return {"error": str(e)}
