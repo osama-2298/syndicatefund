@@ -303,11 +303,6 @@ def _parse_event_to_market(event: dict) -> WeatherMarket | None:
     )
 
 
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=2, max=10),
-    reraise=True,
-)
 async def _fetch_events_page(
     client: httpx.AsyncClient,
     offset: int = 0,
@@ -333,33 +328,34 @@ async def _fetch_events_page(
 
 
 async def discover_weather_markets() -> list[WeatherMarket]:
-    """Fetch all active weather/temperature markets from the Gamma API.
+    """Fetch active weather/temperature markets from the Gamma API.
 
-    The Gamma API doesn't reliably filter by tag, so we fetch all active events
-    and filter client-side for temperature markets.
+    Fetches the top events by volume (weather markets are high-volume)
+    and filters client-side for temperature markets.
     """
-    markets: dict[str, WeatherMarket] = {}  # condition_id → market (dedup)
+    markets: dict[str, WeatherMarket] = {}
 
     async with httpx.AsyncClient(timeout=GAMMA_TIMEOUT) as client:
         offset = 0
+        pages_fetched = 0
         empty_pages = 0
-        while offset < 10_000:  # Safety cap
+
+        # Cap at 2000 events (20 pages) — weather markets appear in the first few pages
+        while offset < 2000 and pages_fetched < 20:
             try:
                 events = await _fetch_events_page(client, offset)
-            except Exception:
-                logger.warning("gamma.fetch_failed", offset=offset, exc_info=True)
+                pages_fetched += 1
+            except Exception as exc:
+                logger.warning("gamma.fetch_failed", offset=offset, error=str(exc))
                 break
 
             if not events:
                 break
 
-            # Filter to temperature events only, then parse
             weather_events = [e for e in events if _is_weather_event(e)]
             if not weather_events:
                 empty_pages += 1
-                # Stop after 3 consecutive pages with no weather events
-                # (weather markets are high-volume, so they appear early)
-                if empty_pages >= 3:
+                if empty_pages >= 2:
                     break
             else:
                 empty_pages = 0
@@ -377,6 +373,7 @@ async def discover_weather_markets() -> list[WeatherMarket]:
     logger.info(
         "gamma.discovery_complete",
         markets_found=len(result),
+        pages_fetched=pages_fetched,
         cities=list({m.city for m in result}),
     )
     return result

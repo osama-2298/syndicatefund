@@ -288,6 +288,7 @@ async def oracle_loop(shutdown_event: asyncio.Event) -> None:
 
     while not shutdown_event.is_set():
         try:
+            print("[ORACLE] Starting cycle...", flush=True)
             summary = await oracle.run_cycle()
             print(
                 f"[ORACLE] Cycle: {summary['markets_found']} markets, "
@@ -296,8 +297,13 @@ async def oracle_loop(shutdown_event: asyncio.Event) -> None:
                 f"{summary['positions_resolved']} resolved",
                 flush=True,
             )
+            if summary.get("errors"):
+                for err in summary["errors"][:5]:
+                    print(f"[ORACLE] Error: {err}", flush=True)
         except Exception as e:
-            logger.error("oracle_loop_error", error=str(e))
+            import traceback
+            print(f"[ORACLE] Cycle CRASHED: {e}", flush=True)
+            traceback.print_exc()
 
         # Use dynamic scan interval based on model release timing
         interval = optimal_scan_interval()
