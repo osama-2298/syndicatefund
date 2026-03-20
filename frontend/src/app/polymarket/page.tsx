@@ -609,7 +609,7 @@ export default function PolymarketPage() {
                       borderRadius: '8px',
                       fontSize: '12px',
                     }}
-                    formatter={(value: number) => [`$${value.toFixed(2)}`, 'P&L']}
+                    formatter={(value) => [`$${Number(value ?? 0).toFixed(2)}`, 'P&L']}
                   />
                   <Bar dataKey="pnl" radius={[4, 4, 0, 0]}>
                     {trades.resolved.slice(0, 30).map((t, i) => (
