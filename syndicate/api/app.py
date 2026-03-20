@@ -634,6 +634,15 @@ async def lifespan(app: FastAPI):
     async with _db_engine.begin() as conn:
         await conn.run_sync(_Base.metadata.create_all)
 
+    # Seed comms if DB is empty (so transparency feed is never blank)
+    try:
+        from syndicate.comms.seed import ensure_comms_seeded
+        seeded = await ensure_comms_seeded()
+        if seeded:
+            print("[SEED] Comms seeded successfully", flush=True)
+    except Exception as e:
+        logger.warning("comms_seed_failed", error=str(e))
+
     shutdown_event = asyncio.Event()
 
     # Start background tasks

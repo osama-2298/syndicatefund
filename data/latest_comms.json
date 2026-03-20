@@ -1,0 +1,1469 @@
+[
+  {
+    "comm_type": "ceo_directive",
+    "agent_class": "CEO",
+    "agent_name": "Marcus Blackwell",
+    "team": null,
+    "symbol": null,
+    "direction": "VOLATILE",
+    "conviction": null,
+    "content": "Market regime classified as VOLATILE. Risk multiplier set to 1.15x. Strategic focus: trend-following momentum plays.",
+    "metadata": {
+      "regime": "volatile",
+      "risk_multiplier": 1.15
+    },
+    "created_at": "2026-03-20T07:18:04.874740+00:00"
+  },
+  {
+    "comm_type": "coo_selection",
+    "agent_class": "COO",
+    "agent_name": "Elena Vasquez",
+    "team": null,
+    "symbol": null,
+    "direction": null,
+    "conviction": null,
+    "content": "Selected 5 coins for analysis: LINK, SOL, ETH, ADA, XRP. Selection based on volume surge detection, volatility ranking, and correlation screening. Filtered from 47 candidates.",
+    "metadata": {
+      "selected_coins": [
+        "LINKUSDT",
+        "SOLUSDT",
+        "ETHUSDT",
+        "ADAUSDT",
+        "XRPUSDT"
+      ]
+    },
+    "created_at": "2026-03-20T07:18:24.874740+00:00"
+  },
+  {
+    "comm_type": "cro_rules",
+    "agent_class": "CRO",
+    "agent_name": "Tobias Richter",
+    "team": null,
+    "symbol": null,
+    "direction": null,
+    "conviction": null,
+    "content": "Risk parameters for this cycle: max position size 8% of portfolio, max daily drawdown 3%, max 5 open positions, minimum signal confidence 55%, minimum consensus ratio 55%.",
+    "metadata": {},
+    "created_at": "2026-03-20T07:18:39.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "TechnicalTrendAgent",
+    "agent_name": "Lena Karlsson",
+    "team": "technical",
+    "symbol": "LINKUSDT",
+    "direction": "BULLISH",
+    "conviction": 5,
+    "content": "Daily trend shows bullish momentum with RSI at 58. MACD histogram expanding bullishly. Bollinger Band squeeze suggests breakout imminent. Volume profile supports bullish bias.",
+    "metadata": {
+      "confidence": 0.5,
+      "title": "Trend Analyst (1D)"
+    },
+    "created_at": "2026-03-20T07:18:54.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "TechnicalSignalAgent",
+    "agent_name": "David Osei",
+    "team": "technical",
+    "symbol": "LINKUSDT",
+    "direction": "BEARISH",
+    "conviction": 9,
+    "content": "4H chart forming a bull flag pattern. Price testing major support with bearish divergence on RSI. Ichimoku cloud confirms bearish bias. Key support at $14.",
+    "metadata": {
+      "confidence": 0.9,
+      "title": "Signal Analyst (4H)"
+    },
+    "created_at": "2026-03-20T07:19:01.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "TechnicalTimingAgent",
+    "agent_name": "Mika Tanaka",
+    "team": "technical",
+    "symbol": "LINKUSDT",
+    "direction": "BEARISH",
+    "conviction": 8,
+    "content": "1H timing analysis: bearish entry signal triggered at $15.00. VWAP reclaim confirmed. Order flow showing aggressive sell absorption near $14.",
+    "metadata": {
+      "confidence": 0.8,
+      "title": "Timing Analyst (1H)"
+    },
+    "created_at": "2026-03-20T07:19:05.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "SocialSentimentAgent",
+    "agent_name": "Priya Sharma",
+    "team": "sentiment",
+    "symbol": "LINKUSDT",
+    "direction": "BEARISH",
+    "conviction": 6,
+    "content": "Social sentiment score: 62/100 (negative). Reddit mentions up 10% in 24h. Weighted sentiment strongly bearishly across major crypto communities.",
+    "metadata": {
+      "confidence": 0.6,
+      "title": "Social Sentiment Analyst"
+    },
+    "created_at": "2026-03-20T07:19:11.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "MarketSentimentAgent",
+    "agent_name": "Alexei Volkov",
+    "team": "sentiment",
+    "symbol": "LINKUSDT",
+    "direction": "BULLISH",
+    "conviction": 4,
+    "content": "Market sentiment indicators: Fear & Greed at 74, funding rates neutral (0.005%). Open interest up 4% suggesting bullish positioning by leveraged traders.",
+    "metadata": {
+      "confidence": 0.4,
+      "title": "Market Sentiment Analyst"
+    },
+    "created_at": "2026-03-20T07:19:15.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "SmartMoneySentimentAgent",
+    "agent_name": "Sofia Reyes",
+    "team": "sentiment",
+    "symbol": "LINKUSDT",
+    "direction": "BULLISH",
+    "conviction": 5,
+    "content": "Market sentiment indicators: Fear & Greed at 47, funding rates neutral (0.005%). Open interest down 11% suggesting bullish positioning by leveraged traders.",
+    "metadata": {
+      "confidence": 0.5,
+      "title": "Smart Money Analyst"
+    },
+    "created_at": "2026-03-20T07:19:20.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "ValuationAgent",
+    "agent_name": "Henrik Larsen",
+    "team": "fundamental",
+    "symbol": "LINKUSDT",
+    "direction": "BEARISH",
+    "conviction": 6,
+    "content": "Valuation metrics: NVT ratio at 70.8, suggesting overvalued. Network fees revenue growing 17% WoW. Market cap to realized cap ratio supports bearish thesis.",
+    "metadata": {
+      "confidence": 0.6,
+      "title": "Valuation Analyst"
+    },
+    "created_at": "2026-03-20T07:19:26.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "CyclePositionAgent",
+    "agent_name": "Amara Obi",
+    "team": "fundamental",
+    "symbol": "LINKUSDT",
+    "direction": "BEARISH",
+    "conviction": 2,
+    "content": "Cycle position analysis: current phase maps to mid-cycle expansion of the 4-year cycle. MVRV Z-Score at 2.18 \u2014 historically bearish territory. On-chain age bands confirm accumulation.",
+    "metadata": {
+      "confidence": 0.2,
+      "title": "Cycle Position Analyst"
+    },
+    "created_at": "2026-03-20T07:19:31.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "CryptoMacroAgent",
+    "agent_name": "Lucas Weber",
+    "team": "macro",
+    "symbol": "LINKUSDT",
+    "direction": "BULLISH",
+    "conviction": 6,
+    "content": "Crypto macro outlook: BTC dominance at 61.1%, DeFi TVL down 13%. Stablecoin supply expanding \u2014 fresh capital entering the ecosystem. bullish for alts.",
+    "metadata": {
+      "confidence": 0.6,
+      "title": "Crypto Macro Analyst"
+    },
+    "created_at": "2026-03-20T07:19:37.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "ExternalMacroAgent",
+    "agent_name": "Fatima Al-Rashid",
+    "team": "macro",
+    "symbol": "LINKUSDT",
+    "direction": "BULLISH",
+    "conviction": 7,
+    "content": "External macro: DXY at 105.8, 10Y yield rising. Fed policy stance neutral. Risk-on/risk-off indicator: mixed. Correlation with SPX at 0.76. Net bullish for crypto.",
+    "metadata": {
+      "confidence": 0.7,
+      "title": "External Macro Analyst"
+    },
+    "created_at": "2026-03-20T07:19:41.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "NetworkHealthAgent",
+    "agent_name": "Jin Park",
+    "team": "onchain",
+    "symbol": "LINKUSDT",
+    "direction": "BEARISH",
+    "conviction": 2,
+    "content": "Network health: daily active addresses up 9% WoW. Hash rate at ATH. Transaction count trending bearishly. Network fundamentals strong.",
+    "metadata": {
+      "confidence": 0.2,
+      "title": "Network Health Analyst"
+    },
+    "created_at": "2026-03-20T07:19:44.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "CapitalFlowAgent",
+    "agent_name": "Camille Dubois",
+    "team": "onchain",
+    "symbol": "LINKUSDT",
+    "direction": "BULLISH",
+    "conviction": 2,
+    "content": "Capital flow analysis: exchange reserves increasing by $214M. Staking ratio at 28.5%. Liquidity depth improving across major DEXs. bullish pressure building.",
+    "metadata": {
+      "confidence": 0.2,
+      "title": "Capital Flow Analyst"
+    },
+    "created_at": "2026-03-20T07:19:48.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "TechnicalTrendAgent",
+    "agent_name": "Lena Karlsson",
+    "team": "technical",
+    "symbol": "SOLUSDT",
+    "direction": "BEARISH",
+    "conviction": 6,
+    "content": "Daily trend shows bearish momentum with RSI at 49. MACD histogram expanding bearishly. Bollinger Band squeeze suggests breakout imminent. Volume profile supports bearish bias.",
+    "metadata": {
+      "confidence": 0.6,
+      "title": "Trend Analyst (1D)"
+    },
+    "created_at": "2026-03-20T07:19:51.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "TechnicalSignalAgent",
+    "agent_name": "David Osei",
+    "team": "technical",
+    "symbol": "SOLUSDT",
+    "direction": "BEARISH",
+    "conviction": 8,
+    "content": "1H timing analysis: bearish entry signal triggered at $145.00. VWAP reclaim confirmed. Order flow showing aggressive sell absorption near $139.",
+    "metadata": {
+      "confidence": 0.8,
+      "title": "Signal Analyst (4H)"
+    },
+    "created_at": "2026-03-20T07:19:58.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "TechnicalTimingAgent",
+    "agent_name": "Mika Tanaka",
+    "team": "technical",
+    "symbol": "SOLUSDT",
+    "direction": "BULLISH",
+    "conviction": 6,
+    "content": "4H chart forming a cup and handle pattern. Price testing previous high with bullish divergence on RSI. Ichimoku cloud confirms bullish bias. Key support at $133.",
+    "metadata": {
+      "confidence": 0.6,
+      "title": "Timing Analyst (1H)"
+    },
+    "created_at": "2026-03-20T07:20:05.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "SocialSentimentAgent",
+    "agent_name": "Priya Sharma",
+    "team": "sentiment",
+    "symbol": "SOLUSDT",
+    "direction": "BULLISH",
+    "conviction": 3,
+    "content": "Social sentiment score: 34/100 (positive). Reddit mentions up 44% in 24h. Weighted sentiment strongly bullishly across major crypto communities.",
+    "metadata": {
+      "confidence": 0.3,
+      "title": "Social Sentiment Analyst"
+    },
+    "created_at": "2026-03-20T07:20:11.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "MarketSentimentAgent",
+    "agent_name": "Alexei Volkov",
+    "team": "sentiment",
+    "symbol": "SOLUSDT",
+    "direction": "BEARISH",
+    "conviction": 3,
+    "content": "Smart money flow analysis: whale wallets accumulated $59M in past 48h. Exchange net flow negative \u2014 supply being moved to cold storage. bearish signal.",
+    "metadata": {
+      "confidence": 0.3,
+      "title": "Market Sentiment Analyst"
+    },
+    "created_at": "2026-03-20T07:20:14.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "SmartMoneySentimentAgent",
+    "agent_name": "Sofia Reyes",
+    "team": "sentiment",
+    "symbol": "SOLUSDT",
+    "direction": "BEARISH",
+    "conviction": 8,
+    "content": "Social sentiment score: 55/100 (negative). Reddit mentions up 22% in 24h. Weighted sentiment strongly bearishly across major crypto communities.",
+    "metadata": {
+      "confidence": 0.8,
+      "title": "Smart Money Analyst"
+    },
+    "created_at": "2026-03-20T07:20:21.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "ValuationAgent",
+    "agent_name": "Henrik Larsen",
+    "team": "fundamental",
+    "symbol": "SOLUSDT",
+    "direction": "BULLISH",
+    "conviction": 5,
+    "content": "Valuation metrics: NVT ratio at 112.4, suggesting undervalued. Network fees revenue growing 41% WoW. Market cap to realized cap ratio supports bullish thesis.",
+    "metadata": {
+      "confidence": 0.5,
+      "title": "Valuation Analyst"
+    },
+    "created_at": "2026-03-20T07:20:27.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "CyclePositionAgent",
+    "agent_name": "Amara Obi",
+    "team": "fundamental",
+    "symbol": "SOLUSDT",
+    "direction": "BEARISH",
+    "conviction": 1,
+    "content": "Valuation metrics: NVT ratio at 102.0, suggesting overvalued. Network fees revenue growing 30% WoW. Market cap to realized cap ratio supports bearish thesis.",
+    "metadata": {
+      "confidence": 0.1,
+      "title": "Cycle Position Analyst"
+    },
+    "created_at": "2026-03-20T07:20:32.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "CryptoMacroAgent",
+    "agent_name": "Lucas Weber",
+    "team": "macro",
+    "symbol": "SOLUSDT",
+    "direction": "BEARISH",
+    "conviction": 4,
+    "content": "External macro: DXY at 106.7, 10Y yield falling. Fed policy stance hawkish. Risk-on/risk-off indicator: risk-off. Correlation with SPX at 0.56. Net bearish for crypto.",
+    "metadata": {
+      "confidence": 0.4,
+      "title": "Crypto Macro Analyst"
+    },
+    "created_at": "2026-03-20T07:20:38.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "ExternalMacroAgent",
+    "agent_name": "Fatima Al-Rashid",
+    "team": "macro",
+    "symbol": "SOLUSDT",
+    "direction": "BULLISH",
+    "conviction": 6,
+    "content": "External macro: DXY at 106.5, 10Y yield falling. Fed policy stance dovish. Risk-on/risk-off indicator: mixed. Correlation with SPX at 0.47. Net bullish for crypto.",
+    "metadata": {
+      "confidence": 0.6,
+      "title": "External Macro Analyst"
+    },
+    "created_at": "2026-03-20T07:20:45.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "NetworkHealthAgent",
+    "agent_name": "Jin Park",
+    "team": "onchain",
+    "symbol": "SOLUSDT",
+    "direction": "BEARISH",
+    "conviction": 7,
+    "content": "Network health: daily active addresses down 13% WoW. Hash rate at ATH. Transaction count trending bearishly. Network fundamentals strong.",
+    "metadata": {
+      "confidence": 0.7,
+      "title": "Network Health Analyst"
+    },
+    "created_at": "2026-03-20T07:20:51.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "CapitalFlowAgent",
+    "agent_name": "Camille Dubois",
+    "team": "onchain",
+    "symbol": "SOLUSDT",
+    "direction": "BEARISH",
+    "conviction": 4,
+    "content": "Capital flow analysis: exchange reserves increasing by $285M. Staking ratio at 15.9%. Liquidity depth improving across major DEXs. bearish pressure building.",
+    "metadata": {
+      "confidence": 0.4,
+      "title": "Capital Flow Analyst"
+    },
+    "created_at": "2026-03-20T07:20:55.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "TechnicalTrendAgent",
+    "agent_name": "Lena Karlsson",
+    "team": "technical",
+    "symbol": "ETHUSDT",
+    "direction": "BULLISH",
+    "conviction": 6,
+    "content": "1H timing analysis: bullish entry signal triggered at $3,200.00. VWAP reclaim confirmed. Order flow showing aggressive buy absorption near $2,998.",
+    "metadata": {
+      "confidence": 0.6,
+      "title": "Trend Analyst (1D)"
+    },
+    "created_at": "2026-03-20T07:20:58.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "TechnicalSignalAgent",
+    "agent_name": "David Osei",
+    "team": "technical",
+    "symbol": "ETHUSDT",
+    "direction": "BULLISH",
+    "conviction": 6,
+    "content": "Daily trend shows bullish momentum with RSI at 46. MACD histogram expanding bullishly. Bollinger Band squeeze suggests breakout imminent. Volume profile supports bullish bias.",
+    "metadata": {
+      "confidence": 0.6,
+      "title": "Signal Analyst (4H)"
+    },
+    "created_at": "2026-03-20T07:21:06.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "TechnicalTimingAgent",
+    "agent_name": "Mika Tanaka",
+    "team": "technical",
+    "symbol": "ETHUSDT",
+    "direction": "BULLISH",
+    "conviction": 5,
+    "content": "4H chart forming a descending channel pattern. Price testing key resistance with bullish divergence on RSI. Ichimoku cloud confirms bullish bias. Key support at $3,025.",
+    "metadata": {
+      "confidence": 0.5,
+      "title": "Timing Analyst (1H)"
+    },
+    "created_at": "2026-03-20T07:21:11.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "SocialSentimentAgent",
+    "agent_name": "Priya Sharma",
+    "team": "sentiment",
+    "symbol": "ETHUSDT",
+    "direction": "BULLISH",
+    "conviction": 5,
+    "content": "Smart money flow analysis: whale wallets accumulated $22M in past 48h. Exchange net flow negative \u2014 supply being moved to cold storage. bullish signal.",
+    "metadata": {
+      "confidence": 0.5,
+      "title": "Social Sentiment Analyst"
+    },
+    "created_at": "2026-03-20T07:21:18.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "MarketSentimentAgent",
+    "agent_name": "Alexei Volkov",
+    "team": "sentiment",
+    "symbol": "ETHUSDT",
+    "direction": "BEARISH",
+    "conviction": 7,
+    "content": "Market sentiment indicators: Fear & Greed at 62, funding rates positive (0.01%). Open interest down 21% suggesting bearish positioning by leveraged traders.",
+    "metadata": {
+      "confidence": 0.7,
+      "title": "Market Sentiment Analyst"
+    },
+    "created_at": "2026-03-20T07:21:22.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "SmartMoneySentimentAgent",
+    "agent_name": "Sofia Reyes",
+    "team": "sentiment",
+    "symbol": "ETHUSDT",
+    "direction": "BEARISH",
+    "conviction": 1,
+    "content": "Market sentiment indicators: Fear & Greed at 51, funding rates positive (0.01%). Open interest up 18% suggesting bearish positioning by leveraged traders.",
+    "metadata": {
+      "confidence": 0.1,
+      "title": "Smart Money Analyst"
+    },
+    "created_at": "2026-03-20T07:21:29.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "ValuationAgent",
+    "agent_name": "Henrik Larsen",
+    "team": "fundamental",
+    "symbol": "ETHUSDT",
+    "direction": "BEARISH",
+    "conviction": 2,
+    "content": "Valuation metrics: NVT ratio at 91.9, suggesting overvalued. Network fees revenue growing 41% WoW. Market cap to realized cap ratio supports bearish thesis.",
+    "metadata": {
+      "confidence": 0.2,
+      "title": "Valuation Analyst"
+    },
+    "created_at": "2026-03-20T07:21:37.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "CyclePositionAgent",
+    "agent_name": "Amara Obi",
+    "team": "fundamental",
+    "symbol": "ETHUSDT",
+    "direction": "BULLISH",
+    "conviction": 8,
+    "content": "Cycle position analysis: current phase maps to recovery of the 4-year cycle. MVRV Z-Score at 3.11 \u2014 historically bullish territory. On-chain age bands confirm accumulation.",
+    "metadata": {
+      "confidence": 0.8,
+      "title": "Cycle Position Analyst"
+    },
+    "created_at": "2026-03-20T07:21:43.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "CryptoMacroAgent",
+    "agent_name": "Lucas Weber",
+    "team": "macro",
+    "symbol": "ETHUSDT",
+    "direction": "BULLISH",
+    "conviction": 6,
+    "content": "Crypto macro outlook: BTC dominance at 59.6%, DeFi TVL down 11%. Stablecoin supply expanding \u2014 fresh capital entering the ecosystem. bullish for alts.",
+    "metadata": {
+      "confidence": 0.6,
+      "title": "Crypto Macro Analyst"
+    },
+    "created_at": "2026-03-20T07:21:47.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "ExternalMacroAgent",
+    "agent_name": "Fatima Al-Rashid",
+    "team": "macro",
+    "symbol": "ETHUSDT",
+    "direction": "BULLISH",
+    "conviction": 3,
+    "content": "External macro: DXY at 102.9, 10Y yield stable. Fed policy stance dovish. Risk-on/risk-off indicator: risk-on. Correlation with SPX at 0.55. Net bullish for crypto.",
+    "metadata": {
+      "confidence": 0.3,
+      "title": "External Macro Analyst"
+    },
+    "created_at": "2026-03-20T07:21:54.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "NetworkHealthAgent",
+    "agent_name": "Jin Park",
+    "team": "onchain",
+    "symbol": "ETHUSDT",
+    "direction": "BULLISH",
+    "conviction": 4,
+    "content": "Capital flow analysis: exchange reserves increasing by $466M. Staking ratio at 39.7%. Liquidity depth improving across major DEXs. bullish pressure building.",
+    "metadata": {
+      "confidence": 0.4,
+      "title": "Network Health Analyst"
+    },
+    "created_at": "2026-03-20T07:21:58.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "CapitalFlowAgent",
+    "agent_name": "Camille Dubois",
+    "team": "onchain",
+    "symbol": "ETHUSDT",
+    "direction": "BEARISH",
+    "conviction": 4,
+    "content": "Network health: daily active addresses up 12% WoW. Hash rate at ATH. Transaction count trending bearishly. Network fundamentals strong.",
+    "metadata": {
+      "confidence": 0.4,
+      "title": "Capital Flow Analyst"
+    },
+    "created_at": "2026-03-20T07:22:04.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "TechnicalTrendAgent",
+    "agent_name": "Lena Karlsson",
+    "team": "technical",
+    "symbol": "ADAUSDT",
+    "direction": "BULLISH",
+    "conviction": 7,
+    "content": "Daily trend shows bullish momentum with RSI at 39. MACD histogram expanding bullishly. Bollinger Band squeeze suggests breakout imminent. Volume profile supports bullish bias.",
+    "metadata": {
+      "confidence": 0.7,
+      "title": "Trend Analyst (1D)"
+    },
+    "created_at": "2026-03-20T07:22:10.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "TechnicalSignalAgent",
+    "agent_name": "David Osei",
+    "team": "technical",
+    "symbol": "ADAUSDT",
+    "direction": "BEARISH",
+    "conviction": 6,
+    "content": "Daily trend shows bearish momentum with RSI at 72. MACD histogram expanding bearishly. Bollinger Band squeeze suggests breakout imminent. Volume profile supports bearish bias.",
+    "metadata": {
+      "confidence": 0.6,
+      "title": "Signal Analyst (4H)"
+    },
+    "created_at": "2026-03-20T07:22:17.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "TechnicalTimingAgent",
+    "agent_name": "Mika Tanaka",
+    "team": "technical",
+    "symbol": "ADAUSDT",
+    "direction": "BULLISH",
+    "conviction": 5,
+    "content": "Daily trend shows bullish momentum with RSI at 32. MACD histogram expanding bullishly. Bollinger Band squeeze suggests breakout imminent. Volume profile supports bullish bias.",
+    "metadata": {
+      "confidence": 0.5,
+      "title": "Timing Analyst (1H)"
+    },
+    "created_at": "2026-03-20T07:22:24.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "SocialSentimentAgent",
+    "agent_name": "Priya Sharma",
+    "team": "sentiment",
+    "symbol": "ADAUSDT",
+    "direction": "BULLISH",
+    "conviction": 5,
+    "content": "Market sentiment indicators: Fear & Greed at 57, funding rates elevated (0.03%). Open interest down 19% suggesting bullish positioning by leveraged traders.",
+    "metadata": {
+      "confidence": 0.5,
+      "title": "Social Sentiment Analyst"
+    },
+    "created_at": "2026-03-20T07:22:31.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "MarketSentimentAgent",
+    "agent_name": "Alexei Volkov",
+    "team": "sentiment",
+    "symbol": "ADAUSDT",
+    "direction": "BEARISH",
+    "conviction": 6,
+    "content": "Market sentiment indicators: Fear & Greed at 47, funding rates positive (0.01%). Open interest down 16% suggesting bearish positioning by leveraged traders.",
+    "metadata": {
+      "confidence": 0.6,
+      "title": "Market Sentiment Analyst"
+    },
+    "created_at": "2026-03-20T07:22:39.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "SmartMoneySentimentAgent",
+    "agent_name": "Sofia Reyes",
+    "team": "sentiment",
+    "symbol": "ADAUSDT",
+    "direction": "BULLISH",
+    "conviction": 6,
+    "content": "Market sentiment indicators: Fear & Greed at 31, funding rates neutral (0.005%). Open interest up 18% suggesting bullish positioning by leveraged traders.",
+    "metadata": {
+      "confidence": 0.6,
+      "title": "Smart Money Analyst"
+    },
+    "created_at": "2026-03-20T07:22:47.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "ValuationAgent",
+    "agent_name": "Henrik Larsen",
+    "team": "fundamental",
+    "symbol": "ADAUSDT",
+    "direction": "BEARISH",
+    "conviction": 3,
+    "content": "Cycle position analysis: current phase maps to recovery of the 4-year cycle. MVRV Z-Score at 3.11 \u2014 historically bearish territory. On-chain age bands confirm accumulation.",
+    "metadata": {
+      "confidence": 0.3,
+      "title": "Valuation Analyst"
+    },
+    "created_at": "2026-03-20T07:22:53.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "CyclePositionAgent",
+    "agent_name": "Amara Obi",
+    "team": "fundamental",
+    "symbol": "ADAUSDT",
+    "direction": "BEARISH",
+    "conviction": 5,
+    "content": "Cycle position analysis: current phase maps to mid-cycle expansion of the 4-year cycle. MVRV Z-Score at 2.12 \u2014 historically bearish territory. On-chain age bands confirm accumulation.",
+    "metadata": {
+      "confidence": 0.5,
+      "title": "Cycle Position Analyst"
+    },
+    "created_at": "2026-03-20T07:22:57.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "CryptoMacroAgent",
+    "agent_name": "Lucas Weber",
+    "team": "macro",
+    "symbol": "ADAUSDT",
+    "direction": "BULLISH",
+    "conviction": 9,
+    "content": "Crypto macro outlook: BTC dominance at 49.2%, DeFi TVL up 3%. Stablecoin supply expanding \u2014 fresh capital entering the ecosystem. bullish for alts.",
+    "metadata": {
+      "confidence": 0.9,
+      "title": "Crypto Macro Analyst"
+    },
+    "created_at": "2026-03-20T07:23:00.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "ExternalMacroAgent",
+    "agent_name": "Fatima Al-Rashid",
+    "team": "macro",
+    "symbol": "ADAUSDT",
+    "direction": "BULLISH",
+    "conviction": 2,
+    "content": "Crypto macro outlook: BTC dominance at 60.4%, DeFi TVL up 9%. Stablecoin supply expanding \u2014 fresh capital entering the ecosystem. bullish for alts.",
+    "metadata": {
+      "confidence": 0.2,
+      "title": "External Macro Analyst"
+    },
+    "created_at": "2026-03-20T07:23:07.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "NetworkHealthAgent",
+    "agent_name": "Jin Park",
+    "team": "onchain",
+    "symbol": "ADAUSDT",
+    "direction": "BULLISH",
+    "conviction": 6,
+    "content": "Capital flow analysis: exchange reserves declining by $200M. Staking ratio at 38.8%. Liquidity depth improving across major DEXs. bullish pressure building.",
+    "metadata": {
+      "confidence": 0.6,
+      "title": "Network Health Analyst"
+    },
+    "created_at": "2026-03-20T07:23:10.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "CapitalFlowAgent",
+    "agent_name": "Camille Dubois",
+    "team": "onchain",
+    "symbol": "ADAUSDT",
+    "direction": "BULLISH",
+    "conviction": 7,
+    "content": "Network health: daily active addresses up 8% WoW. Hash rate at ATH. Transaction count trending bullishly. Network fundamentals strong.",
+    "metadata": {
+      "confidence": 0.7,
+      "title": "Capital Flow Analyst"
+    },
+    "created_at": "2026-03-20T07:23:16.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "TechnicalTrendAgent",
+    "agent_name": "Lena Karlsson",
+    "team": "technical",
+    "symbol": "XRPUSDT",
+    "direction": "BEARISH",
+    "conviction": 6,
+    "content": "1H timing analysis: bearish entry signal triggered at $0.62. VWAP reclaim confirmed. Order flow showing aggressive sell absorption near $1.",
+    "metadata": {
+      "confidence": 0.6,
+      "title": "Trend Analyst (1D)"
+    },
+    "created_at": "2026-03-20T07:23:20.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "TechnicalSignalAgent",
+    "agent_name": "David Osei",
+    "team": "technical",
+    "symbol": "XRPUSDT",
+    "direction": "BULLISH",
+    "conviction": 5,
+    "content": "Daily trend shows bullish momentum with RSI at 73. MACD histogram expanding bullishly. Bollinger Band squeeze suggests breakout imminent. Volume profile supports bullish bias.",
+    "metadata": {
+      "confidence": 0.5,
+      "title": "Signal Analyst (4H)"
+    },
+    "created_at": "2026-03-20T07:23:23.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "TechnicalTimingAgent",
+    "agent_name": "Mika Tanaka",
+    "team": "technical",
+    "symbol": "XRPUSDT",
+    "direction": "BULLISH",
+    "conviction": 2,
+    "content": "4H chart forming a falling wedge pattern. Price testing major support with bullish divergence on RSI. Ichimoku cloud confirms bullish bias. Key support at $1.",
+    "metadata": {
+      "confidence": 0.2,
+      "title": "Timing Analyst (1H)"
+    },
+    "created_at": "2026-03-20T07:23:31.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "SocialSentimentAgent",
+    "agent_name": "Priya Sharma",
+    "team": "sentiment",
+    "symbol": "XRPUSDT",
+    "direction": "BEARISH",
+    "conviction": 9,
+    "content": "Market sentiment indicators: Fear & Greed at 49, funding rates elevated (0.03%). Open interest down 5% suggesting bearish positioning by leveraged traders.",
+    "metadata": {
+      "confidence": 0.9,
+      "title": "Social Sentiment Analyst"
+    },
+    "created_at": "2026-03-20T07:23:35.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "MarketSentimentAgent",
+    "agent_name": "Alexei Volkov",
+    "team": "sentiment",
+    "symbol": "XRPUSDT",
+    "direction": "BULLISH",
+    "conviction": 5,
+    "content": "Smart money flow analysis: whale wallets accumulated $63M in past 48h. Exchange net flow negative \u2014 supply being moved to cold storage. bullish signal.",
+    "metadata": {
+      "confidence": 0.5,
+      "title": "Market Sentiment Analyst"
+    },
+    "created_at": "2026-03-20T07:23:38.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "SmartMoneySentimentAgent",
+    "agent_name": "Sofia Reyes",
+    "team": "sentiment",
+    "symbol": "XRPUSDT",
+    "direction": "BEARISH",
+    "conviction": 6,
+    "content": "Smart money flow analysis: whale wallets accumulated $14M in past 48h. Exchange net flow negative \u2014 supply being moved to cold storage. bearish signal.",
+    "metadata": {
+      "confidence": 0.6,
+      "title": "Smart Money Analyst"
+    },
+    "created_at": "2026-03-20T07:23:41.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "ValuationAgent",
+    "agent_name": "Henrik Larsen",
+    "team": "fundamental",
+    "symbol": "XRPUSDT",
+    "direction": "BEARISH",
+    "conviction": 4,
+    "content": "Valuation metrics: NVT ratio at 45.7, suggesting overvalued. Network fees revenue growing 34% WoW. Market cap to realized cap ratio supports bearish thesis.",
+    "metadata": {
+      "confidence": 0.4,
+      "title": "Valuation Analyst"
+    },
+    "created_at": "2026-03-20T07:23:49.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "CyclePositionAgent",
+    "agent_name": "Amara Obi",
+    "team": "fundamental",
+    "symbol": "XRPUSDT",
+    "direction": "BULLISH",
+    "conviction": 6,
+    "content": "Cycle position analysis: current phase maps to mid-cycle expansion of the 4-year cycle. MVRV Z-Score at 3.49 \u2014 historically bullish territory. On-chain age bands confirm accumulation.",
+    "metadata": {
+      "confidence": 0.6,
+      "title": "Cycle Position Analyst"
+    },
+    "created_at": "2026-03-20T07:23:56.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "CryptoMacroAgent",
+    "agent_name": "Lucas Weber",
+    "team": "macro",
+    "symbol": "XRPUSDT",
+    "direction": "BEARISH",
+    "conviction": 3,
+    "content": "External macro: DXY at 102.6, 10Y yield rising. Fed policy stance hawkish. Risk-on/risk-off indicator: mixed. Correlation with SPX at 0.49. Net bearish for crypto.",
+    "metadata": {
+      "confidence": 0.3,
+      "title": "Crypto Macro Analyst"
+    },
+    "created_at": "2026-03-20T07:24:02.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "ExternalMacroAgent",
+    "agent_name": "Fatima Al-Rashid",
+    "team": "macro",
+    "symbol": "XRPUSDT",
+    "direction": "BULLISH",
+    "conviction": 1,
+    "content": "External macro: DXY at 104.9, 10Y yield falling. Fed policy stance dovish. Risk-on/risk-off indicator: mixed. Correlation with SPX at 0.63. Net bullish for crypto.",
+    "metadata": {
+      "confidence": 0.1,
+      "title": "External Macro Analyst"
+    },
+    "created_at": "2026-03-20T07:24:10.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "NetworkHealthAgent",
+    "agent_name": "Jin Park",
+    "team": "onchain",
+    "symbol": "XRPUSDT",
+    "direction": "BULLISH",
+    "conviction": 9,
+    "content": "Capital flow analysis: exchange reserves declining by $438M. Staking ratio at 47.7%. Liquidity depth improving across major DEXs. bullish pressure building.",
+    "metadata": {
+      "confidence": 0.9,
+      "title": "Network Health Analyst"
+    },
+    "created_at": "2026-03-20T07:24:13.874740+00:00"
+  },
+  {
+    "comm_type": "agent_signal",
+    "agent_class": "CapitalFlowAgent",
+    "agent_name": "Camille Dubois",
+    "team": "onchain",
+    "symbol": "XRPUSDT",
+    "direction": "BULLISH",
+    "conviction": 5,
+    "content": "Capital flow analysis: exchange reserves declining by $162M. Staking ratio at 54.5%. Liquidity depth improving across major DEXs. bullish pressure building.",
+    "metadata": {
+      "confidence": 0.5,
+      "title": "Capital Flow Analyst"
+    },
+    "created_at": "2026-03-20T07:24:20.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_technical",
+    "agent_name": "Oscar Brennan",
+    "team": "technical",
+    "symbol": "LINKUSDT",
+    "direction": "BULLISH",
+    "conviction": 3,
+    "content": "Team synthesis for LINK: BULLISH with 3/10 conviction. Mixed signals from the team \u2014 went with the majority. Key driver: strong momentum confirmation.",
+    "metadata": {
+      "confidence": 0.3,
+      "title": "Technical Team Manager"
+    },
+    "created_at": "2026-03-20T07:24:24.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_sentiment",
+    "agent_name": "Yara Haddad",
+    "team": "sentiment",
+    "symbol": "LINKUSDT",
+    "direction": "BEARISH",
+    "conviction": 2,
+    "content": "Team synthesis for LINK: BEARISH with 2/10 conviction. Mixed signals from the team \u2014 went with the majority. Key driver: deteriorating technicals and risk-off flow.",
+    "metadata": {
+      "confidence": 0.2,
+      "title": "Sentiment Team Manager"
+    },
+    "created_at": "2026-03-20T07:24:29.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_fundamental",
+    "agent_name": "Isaac Thornton",
+    "team": "fundamental",
+    "symbol": "LINKUSDT",
+    "direction": "BEARISH",
+    "conviction": 8,
+    "content": "Team synthesis for LINK: BEARISH with 8/10 conviction. All analysts aligned. Key driver: deteriorating technicals and risk-off flow.",
+    "metadata": {
+      "confidence": 0.8,
+      "title": "Fundamental Team Manager"
+    },
+    "created_at": "2026-03-20T07:24:34.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_macro",
+    "agent_name": "Zara Kimathi",
+    "team": "macro",
+    "symbol": "LINKUSDT",
+    "direction": "BULLISH",
+    "conviction": 8,
+    "content": "Team synthesis for LINK: BULLISH with 8/10 conviction. All analysts aligned. Key driver: strong momentum confirmation.",
+    "metadata": {
+      "confidence": 0.8,
+      "title": "Macro Team Manager"
+    },
+    "created_at": "2026-03-20T07:24:39.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_onchain",
+    "agent_name": "Nikolai Petrov",
+    "team": "onchain",
+    "symbol": "LINKUSDT",
+    "direction": "BULLISH",
+    "conviction": 4,
+    "content": "Team synthesis for LINK: BULLISH with 4/10 conviction. Mixed signals from the team \u2014 went with the majority. Key driver: strong momentum confirmation.",
+    "metadata": {
+      "confidence": 0.4,
+      "title": "On-Chain Team Manager"
+    },
+    "created_at": "2026-03-20T07:24:44.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_technical",
+    "agent_name": "Oscar Brennan",
+    "team": "technical",
+    "symbol": "SOLUSDT",
+    "direction": "BULLISH",
+    "conviction": 4,
+    "content": "Team synthesis for SOL: BULLISH with 4/10 conviction. Mixed signals from the team \u2014 went with the majority. Key driver: strong momentum confirmation.",
+    "metadata": {
+      "confidence": 0.4,
+      "title": "Technical Team Manager"
+    },
+    "created_at": "2026-03-20T07:24:49.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_sentiment",
+    "agent_name": "Yara Haddad",
+    "team": "sentiment",
+    "symbol": "SOLUSDT",
+    "direction": "BEARISH",
+    "conviction": 10,
+    "content": "Team synthesis for SOL: BEARISH with 10/10 conviction. All analysts aligned. Key driver: deteriorating technicals and risk-off flow.",
+    "metadata": {
+      "confidence": 1.0,
+      "title": "Sentiment Team Manager"
+    },
+    "created_at": "2026-03-20T07:24:54.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_fundamental",
+    "agent_name": "Isaac Thornton",
+    "team": "fundamental",
+    "symbol": "SOLUSDT",
+    "direction": "BEARISH",
+    "conviction": 5,
+    "content": "Team synthesis for SOL: BEARISH with 5/10 conviction. Mixed signals from the team \u2014 went with the majority. Key driver: deteriorating technicals and risk-off flow.",
+    "metadata": {
+      "confidence": 0.5,
+      "title": "Fundamental Team Manager"
+    },
+    "created_at": "2026-03-20T07:24:59.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_macro",
+    "agent_name": "Zara Kimathi",
+    "team": "macro",
+    "symbol": "SOLUSDT",
+    "direction": "BEARISH",
+    "conviction": 3,
+    "content": "Team synthesis for SOL: BEARISH with 3/10 conviction. Mixed signals from the team \u2014 went with the majority. Key driver: deteriorating technicals and risk-off flow.",
+    "metadata": {
+      "confidence": 0.3,
+      "title": "Macro Team Manager"
+    },
+    "created_at": "2026-03-20T07:25:04.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_onchain",
+    "agent_name": "Nikolai Petrov",
+    "team": "onchain",
+    "symbol": "SOLUSDT",
+    "direction": "BEARISH",
+    "conviction": 5,
+    "content": "Team synthesis for SOL: BEARISH with 5/10 conviction. Mixed signals from the team \u2014 went with the majority. Key driver: deteriorating technicals and risk-off flow.",
+    "metadata": {
+      "confidence": 0.5,
+      "title": "On-Chain Team Manager"
+    },
+    "created_at": "2026-03-20T07:25:09.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_technical",
+    "agent_name": "Oscar Brennan",
+    "team": "technical",
+    "symbol": "ETHUSDT",
+    "direction": "BULLISH",
+    "conviction": 5,
+    "content": "Team synthesis for ETH: BULLISH with 5/10 conviction. Mixed signals from the team \u2014 went with the majority. Key driver: strong momentum confirmation.",
+    "metadata": {
+      "confidence": 0.5,
+      "title": "Technical Team Manager"
+    },
+    "created_at": "2026-03-20T07:25:14.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_sentiment",
+    "agent_name": "Yara Haddad",
+    "team": "sentiment",
+    "symbol": "ETHUSDT",
+    "direction": "BEARISH",
+    "conviction": 6,
+    "content": "Team synthesis for ETH: BEARISH with 6/10 conviction. Mixed signals from the team \u2014 went with the majority. Key driver: deteriorating technicals and risk-off flow.",
+    "metadata": {
+      "confidence": 0.6,
+      "title": "Sentiment Team Manager"
+    },
+    "created_at": "2026-03-20T07:25:19.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_fundamental",
+    "agent_name": "Isaac Thornton",
+    "team": "fundamental",
+    "symbol": "ETHUSDT",
+    "direction": "BULLISH",
+    "conviction": 8,
+    "content": "Team synthesis for ETH: BULLISH with 8/10 conviction. All analysts aligned. Key driver: strong momentum confirmation.",
+    "metadata": {
+      "confidence": 0.8,
+      "title": "Fundamental Team Manager"
+    },
+    "created_at": "2026-03-20T07:25:24.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_macro",
+    "agent_name": "Zara Kimathi",
+    "team": "macro",
+    "symbol": "ETHUSDT",
+    "direction": "BEARISH",
+    "conviction": 10,
+    "content": "Team synthesis for ETH: BEARISH with 10/10 conviction. All analysts aligned. Key driver: deteriorating technicals and risk-off flow.",
+    "metadata": {
+      "confidence": 1.0,
+      "title": "Macro Team Manager"
+    },
+    "created_at": "2026-03-20T07:25:29.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_onchain",
+    "agent_name": "Nikolai Petrov",
+    "team": "onchain",
+    "symbol": "ETHUSDT",
+    "direction": "BULLISH",
+    "conviction": 10,
+    "content": "Team synthesis for ETH: BULLISH with 10/10 conviction. All analysts aligned. Key driver: strong momentum confirmation.",
+    "metadata": {
+      "confidence": 1.0,
+      "title": "On-Chain Team Manager"
+    },
+    "created_at": "2026-03-20T07:25:34.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_technical",
+    "agent_name": "Oscar Brennan",
+    "team": "technical",
+    "symbol": "ADAUSDT",
+    "direction": "BULLISH",
+    "conviction": 5,
+    "content": "Team synthesis for ADA: BULLISH with 5/10 conviction. Mixed signals from the team \u2014 went with the majority. Key driver: strong momentum confirmation.",
+    "metadata": {
+      "confidence": 0.5,
+      "title": "Technical Team Manager"
+    },
+    "created_at": "2026-03-20T07:25:39.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_sentiment",
+    "agent_name": "Yara Haddad",
+    "team": "sentiment",
+    "symbol": "ADAUSDT",
+    "direction": "BULLISH",
+    "conviction": 8,
+    "content": "Team synthesis for ADA: BULLISH with 8/10 conviction. All analysts aligned. Key driver: strong momentum confirmation.",
+    "metadata": {
+      "confidence": 0.8,
+      "title": "Sentiment Team Manager"
+    },
+    "created_at": "2026-03-20T07:25:44.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_fundamental",
+    "agent_name": "Isaac Thornton",
+    "team": "fundamental",
+    "symbol": "ADAUSDT",
+    "direction": "BULLISH",
+    "conviction": 5,
+    "content": "Team synthesis for ADA: BULLISH with 5/10 conviction. Mixed signals from the team \u2014 went with the majority. Key driver: strong momentum confirmation.",
+    "metadata": {
+      "confidence": 0.5,
+      "title": "Fundamental Team Manager"
+    },
+    "created_at": "2026-03-20T07:25:49.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_macro",
+    "agent_name": "Zara Kimathi",
+    "team": "macro",
+    "symbol": "ADAUSDT",
+    "direction": "BULLISH",
+    "conviction": 1,
+    "content": "Team synthesis for ADA: BULLISH with 1/10 conviction. Mixed signals from the team \u2014 went with the majority. Key driver: strong momentum confirmation.",
+    "metadata": {
+      "confidence": 0.1,
+      "title": "Macro Team Manager"
+    },
+    "created_at": "2026-03-20T07:25:54.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_onchain",
+    "agent_name": "Nikolai Petrov",
+    "team": "onchain",
+    "symbol": "ADAUSDT",
+    "direction": "BEARISH",
+    "conviction": 8,
+    "content": "Team synthesis for ADA: BEARISH with 8/10 conviction. All analysts aligned. Key driver: deteriorating technicals and risk-off flow.",
+    "metadata": {
+      "confidence": 0.8,
+      "title": "On-Chain Team Manager"
+    },
+    "created_at": "2026-03-20T07:25:59.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_technical",
+    "agent_name": "Oscar Brennan",
+    "team": "technical",
+    "symbol": "XRPUSDT",
+    "direction": "BULLISH",
+    "conviction": 8,
+    "content": "Team synthesis for XRP: BULLISH with 8/10 conviction. All analysts aligned. Key driver: strong momentum confirmation.",
+    "metadata": {
+      "confidence": 0.8,
+      "title": "Technical Team Manager"
+    },
+    "created_at": "2026-03-20T07:26:04.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_sentiment",
+    "agent_name": "Yara Haddad",
+    "team": "sentiment",
+    "symbol": "XRPUSDT",
+    "direction": "BULLISH",
+    "conviction": 6,
+    "content": "Team synthesis for XRP: BULLISH with 6/10 conviction. Mixed signals from the team \u2014 went with the majority. Key driver: strong momentum confirmation.",
+    "metadata": {
+      "confidence": 0.6,
+      "title": "Sentiment Team Manager"
+    },
+    "created_at": "2026-03-20T07:26:09.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_fundamental",
+    "agent_name": "Isaac Thornton",
+    "team": "fundamental",
+    "symbol": "XRPUSDT",
+    "direction": "BEARISH",
+    "conviction": 5,
+    "content": "Team synthesis for XRP: BEARISH with 5/10 conviction. Mixed signals from the team \u2014 went with the majority. Key driver: deteriorating technicals and risk-off flow.",
+    "metadata": {
+      "confidence": 0.5,
+      "title": "Fundamental Team Manager"
+    },
+    "created_at": "2026-03-20T07:26:14.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_macro",
+    "agent_name": "Zara Kimathi",
+    "team": "macro",
+    "symbol": "XRPUSDT",
+    "direction": "BEARISH",
+    "conviction": 2,
+    "content": "Team synthesis for XRP: BEARISH with 2/10 conviction. Mixed signals from the team \u2014 went with the majority. Key driver: deteriorating technicals and risk-off flow.",
+    "metadata": {
+      "confidence": 0.2,
+      "title": "Macro Team Manager"
+    },
+    "created_at": "2026-03-20T07:26:19.874740+00:00"
+  },
+  {
+    "comm_type": "manager_synthesis",
+    "agent_class": "manager_onchain",
+    "agent_name": "Nikolai Petrov",
+    "team": "onchain",
+    "symbol": "XRPUSDT",
+    "direction": "BULLISH",
+    "conviction": 5,
+    "content": "Team synthesis for XRP: BULLISH with 5/10 conviction. Mixed signals from the team \u2014 went with the majority. Key driver: strong momentum confirmation.",
+    "metadata": {
+      "confidence": 0.5,
+      "title": "On-Chain Team Manager"
+    },
+    "created_at": "2026-03-20T07:26:24.874740+00:00"
+  },
+  {
+    "comm_type": "aggregation",
+    "agent_class": "Aggregator",
+    "agent_name": "Signal Aggregator",
+    "team": null,
+    "symbol": "LINKUSDT",
+    "direction": "BEARISH",
+    "conviction": 7,
+    "content": "Aggregated signal for LINK: BEARISH with 79% confidence and 46% consensus. Decision quality: moderate.",
+    "metadata": {
+      "confidence": 0.79,
+      "consensus": 0.46,
+      "decision_quality": "moderate"
+    },
+    "created_at": "2026-03-20T07:26:29.874740+00:00"
+  },
+  {
+    "comm_type": "aggregation",
+    "agent_class": "Aggregator",
+    "agent_name": "Signal Aggregator",
+    "team": null,
+    "symbol": "SOLUSDT",
+    "direction": "BULLISH",
+    "conviction": 7,
+    "content": "Aggregated signal for SOL: BULLISH with 78% confidence and 57% consensus. Decision quality: strong.",
+    "metadata": {
+      "confidence": 0.78,
+      "consensus": 0.57,
+      "decision_quality": "strong"
+    },
+    "created_at": "2026-03-20T07:26:32.874740+00:00"
+  },
+  {
+    "comm_type": "aggregation",
+    "agent_class": "Aggregator",
+    "agent_name": "Signal Aggregator",
+    "team": null,
+    "symbol": "ETHUSDT",
+    "direction": "BEARISH",
+    "conviction": 6,
+    "content": "Aggregated signal for ETH: BEARISH with 69% confidence and 74% consensus. Decision quality: strong.",
+    "metadata": {
+      "confidence": 0.69,
+      "consensus": 0.74,
+      "decision_quality": "strong"
+    },
+    "created_at": "2026-03-20T07:26:35.874740+00:00"
+  },
+  {
+    "comm_type": "aggregation",
+    "agent_class": "Aggregator",
+    "agent_name": "Signal Aggregator",
+    "team": null,
+    "symbol": "ADAUSDT",
+    "direction": "BEARISH",
+    "conviction": 4,
+    "content": "Aggregated signal for ADA: BEARISH with 48% confidence and 80% consensus. Decision quality: moderate.",
+    "metadata": {
+      "confidence": 0.48,
+      "consensus": 0.8,
+      "decision_quality": "moderate"
+    },
+    "created_at": "2026-03-20T07:26:38.874740+00:00"
+  },
+  {
+    "comm_type": "aggregation",
+    "agent_class": "Aggregator",
+    "agent_name": "Signal Aggregator",
+    "team": null,
+    "symbol": "XRPUSDT",
+    "direction": "BULLISH",
+    "conviction": 6,
+    "content": "Aggregated signal for XRP: BULLISH with 60% confidence and 75% consensus. Decision quality: moderate.",
+    "metadata": {
+      "confidence": 0.6,
+      "consensus": 0.75,
+      "decision_quality": "moderate"
+    },
+    "created_at": "2026-03-20T07:26:41.874740+00:00"
+  },
+  {
+    "comm_type": "trade_execution",
+    "agent_class": "Execution",
+    "agent_name": "Kai Nakamura",
+    "team": null,
+    "symbol": "ADAUSDT",
+    "direction": "BUY",
+    "conviction": null,
+    "content": "Executed BUY ADA at $0.45. Stop loss: $0.44. Take profit: $0.47.",
+    "metadata": {
+      "side": "BUY",
+      "price": 0.45,
+      "stop_loss": 0.44,
+      "take_profit_1": 0.47
+    },
+    "created_at": "2026-03-20T07:26:44.874740+00:00"
+  },
+  {
+    "comm_type": "trade_execution",
+    "agent_class": "Execution",
+    "agent_name": "Kai Nakamura",
+    "team": null,
+    "symbol": "ETHUSDT",
+    "direction": "SELL",
+    "conviction": null,
+    "content": "Executed SELL ETH at $3,200.00. Stop loss: $3,296.00. Take profit: $3,040.00.",
+    "metadata": {
+      "side": "SELL",
+      "price": 3200,
+      "stop_loss": 3296.0,
+      "take_profit_1": 3040.0
+    },
+    "created_at": "2026-03-20T07:26:49.874740+00:00"
+  },
+  {
+    "comm_type": "trade_execution",
+    "agent_class": "Execution",
+    "agent_name": "Kai Nakamura",
+    "team": null,
+    "symbol": "XRPUSDT",
+    "direction": "BUY",
+    "conviction": null,
+    "content": "Executed BUY XRP at $0.62. Stop loss: $0.60. Take profit: $0.65.",
+    "metadata": {
+      "side": "BUY",
+      "price": 0.62,
+      "stop_loss": 0.6,
+      "take_profit_1": 0.65
+    },
+    "created_at": "2026-03-20T07:26:54.874740+00:00"
+  },
+  {
+    "comm_type": "ceo_review",
+    "agent_class": "CEO",
+    "agent_name": "Marcus Blackwell",
+    "team": null,
+    "symbol": null,
+    "direction": null,
+    "conviction": null,
+    "content": "Cycle grade: B-. Analyzed 5 coins, executed 3 trades. Mixed signals \u2014 teams disagreed on key setups. Conservative positioning appropriate. API spend: $40.00.",
+    "metadata": {
+      "grade": "B-"
+    },
+    "created_at": "2026-03-20T07:27:29.874740+00:00"
+  }
+]
