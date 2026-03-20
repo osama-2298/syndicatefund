@@ -171,7 +171,11 @@ const DN_MAP = Object.fromEntries(DN.map(n => [n.id, n]));
 
 function PipelineDiagram() {
   const dotsRef = useRef<SVGGElement>(null);
+  const edgesRef = useRef<SVGGElement>(null);
+  const burstsRef = useRef<SVGGElement>(null);
   const R = 22;
+  // 3 trailing particles per edge for a comet-trail effect
+  const TRAILS = 3;
 
   useEffect(() => {
     let raf: number;
@@ -180,24 +184,62 @@ function PipelineDiagram() {
 
     const tick = (now: number) => {
       const t = ((now - start) % DUR) / DUR;
-      const g = dotsRef.current;
-      if (!g) { raf = requestAnimationFrame(tick); return; }
+      const dots = dotsRef.current;
+      const edges = edgesRef.current;
+      const bursts = burstsRef.current;
+      if (!dots || !edges || !bursts) { raf = requestAnimationFrame(tick); return; }
 
-      const circles = g.children;
+      // Animate edge glow — edges light up when data is flowing through them
+      for (let i = 0; i < DE.length; i++) {
+        const { t0, t1 } = DE[i];
+        const edgeLine = edges.children[i] as SVGLineElement;
+        if (!edgeLine) continue;
+        const active = t >= t0 && t <= t1;
+        edgeLine.setAttribute('stroke-opacity', active ? '0.35' : '0.06');
+        edgeLine.setAttribute('stroke-width', active ? '2' : '1');
+      }
+
+      // Animate node bursts — nodes flash when the wave arrives
+      for (let n = 0; n < DN.length; n++) {
+        const node = DN[n];
+        const burst = bursts.children[n] as SVGCircleElement;
+        if (!burst) continue;
+        // Each node activates when its delay fraction is reached
+        const activateT = node.delay / (DUR / 1000);
+        const dt = t - activateT;
+        if (dt >= 0 && dt < 0.06) {
+          const p = dt / 0.06;
+          const scale = R + 12 + p * 18;
+          burst.setAttribute('r', String(scale));
+          burst.setAttribute('opacity', String(0.4 * (1 - p)));
+        } else {
+          burst.setAttribute('opacity', '0');
+        }
+      }
+
+      // Animate trailing particles (TRAILS per edge)
       for (let i = 0; i < DE.length; i++) {
         const { from, to, t0, t1 } = DE[i];
-        const circle = circles[i] as SVGCircleElement;
-        if (!circle) continue;
+        const a = DN_MAP[from], b = DN_MAP[to];
 
-        if (t < t0 || t > t1) {
-          circle.setAttribute('opacity', '0');
-        } else {
-          const p = (t - t0) / (t1 - t0);
-          const a = DN_MAP[from], b = DN_MAP[to];
-          circle.setAttribute('cx', String(a.x + (b.x - a.x) * p));
-          circle.setAttribute('cy', String(a.y + (b.y - a.y) * p));
-          const fade = p < 0.12 ? p / 0.12 : p > 0.85 ? (1 - p) / 0.15 : 1;
-          circle.setAttribute('opacity', String(Math.max(0, fade * 0.85)));
+        for (let tr = 0; tr < TRAILS; tr++) {
+          const circle = dots.children[i * TRAILS + tr] as SVGCircleElement;
+          if (!circle) continue;
+          // Each trail particle is offset slightly behind the lead
+          const offset = tr * 0.025;
+          const adjustedT = t - offset;
+
+          if (adjustedT < t0 || adjustedT > t1) {
+            circle.setAttribute('opacity', '0');
+          } else {
+            const p = (adjustedT - t0) / (t1 - t0);
+            circle.setAttribute('cx', String(a.x + (b.x - a.x) * p));
+            circle.setAttribute('cy', String(a.y + (b.y - a.y) * p));
+            const fade = p < 0.12 ? p / 0.12 : p > 0.85 ? (1 - p) / 0.15 : 1;
+            // Trail particles get smaller and dimmer
+            const trailFade = 1 - tr * 0.3;
+            circle.setAttribute('opacity', String(Math.max(0, fade * 0.9 * trailFade)));
+          }
         }
       }
       raf = requestAnimationFrame(tick);
@@ -210,39 +252,94 @@ function PipelineDiagram() {
     <FadeIn delay={0.6} className="w-full max-w-5xl mx-auto mt-8 mb-2 hidden md:block">
       <svg viewBox="0 0 1070 360" className="w-full h-auto" role="img" aria-label="Syndicate pipeline flow diagram">
         <defs>
-          <filter id="dg" x="-200%" y="-200%" width="500%" height="500%">
-            <feGaussianBlur stdDeviation="5" result="b" />
+          {/* Intense glow for lead particles */}
+          <filter id="dg" x="-300%" y="-300%" width="700%" height="700%">
+            <feGaussianBlur stdDeviation="8" result="b" />
+            <feMerge><feMergeNode in="b" /><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          {/* Softer glow for trail particles */}
+          <filter id="dg-trail" x="-200%" y="-200%" width="500%" height="500%">
+            <feGaussianBlur stdDeviation="4" result="b" />
             <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          {/* Node burst flash */}
+          <filter id="burst-glow" x="-100%" y="-100%" width="300%" height="300%">
+            <feGaussianBlur stdDeviation="6" />
+          </filter>
+          {/* Ambient node glow */}
+          <filter id="node-ambient" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="12" />
           </filter>
         </defs>
 
-        {/* Connection lines with flowing dashes */}
+        {/* Connection lines — glow dynamically via RAF */}
+        <g ref={edgesRef}>
+          {DE.map(({ from, to }, i) => (
+            <line key={`e${i}`}
+              x1={DN_MAP[from].x} y1={DN_MAP[from].y}
+              x2={DN_MAP[to].x} y2={DN_MAP[to].y}
+              className="pipe-edge"
+              stroke="#8b5cf6" strokeOpacity="0.06" strokeWidth="1"
+            />
+          ))}
+        </g>
+
+        {/* Static base edges (always visible, subtle) */}
         {DE.map(({ from, to }, i) => (
-          <line key={`e${i}`}
+          <line key={`base${i}`}
             x1={DN_MAP[from].x} y1={DN_MAP[from].y}
             x2={DN_MAP[to].x} y2={DN_MAP[to].y}
+            stroke="rgba(139,92,246,0.04)" strokeWidth="1" strokeDasharray="4 6"
             className="pipe-edge"
-            stroke="rgba(139,92,246,0.1)" strokeWidth="1.5"
           />
         ))}
 
         {/* Loop arc (Monitor → CEO) */}
         <path
           d={`M ${DN_MAP.mon.x} ${170 + R + 8} Q ${(DN_MAP.mon.x + DN_MAP.ceo.x) / 2} ${170 + R + 70} ${DN_MAP.ceo.x} ${170 + R + 8}`}
-          fill="none" stroke="rgba(139,92,246,0.06)" strokeWidth="1" strokeDasharray="4 4"
+          fill="none" stroke="rgba(139,92,246,0.08)" strokeWidth="1" strokeDasharray="4 4"
         />
         <text x={(DN_MAP.mon.x + DN_MAP.ceo.x) / 2} y={170 + R + 58}
-          textAnchor="middle" fill="rgba(139,92,246,0.2)" fontSize="8"
+          textAnchor="middle" fill="rgba(139,92,246,0.25)" fontSize="8"
           style={{ fontFamily: 'system-ui, sans-serif' }}>
           ↻ repeat every 4 hours
         </text>
 
-        {/* Flowing dots (animated via RAF) */}
-        <g ref={dotsRef}>
-          {DE.map((_, i) => (
-            <circle key={`d${i}`} r="3" fill="#8b5cf6" opacity="0" filter="url(#dg)" />
+        {/* Node burst flashes (animated via RAF) */}
+        <g ref={burstsRef}>
+          {DN.map((node) => (
+            <circle key={`burst-${node.id}`}
+              cx={node.x} cy={node.y} r={R}
+              fill={node.color} opacity="0"
+              filter="url(#burst-glow)"
+            />
           ))}
         </g>
+
+        {/* Flowing comet trails (TRAILS particles per edge, animated via RAF) */}
+        <g ref={dotsRef}>
+          {DE.flatMap((edge, i) => {
+            const fromNode = DN_MAP[edge.from];
+            return Array.from({ length: TRAILS }, (_, tr) => (
+              <circle key={`d${i}-${tr}`}
+                r={tr === 0 ? 4 : 3 - tr * 0.5}
+                fill={tr === 0 ? '#c4b5fd' : '#8b5cf6'}
+                opacity="0"
+                filter={tr === 0 ? 'url(#dg)' : 'url(#dg-trail)'}
+              />
+            ));
+          })}
+        </g>
+
+        {/* Ambient glow halos behind nodes */}
+        {DN.map((node) => (
+          <circle key={`ambient-${node.id}`}
+            cx={node.x} cy={node.y} r={R + 20}
+            fill={node.color} opacity="0.04"
+            filter="url(#node-ambient)"
+            className="pipe-ring" style={{ animationDelay: `${node.delay}s` }}
+          />
+        ))}
 
         {/* Nodes (drawn last, on top) */}
         {DN.map((node) => (
@@ -250,7 +347,7 @@ function PipelineDiagram() {
             <circle cx={node.x} cy={node.y} r={R} fill="#0f0f13" />
             <circle cx={node.x} cy={node.y} r={R} fill="none" stroke={node.color} strokeWidth="1.5"
               className="pipe-ring" style={{ animationDelay: `${node.delay}s` }} />
-            <circle cx={node.x} cy={node.y} r={R + 6} fill="none" stroke={node.color} strokeWidth="0.5"
+            <circle cx={node.x} cy={node.y} r={R + 8} fill="none" stroke={node.color} strokeWidth="0.5"
               className="pipe-glow" style={{ animationDelay: `${node.delay}s` }} />
             <text x={node.x} y={node.y + 1} textAnchor="middle" dominantBaseline="middle"
               fill="#fafafa" fontSize="10" fontWeight="700"
@@ -345,6 +442,12 @@ function MobileNode({
 }: {
   label: string; sub?: string; color: string; letter: string; delay: number; size?: number; fontSize?: number;
 }) {
+  // Parse hex color to rgba for glow
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
+  const glowColor = `rgba(${r},${g},${b},0.45)`;
+
   return (
     <div className="flex flex-col items-center">
       <div
@@ -355,7 +458,8 @@ function MobileNode({
           border: `1.5px solid ${color}`,
           background: '#0f0f13',
           animationDelay: `${delay}s`,
-        }}
+          '--glow-color': glowColor,
+        } as React.CSSProperties}
       >
         <span className="font-bold text-white/90" style={{ fontSize }}>{letter}</span>
       </div>
@@ -408,7 +512,7 @@ export default function HowItWorksPage() {
         }
         .pipe-edge {
           stroke-dasharray: 8 6;
-          animation: pipeEdgeFlow 1.5s linear infinite;
+          animation: pipeEdgeFlow 1.2s linear infinite;
         }
         @keyframes pipeEdgeFlow {
           to { stroke-dashoffset: -14; }
@@ -417,28 +521,51 @@ export default function HowItWorksPage() {
           animation: pipeRingWave 5.5s ease-in-out infinite;
         }
         @keyframes pipeRingWave {
-          0%, 100% { stroke-opacity: 0.3; }
-          6% { stroke-opacity: 1; }
-          16% { stroke-opacity: 0.3; }
+          0%, 100% { stroke-opacity: 0.25; }
+          5% { stroke-opacity: 1; }
+          8% { stroke-opacity: 0.8; }
+          18% { stroke-opacity: 0.25; }
         }
         .pipe-glow {
           animation: pipeGlowWave 5.5s ease-in-out infinite;
         }
         @keyframes pipeGlowWave {
           0%, 100% { opacity: 0; }
-          6% { opacity: 0.3; }
-          16% { opacity: 0; }
+          5% { opacity: 0.5; }
+          8% { opacity: 0.35; }
+          18% { opacity: 0; }
         }
         .mobile-node {
           animation: mobileNodePulse 5.5s ease-in-out infinite;
+          transition: box-shadow 0.3s ease;
         }
         @keyframes mobileNodePulse {
-          0%, 100% { opacity: 0.4; box-shadow: 0 0 0 0 transparent; }
-          8% { opacity: 1; box-shadow: 0 0 16px 2px var(--node-glow, rgba(139,92,246,0.3)); }
-          20% { opacity: 0.4; box-shadow: 0 0 0 0 transparent; }
+          0%, 100% { opacity: 0.35; box-shadow: 0 0 0 0 transparent; transform: scale(1); }
+          6% { opacity: 1; box-shadow: 0 0 24px 6px var(--glow-color, rgba(139,92,246,0.4)); transform: scale(1.08); }
+          10% { opacity: 0.9; box-shadow: 0 0 12px 3px var(--glow-color, rgba(139,92,246,0.2)); transform: scale(1.02); }
+          22% { opacity: 0.35; box-shadow: 0 0 0 0 transparent; transform: scale(1); }
         }
         .mobile-connector {
-          background: linear-gradient(to bottom, rgba(139,92,246,0.15), rgba(139,92,246,0.04));
+          background: linear-gradient(to bottom, rgba(139,92,246,0.2), rgba(139,92,246,0.05));
+          position: relative;
+          overflow: visible;
+        }
+        .mobile-connector::after {
+          content: '';
+          position: absolute;
+          left: -1.5px;
+          width: 4px;
+          height: 4px;
+          border-radius: 50%;
+          background: #8b5cf6;
+          box-shadow: 0 0 8px 2px rgba(139,92,246,0.5);
+          animation: mobileParticle 2.5s ease-in-out infinite;
+        }
+        @keyframes mobileParticle {
+          0%, 100% { top: 0; opacity: 0; }
+          10% { opacity: 0.8; }
+          90% { opacity: 0.8; }
+          95% { top: 100%; opacity: 0; }
         }
       `}</style>
 
@@ -447,9 +574,10 @@ export default function HowItWorksPage() {
       ═══════════════════════════════════════════════ */}
       <section className="relative flex flex-col items-center text-center px-6 pt-16 sm:pt-20 pb-8 overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-[-15%] left-1/2 -translate-x-1/2 w-[700px] h-[500px] bg-violet-500/[0.06] rounded-full blur-[120px]" />
-          <div className="absolute bottom-[10%] right-[15%] w-[300px] h-[300px] bg-cyan-500/[0.04] rounded-full blur-[80px]" />
-          <div className="absolute top-[20%] left-[10%] w-[250px] h-[250px] bg-amber-500/[0.03] rounded-full blur-[80px]" />
+          <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[900px] h-[600px] bg-violet-500/[0.08] rounded-full blur-[140px]" />
+          <div className="absolute bottom-[5%] right-[10%] w-[400px] h-[400px] bg-cyan-500/[0.06] rounded-full blur-[100px]" />
+          <div className="absolute top-[15%] left-[5%] w-[350px] h-[350px] bg-amber-500/[0.04] rounded-full blur-[100px]" />
+          <div className="absolute top-[50%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-purple-600/[0.04] rounded-full blur-[120px]" />
         </div>
         <div className="absolute inset-0 pointer-events-none" style={{
           backgroundImage: 'linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px)',
