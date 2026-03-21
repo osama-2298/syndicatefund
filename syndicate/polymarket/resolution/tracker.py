@@ -7,7 +7,7 @@ import re
 import structlog
 from datetime import datetime, timedelta, timezone
 
-from syndicate.polymarket.execution.paper_trader import WeatherPaperTrader
+from syndicate.polymarket.execution.base import WeatherTrader
 from syndicate.polymarket.models import TemperatureBin, TemperatureUnit, WeatherMarket
 from syndicate.polymarket.constants import CITY_STATIONS
 
@@ -15,7 +15,7 @@ logger = structlog.get_logger()
 
 
 async def check_resolutions(
-    trader: WeatherPaperTrader,
+    trader: WeatherTrader,
     markets: list[WeatherMarket],
     calibration_tracker=None,
     bias_tracker=None,

@@ -22,6 +22,15 @@ class TemperatureUnit(str, Enum):
     CELSIUS = "celsius"
 
 
+class OrderStatus(str, Enum):
+    PENDING = "pending"
+    FILLED = "filled"
+    PARTIAL = "partial"
+    CANCELLED = "cancelled"
+    REJECTED = "rejected"
+    FAILED = "failed"
+
+
 # ── City / Station Config ──────────────────────────────────────────────────
 
 
@@ -135,6 +144,58 @@ class WeatherPosition(BaseModel):
     resolved: bool = False
     outcome: bool | None = None  # True if won
     pnl: float = 0.0
+
+
+class LiveOrder(BaseModel):
+    """Tracks a limit order through its lifecycle on the CLOB."""
+    order_id: str
+    condition_id: str
+    token_id: str
+    city: str
+    date: str
+    bin_label: str
+    side: str = "BUY"
+    price: float  # limit price
+    size: float  # shares requested
+    quantity_usd: float  # USDC committed
+    model_prob: float
+    edge: float
+    status: OrderStatus = OrderStatus.PENDING
+    fill_price: float = 0.0  # average fill price
+    filled_size: float = 0.0  # shares actually filled
+    created_at: datetime = datetime(2000, 1, 1)
+    updated_at: datetime = datetime(2000, 1, 1)
+    cancelled_at: datetime | None = None
+    error: str = ""
+
+
+class LivePortfolio(BaseModel):
+    """Live trading portfolio — separate from paper portfolio."""
+    wallet_balance: float = 0.0
+    committed_capital: float = 0.0  # USDC locked in open orders
+    open_orders: list[LiveOrder] = []
+    order_history: list[LiveOrder] = []
+    positions: list[WeatherPosition] = []
+    total_pnl: float = 0.0
+    total_bets: int = 0
+    wins: int = 0
+    losses: int = 0
+
+    @property
+    def win_rate(self) -> float:
+        resolved = self.wins + self.losses
+        return self.wins / resolved if resolved > 0 else 0.0
+
+    @property
+    def total_value(self) -> float:
+        open_value = sum(p.quantity for p in self.positions if not p.resolved)
+        return self.wallet_balance + self.committed_capital + open_value
+
+    @property
+    def available_balance(self) -> float:
+        """USDC available for new orders (wallet minus committed minus reserve)."""
+        from syndicate.polymarket.config import pm_settings
+        return max(0.0, self.wallet_balance - self.committed_capital - pm_settings.polymarket_min_usdc_reserve)
 
 
 class WeatherPortfolio(BaseModel):

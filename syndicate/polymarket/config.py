@@ -55,6 +55,15 @@ class PolymarketSettings(BaseSettings):
     polymarket_daily_loss_limit: float = 0.10  # halt at -10% of bankroll
     polymarket_loss_streak_limit: int = 10  # pause after N consecutive losses
 
+    # ── Live Trading ──
+    polymarket_max_bet_live: float = 20.0  # Hard cap per bet ($20 initial rollout)
+    polymarket_order_timeout_seconds: int = 300  # Cancel unfilled orders after 5 min
+    polymarket_max_open_orders: int = 10  # Max concurrent pending orders
+    polymarket_min_usdc_reserve: float = 50.0  # Always keep $50 buffer in wallet
+    polymarket_kill_switch: bool = False  # Emergency halt flag
+    polymarket_shadow_mode: bool = True  # Log but don't execute (first-run safety)
+    polymarket_funder_address: str = ""  # Polymarket proxy wallet address (holds USDC.e)
+
     @property
     def polymarket_data_dir(self) -> Path:
         """Return (and create) the data directory for polymarket state files."""

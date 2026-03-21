@@ -203,6 +203,70 @@ async def get_timing():
         return {"error": str(e)}
 
 
+@router.post("/kill-switch")
+async def kill_switch(_admin: bool = Depends(require_admin)):
+    """Admin: cancel all open orders and halt live trading."""
+    oracle = get_oracle()
+    from syndicate.polymarket.execution.live_trader import WeatherLiveTrader
+    if not isinstance(oracle.trader, WeatherLiveTrader):
+        return {"error": "Kill switch only applies to live trading mode"}
+    result = oracle.trader.emergency_halt()
+    logger.critical("kill_switch_activated", **result)
+    return {"status": "halted", **result}
+
+
+@router.post("/resume-trading")
+async def resume_trading(_admin: bool = Depends(require_admin)):
+    """Admin: clear kill switch and resume live trading.
+
+    Note: requires POLYMARKET_KILL_SWITCH=false in environment.
+    This endpoint only verifies the current state.
+    """
+    from syndicate.polymarket.config import PolymarketSettings
+    settings = PolymarketSettings()
+    if settings.polymarket_kill_switch:
+        return {
+            "status": "still_halted",
+            "message": "Set POLYMARKET_KILL_SWITCH=false in environment, then restart.",
+        }
+    return {
+        "status": "active",
+        "shadow_mode": settings.polymarket_shadow_mode,
+        "max_bet": settings.polymarket_max_bet_live,
+    }
+
+
+@router.get("/open-orders")
+async def get_open_orders():
+    """Current pending limit orders (live trading only)."""
+    oracle = get_oracle()
+    from syndicate.polymarket.execution.live_trader import WeatherLiveTrader
+    if not isinstance(oracle.trader, WeatherLiveTrader):
+        return {"orders": [], "count": 0, "mode": "paper"}
+    portfolio = oracle.trader.get_live_portfolio()
+    return {
+        "orders": [o.model_dump(mode="json") for o in portfolio.open_orders],
+        "count": len(portfolio.open_orders),
+        "committed_capital": round(portfolio.committed_capital, 2),
+        "mode": "live",
+    }
+
+
+@router.get("/order-history")
+async def get_order_history():
+    """Full order audit trail (live trading only)."""
+    oracle = get_oracle()
+    from syndicate.polymarket.execution.live_trader import WeatherLiveTrader
+    if not isinstance(oracle.trader, WeatherLiveTrader):
+        return {"orders": [], "count": 0, "mode": "paper"}
+    portfolio = oracle.trader.get_live_portfolio()
+    return {
+        "orders": [o.model_dump(mode="json") for o in portfolio.order_history],
+        "count": len(portfolio.order_history),
+        "mode": "live",
+    }
+
+
 @router.post("/reset")
 async def reset_portfolio(_admin: bool = Depends(require_admin)):
     """Admin: reset weather portfolio to initial bankroll."""

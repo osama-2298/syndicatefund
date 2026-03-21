@@ -21,6 +21,7 @@ from syndicate.polymarket.resolution.calibration import CalibrationTracker
 from syndicate.polymarket.markets.edge import compute_horizon_hours, detect_edges
 from syndicate.polymarket.markets.sizing import size_position
 from syndicate.polymarket.execution.paper_trader import WeatherPaperTrader
+from syndicate.polymarket.execution.live_trader import WeatherLiveTrader
 from syndicate.polymarket.resolution.tracker import check_resolutions
 from syndicate.polymarket.models import MarketAnalysis, OracleStatus
 from syndicate.polymarket.constants import CITY_STATIONS
@@ -35,7 +36,10 @@ class WeatherOracle:
 
     def __init__(self) -> None:
         self.settings = PolymarketSettings()
-        self.trader = WeatherPaperTrader.load()
+        if self.settings.polymarket_paper_trading:
+            self.trader = WeatherPaperTrader.load()
+        else:
+            self.trader = WeatherLiveTrader.load()
         self.status = OracleStatus()
         self._start_time = time.monotonic()
         self._last_markets: list = []
@@ -230,6 +234,12 @@ class WeatherOracle:
                 model_weights=self._model_weights,
             )
             summary["positions_resolved"] = len(results)
+
+            # 3b. Check live order fills (live trader only)
+            if hasattr(self.trader, 'check_order_fills'):
+                fills = self.trader.check_order_fills()
+                if fills:
+                    logger.info("order_fills_processed", count=len(fills))
 
             # 4. Save state + calibration
             self.trader.save()
