@@ -21,8 +21,10 @@ import httpx
 import structlog
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from syndicate.polymarket.config import pm_settings
 from syndicate.polymarket.constants import (
-    ENSEMBLE_API,
+    ENSEMBLE_API_FREE,
+    ENSEMBLE_API_PAID,
     ENSEMBLE_FORECAST_DAYS,
     ENSEMBLE_MODELS,
     ENSEMBLE_TIMEOUT,
@@ -33,14 +35,23 @@ from syndicate.polymarket.models import EnsembleForecast, EnsembleMember, Temper
 
 logger = structlog.get_logger()
 
-# ── Global rate limiter for Open-Meteo free tier ──────────────────────────────
-# Serialize all requests (1 at a time) with adaptive gap to avoid 429s.
-# On 429, gap doubles (up to 15s). On success, gap decays back toward 1.5s.
-_rate_semaphore = asyncio.Semaphore(1)
-_MIN_GAP = 1.5  # floor — never go below this
-_MAX_GAP = 15.0  # ceiling — after many 429s
-_current_gap = 1.5  # adaptive: grows on 429, shrinks on success
-_rate_limited_until: float = 0.0  # monotonic timestamp — skip requests until this
+# ── API key + URL selection ──────────────────────────────────────────────────
+_api_key = pm_settings.open_meteo_api_key
+_has_paid_plan = bool(_api_key)
+ENSEMBLE_API = ENSEMBLE_API_PAID if _has_paid_plan else ENSEMBLE_API_FREE
+
+# ── Rate limiter — relaxed for paid plan, strict for free tier ───────────────
+if _has_paid_plan:
+    _rate_semaphore = asyncio.Semaphore(5)  # 5 concurrent requests on paid plan
+    _MIN_GAP = 0.1
+    _MAX_GAP = 5.0
+    _current_gap = 0.1
+else:
+    _rate_semaphore = asyncio.Semaphore(1)  # serialize on free tier
+    _MIN_GAP = 1.5
+    _MAX_GAP = 15.0
+    _current_gap = 1.5
+_rate_limited_until: float = 0.0
 
 # ── Simple TTL cache for ensemble forecasts ───────────────────────────────────
 
@@ -125,7 +136,7 @@ async def _fetch_single_model(
         "icon": "icon_seamless",
     }.get(model_cfg.name, f"{model_cfg.name}_seamless")
 
-    params = {
+    params: dict[str, str | int | float] = {
         "latitude": lat,
         "longitude": lon,
         "hourly": "temperature_2m",
@@ -134,6 +145,8 @@ async def _fetch_single_model(
         "timezone": "auto",
         "forecast_days": ENSEMBLE_FORECAST_DAYS,
     }
+    if _api_key:
+        params["apikey"] = _api_key
 
     # If we're in a rate-limit cooldown, fail immediately
     now = time.monotonic()

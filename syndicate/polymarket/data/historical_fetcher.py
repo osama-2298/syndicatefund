@@ -16,7 +16,8 @@ from pathlib import Path
 import httpx
 import structlog
 
-from syndicate.polymarket.constants import CITY_STATIONS
+from syndicate.polymarket.config import pm_settings
+from syndicate.polymarket.constants import CITY_STATIONS, HISTORICAL_API_FREE, HISTORICAL_API_PAID
 from syndicate.polymarket.data.wunderground import fetch_actual_high
 from syndicate.polymarket.models import TemperatureUnit
 
@@ -24,15 +25,19 @@ logger = structlog.get_logger()
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
-HISTORICAL_FORECAST_API = (
-    "https://historical-forecast-api.open-meteo.com/v1/forecast"
-)
+_api_key = pm_settings.open_meteo_api_key
+_has_paid_plan = bool(_api_key)
+HISTORICAL_FORECAST_API = HISTORICAL_API_PAID if _has_paid_plan else HISTORICAL_API_FREE
 HISTORICAL_MODELS = ["gfs_seamless", "ecmwf_ifs025", "icon_seamless"]
 HISTORICAL_TIMEOUT = 60
 
-# Rate limiter — shared across all cities to respect Open-Meteo free tier
-_hist_semaphore = asyncio.Semaphore(1)
-_HIST_REQUEST_GAP = 1.5  # seconds between requests
+# Rate limiter — relaxed for paid plan, strict for free tier
+if _has_paid_plan:
+    _hist_semaphore = asyncio.Semaphore(5)
+    _HIST_REQUEST_GAP = 0.1
+else:
+    _hist_semaphore = asyncio.Semaphore(1)
+    _HIST_REQUEST_GAP = 1.5
 
 
 # ── Single-city backfill ─────────────────────────────────────────────────────
@@ -78,7 +83,7 @@ async def backfill_city(
 
             try:
                 # Fetch historical ensemble forecast from Open-Meteo
-                params = {
+                params: dict[str, str | float] = {
                     "latitude": lat,
                     "longitude": lon,
                     "daily": "temperature_2m_max",
@@ -87,6 +92,8 @@ async def backfill_city(
                     "end_date": date_str,
                     "temperature_unit": temp_unit,
                 }
+                if _api_key:
+                    params["apikey"] = _api_key
                 # Rate-limited: serialize all historical requests globally
                 async with _hist_semaphore:
                     await asyncio.sleep(_HIST_REQUEST_GAP)

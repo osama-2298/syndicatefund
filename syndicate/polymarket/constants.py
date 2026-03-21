@@ -313,7 +313,10 @@ GAMMA_PAGE_LIMIT: int = 100
 
 # ── Open-Meteo Ensemble API ──────────────────────────────────────────────────
 
-ENSEMBLE_API: str = "https://ensemble-api.open-meteo.com/v1/ensemble"
+ENSEMBLE_API_FREE: str = "https://ensemble-api.open-meteo.com/v1/ensemble"
+ENSEMBLE_API_PAID: str = "https://customer-ensemble-api.open-meteo.com/v1/ensemble"
+HISTORICAL_API_FREE: str = "https://historical-forecast-api.open-meteo.com/v1/forecast"
+HISTORICAL_API_PAID: str = "https://customer-historical-forecast-api.open-meteo.com/v1/forecast"
 ENSEMBLE_TIMEOUT: int = 60
 ENSEMBLE_FORECAST_DAYS: int = 7
 

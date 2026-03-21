@@ -37,6 +37,9 @@ class PolymarketSettings(BaseSettings):
     polymarket_private_key: str = ""
     polymarket_api_key: str = ""
 
+    # ── Open-Meteo ──
+    open_meteo_api_key: str = ""  # Professional plan key — removes rate limits
+
     # ── Bankroll & Risk ──
     polymarket_bankroll: float = 10_000.0
     polymarket_min_edge: float = 0.08

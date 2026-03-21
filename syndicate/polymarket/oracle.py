@@ -340,23 +340,26 @@ async def oracle_loop(shutdown_event: asyncio.Event) -> None:
     oracle = get_oracle()
     settings = PolymarketSettings()
 
+    has_meteo_key = bool(settings.open_meteo_api_key)
     print(
         f"[ORACLE] Weather Oracle starting "
-        f"(paper={settings.polymarket_paper_trading})...",
+        f"(paper={settings.polymarket_paper_trading}, "
+        f"open_meteo={'PAID' if has_meteo_key else 'FREE'})...",
         flush=True,
     )
 
     # Auto-bootstrap calibration on first deploy
     await _auto_bootstrap_calibration()
 
-    # Cooldown after bootstrap — let Open-Meteo rate limits recover
-    print("[ORACLE] Waiting 60s for rate limit cooldown...", flush=True)
-    try:
-        await asyncio.wait_for(shutdown_event.wait(), timeout=60)
-        print("[ORACLE] Shutdown during cooldown.", flush=True)
-        return
-    except asyncio.TimeoutError:
-        pass
+    # Cooldown after bootstrap — only needed on free tier
+    if not has_meteo_key:
+        print("[ORACLE] Waiting 60s for rate limit cooldown (free tier)...", flush=True)
+        try:
+            await asyncio.wait_for(shutdown_event.wait(), timeout=60)
+            print("[ORACLE] Shutdown during cooldown.", flush=True)
+            return
+        except asyncio.TimeoutError:
+            pass
 
     while not shutdown_event.is_set():
         try:
