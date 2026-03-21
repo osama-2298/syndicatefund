@@ -44,6 +44,27 @@ class WeatherLiveTrader:
         self._portfolio: LivePortfolio = portfolio or LivePortfolio()
         self._client = None  # Lazy init — never touch the key until needed
         self._last_order_time: float = 0.0
+        # Refresh wallet balance from CLOB on startup if it's zero
+        if self._portfolio.wallet_balance == 0 and self._settings.polymarket_private_key:
+            self._refresh_balance_from_clob()
+
+    def _refresh_balance_from_clob(self) -> None:
+        """Fetch wallet balance from CLOB API on startup."""
+        try:
+            client = self._get_client()
+            from py_clob_client.clob_types import BalanceAllowanceParams, AssetType
+            params = BalanceAllowanceParams(
+                asset_type=AssetType.COLLATERAL,
+                signature_type=1,
+            )
+            bal = client.get_balance_allowance(params)
+            raw = int(bal.get("balance", "0"))
+            usdc_balance = raw / 1e6
+            self._portfolio.wallet_balance = usdc_balance
+            self.save()
+            logger.info("wallet_balance_initialized", balance=round(usdc_balance, 2))
+        except Exception as e:
+            logger.warning("wallet_balance_init_failed", error=str(e))
 
     # ── CLOB Client (lazy) ─────────────────────────────────────────────
 
