@@ -162,6 +162,66 @@ def _compute_basic_stats(trades: list[dict]) -> dict:
     }
 
 
+@router.get("/risk")
+async def get_portfolio_risk():
+    """Get current portfolio risk metrics — drawdown level, heat, correlation, exposure.
+
+    This is the portfolio-level risk dashboard data. Updated each cycle and
+    available between cycles for the fast loop.
+    """
+    from syndicate.data.models import PortfolioState
+    from syndicate.risk.portfolio_risk import PortfolioRiskManager
+
+    # Load portfolio state
+    portfolio_path = Path(settings.portfolio_state_path)
+    if not portfolio_path.exists():
+        portfolio = PortfolioState()
+    else:
+        try:
+            data = json.loads(portfolio_path.read_text())
+            portfolio = PortfolioState.model_validate(data)
+        except Exception:
+            portfolio = PortfolioState()
+
+    # Load open trades for heat calculation
+    open_trades_data = None
+    ot_path = Path(settings.open_trades_path)
+    if ot_path.exists():
+        try:
+            raw = json.loads(ot_path.read_text())
+            open_trades_data = list(raw.values()) if isinstance(raw, dict) else raw
+        except Exception:
+            pass
+
+    # Check risk
+    risk_mgr = PortfolioRiskManager()
+    snapshot = risk_mgr.check(
+        portfolio=portfolio,
+        open_trades=open_trades_data,
+    )
+
+    return snapshot.to_dict()
+
+
+@router.get("/risk/history")
+async def get_portfolio_risk_history(
+    limit: int = Query(default=100, le=500),
+):
+    """Get historical portfolio risk snapshots."""
+    # Read from JSON fallback file
+    risk_path = Path(settings.data_dir) / "risk_snapshots.json"
+    if not risk_path.exists():
+        return {"snapshots": []}
+
+    try:
+        snapshots = json.loads(risk_path.read_text())
+        if isinstance(snapshots, list):
+            return {"snapshots": snapshots[-limit:]}
+        return {"snapshots": []}
+    except Exception:
+        return {"snapshots": []}
+
+
 @router.get("/team-performance")
 async def get_team_performance():
     """Per-team signal quality analytics."""

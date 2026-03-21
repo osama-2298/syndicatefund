@@ -1376,7 +1376,7 @@ Step 3: CRO sets risk limits for this cycle
   -> Outputs: RiskLimits object
               max_position_pct, max_open_positions
               min_signal_confidence, min_consensus_ratio
-              max_daily_drawdown_pct
+              max_drawdown_pct
 
 Step 4: 5 analysis teams analyze each coin in PARALLEL
   -> Each team: 2-3 analyst agents analyze independently

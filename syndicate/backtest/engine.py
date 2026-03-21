@@ -1123,7 +1123,7 @@ class BacktestEngine:
             )
             risk_limits = RiskLimits(
                 max_position_pct=effective_max_position_pct,
-                max_daily_drawdown_pct=0.08,
+                max_drawdown_pct=0.08,
                 min_signal_confidence=0.45,
                 min_consensus_ratio=0.0,
                 max_open_positions=max(n_symbols * 2, 10),

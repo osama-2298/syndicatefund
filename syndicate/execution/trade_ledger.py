@@ -527,6 +527,9 @@ class TradeLedger:
             logger.error("ledger_load_failed", error=str(e))
 
     def _save(self) -> None:
+        """Persist ledger to disk. Uses atomic write-to-temp-then-rename."""
         self._path.parent.mkdir(parents=True, exist_ok=True)
         data = [e.to_dict() for e in self.entries]
-        self._path.write_text(json.dumps(data, indent=2, default=str))
+        tmp = self._path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, indent=2, default=str))
+        tmp.rename(self._path)  # atomic on POSIX

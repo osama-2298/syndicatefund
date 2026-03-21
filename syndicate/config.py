@@ -97,6 +97,16 @@ class Settings(BaseSettings):
     # "daily": collect data every 4h, but only execute trades at 00:00 UTC cycle
     decision_mode: str = "every_cycle"
 
+    # ── v2: Fast Loop & Scoring ──
+    fast_loop_enabled: bool = True
+    fast_loop_interval_minutes: int = 15
+    quant_score_weight: float = 2.0  # Weight of quant score in aggregator vs LLM signals
+
+    # ── v2: Data Sources ──
+    twitter_api_io_key: str = ""
+    whale_alert_api_key: str = ""
+    cfgi_api_key: str = ""
+
     # ── Polymarket ──
     polymarket_enabled: bool = False
     polymarket_paper_trading: bool = True
@@ -145,6 +155,10 @@ class Settings(BaseSettings):
         if self.performance_history_path:
             return self.performance_history_path
         return str(self.data_dir / "performance_history.json")
+
+    @property
+    def funding_rate_scan_path(self) -> str:
+        return str(self.data_dir / "funding_rate_scan.json")
 
     @property
     def polymarket_data_dir(self) -> Path:

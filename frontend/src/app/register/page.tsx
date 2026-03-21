@@ -93,6 +93,7 @@ export default function RegisterPage() {
     api_key: '',
     max_agents: 2,
     preferred_model: 'claude-sonnet-4-6',
+    preferred_role: 'analyst',
   });
   const [showKey, setShowKey] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -129,6 +130,7 @@ export default function RegisterPage() {
       email: form.email || undefined,
       max_agents: form.max_agents,
       preferred_model: form.preferred_model,
+      preferred_role: form.preferred_role,
     };
 
     if (form.provider === 'anthropic') body.api_key_anthropic = form.api_key;
@@ -578,6 +580,37 @@ export default function RegisterPage() {
                   <div className="flex justify-between text-[10px] text-white/15 mt-2 px-4">
                     <span>Min: 1</span>
                     <span>Max: 10</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted block mb-2">
+                    Agent Role
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {[
+                      { id: 'analyst', label: 'Analyst', desc: 'Deep coin analysis (slow loop)' },
+                      { id: 'scout', label: 'Scout', desc: 'Monitor news & alerts (fast loop)' },
+                      { id: 'watchdog', label: 'Watchdog', desc: 'Risk monitoring (always on)' },
+                      { id: 'research', label: 'Research', desc: 'Backtesting & validation' },
+                      { id: 'any', label: 'Board Decides', desc: 'Let the Board assign' },
+                    ].map((role) => (
+                      <button
+                        key={role.id}
+                        type="button"
+                        onClick={() => setForm({ ...form, preferred_role: role.id })}
+                        className={`p-3 rounded-lg border text-left transition-all ${
+                          form.preferred_role === role.id
+                            ? 'border-syn-accent bg-syn-accent/10'
+                            : 'border-syn-border hover:border-white/20 bg-white/[0.02]'
+                        }`}
+                      >
+                        <p className={`text-xs font-bold ${form.preferred_role === role.id ? 'text-syn-accent' : 'text-white/70'}`}>
+                          {role.label}
+                        </p>
+                        <p className="text-[10px] text-white/30 mt-0.5">{role.desc}</p>
+                      </button>
+                    ))}
                   </div>
                 </div>
 

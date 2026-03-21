@@ -42,7 +42,7 @@ RISK_RULES_TOOL = {
                     "Normal: 0.05 (5%). Conservative: 0.02-0.03. Aggressive: 0.07-0.10."
                 ),
             },
-            "max_daily_drawdown_pct": {
+            "max_drawdown_pct": {
                 "type": "number",
                 "minimum": 0.01,
                 "maximum": 0.10,
@@ -85,7 +85,7 @@ RISK_RULES_TOOL = {
         },
         "required": [
             "max_position_pct",
-            "max_daily_drawdown_pct",
+            "max_drawdown_pct",
             "max_open_positions",
             "min_signal_confidence",
             "min_consensus_ratio",
@@ -176,26 +176,26 @@ class CROAgent(BaseLLMCaller):
         "DATA-BACKED PARAMETERS BY REGIME (from empirical research):\n\n"
         "BULL:\n"
         "  max_position_pct: 0.07-0.10 (7-10%)\n"
-        "  max_daily_drawdown_pct: 0.08-0.10 (8-10%, Millennium standard)\n"
+        "  max_drawdown_pct: 0.08-0.10 (8-10%, Millennium standard)\n"
         "  max_open_positions: 10-15\n"
         "  min_signal_confidence: 0.45-0.50 (aggressive, momentum works)\n"
         "  min_consensus_ratio: 0.50-0.60 (lower bar, more trades)\n\n"
         "RANGING:\n"
         "  max_position_pct: 0.05-0.07\n"
-        "  max_daily_drawdown_pct: 0.05-0.07\n"
+        "  max_drawdown_pct: 0.05-0.07\n"
         "  max_open_positions: 8-12\n"
         "  min_signal_confidence: 0.50-0.55\n"
         "  min_consensus_ratio: 0.55-0.65\n\n"
         "BEAR:\n"
         "  max_position_pct: 0.03-0.05\n"
-        "  max_daily_drawdown_pct: 0.05-0.07 (NOT 2% — too restrictive per research)\n"
+        "  max_drawdown_pct: 0.05-0.07 (NOT 2% — too restrictive per research)\n"
         "  max_open_positions: 5-8\n"
         "  min_signal_confidence: 0.50-0.55 (NOT 0.60+ — kills contrarian signals)\n"
         "  min_consensus_ratio: 0.55-0.65 (NOT 0.80 — blocks legitimate disagreement)\n"
         "  NOTE: F&G < 15 = historically 85% win rate buy signal. Do NOT block contrarian trades.\n\n"
         "CRISIS:\n"
         "  max_position_pct: 0.02-0.03\n"
-        "  max_daily_drawdown_pct: 0.05\n"
+        "  max_drawdown_pct: 0.05\n"
         "  max_open_positions: 3-5\n"
         "  min_signal_confidence: 0.55-0.65\n"
         "  min_consensus_ratio: 0.65-0.75\n"
@@ -230,7 +230,7 @@ class CROAgent(BaseLLMCaller):
 
         limits = RiskLimits(
             max_position_pct=float(raw["max_position_pct"]),
-            max_daily_drawdown_pct=float(raw["max_daily_drawdown_pct"]),
+            max_drawdown_pct=float(raw["max_drawdown_pct"]),
             max_open_positions=int(raw["max_open_positions"]),
             min_signal_confidence=float(raw["min_signal_confidence"]),
             min_consensus_ratio=float(raw["min_consensus_ratio"]),
@@ -299,19 +299,19 @@ class CROAgent(BaseLLMCaller):
         # Data-backed fallback parameters (from research/risk_parameters.md)
         presets = {
             MarketRegime.BULL: RiskLimits(
-                max_position_pct=0.08, max_daily_drawdown_pct=0.08,
+                max_position_pct=0.08, max_drawdown_pct=0.08,
                 max_open_positions=12, min_signal_confidence=0.45, min_consensus_ratio=0.50,
             ),
             MarketRegime.RANGING: RiskLimits(
-                max_position_pct=0.06, max_daily_drawdown_pct=0.06,
+                max_position_pct=0.06, max_drawdown_pct=0.06,
                 max_open_positions=10, min_signal_confidence=0.50, min_consensus_ratio=0.55,
             ),
             MarketRegime.BEAR: RiskLimits(
-                max_position_pct=0.04, max_daily_drawdown_pct=0.05,
+                max_position_pct=0.04, max_drawdown_pct=0.05,
                 max_open_positions=7, min_signal_confidence=0.50, min_consensus_ratio=0.55,
             ),
             MarketRegime.CRISIS: RiskLimits(
-                max_position_pct=0.03, max_daily_drawdown_pct=0.05,
+                max_position_pct=0.03, max_drawdown_pct=0.05,
                 max_open_positions=4, min_signal_confidence=0.55, min_consensus_ratio=0.65,
             ),
         }

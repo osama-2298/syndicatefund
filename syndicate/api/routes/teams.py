@@ -37,21 +37,21 @@ async def list_teams(
     result = await db.execute(select(TeamRow))
     teams = result.scalars().all()
 
+    # Batch-load agent counts in a single GROUP BY query (fixes N+1)
+    counts_q = await db.execute(
+        select(
+            AgentRow.team_id,
+            func.count(AgentRow.id).label("total"),
+            func.count(AgentRow.id).filter(
+                AgentRow.status.in_([AgentStatusDB.ACTIVE, AgentStatusDB.FOUNDING])
+            ).label("active"),
+        ).group_by(AgentRow.team_id)
+    )
+    counts_by_team = {row.team_id: (row.total, row.active) for row in counts_q}
+
     summaries = []
     for team in teams:
-        # Count agents
-        total_q = await db.execute(
-            select(func.count(AgentRow.id)).where(AgentRow.team_id == team.id)
-        )
-        total_agents = total_q.scalar() or 0
-
-        active_q = await db.execute(
-            select(func.count(AgentRow.id)).where(
-                AgentRow.team_id == team.id,
-                AgentRow.status.in_([AgentStatusDB.ACTIVE, AgentStatusDB.FOUNDING]),
-            )
-        )
-        active_agents = active_q.scalar() or 0
+        total_agents, active_agents = counts_by_team.get(team.id, (0, 0))
 
         summaries.append(TeamSummary(
             id=str(team.id),

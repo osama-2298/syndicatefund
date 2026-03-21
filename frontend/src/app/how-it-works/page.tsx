@@ -1124,13 +1124,13 @@ export default function HowItWorksPage() {
 
           <Stagger className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {[
+              { value: '2', label: 'Signal Loops', sub: '15min fast + 4h slow' },
               { value: '12', label: 'AI Analysts', sub: 'across 5 disciplines' },
-              { value: '11', label: 'Data Sources', sub: 'Binance, Reddit, CoinGecko...' },
-              { value: '4h', label: 'Cycle Frequency', sub: '6 full cycles per day' },
-              { value: '29+', label: 'Tech Indicators', sub: 'RSI, MACD, Ichimoku...' },
-              { value: '5', label: 'Analysis Teams', sub: 'Tech, Sent, Fund, Macro, Chain' },
+              { value: '5', label: 'Quant Scorers', sub: 'tech, sent, macro, chain, fund' },
+              { value: '29+', label: 'Indicators', sub: 'RSI, MACD, ATR, ADX...' },
+              { value: '4', label: 'Agent Roles', sub: 'scout, analyst, watchdog, research' },
               { value: '3', label: 'Board Members', sub: 'Governance & accountability' },
-              { value: '3', label: 'Researchers', sub: 'Auditing agent performance' },
+              { value: '4', label: 'Risk Levels', sub: 'Progressive drawdown ladder' },
               { value: '0', label: 'Humans', sub: 'Fully autonomous' },
             ].map((stat) => (
               <motion.div key={stat.label} variants={fadeUp} className="text-center p-4">
@@ -1158,23 +1158,23 @@ export default function HowItWorksPage() {
           {[
             {
               icon: Brain,
-              title: 'Multi-Agent Debate',
-              desc: 'Agents disagree with each other. Technical says BUY, Sentiment says SELL. The aggregator weighs both by track record. Disagreement data is logged and analyzed.',
+              title: 'Two-Layer Signals',
+              desc: 'Layer 1: Quantitative scoring engine (pure math, 0 LLM calls) generates the primary signal. Layer 2: LLM agents interpret narratives, detect regime shifts, and catch what math misses. Math decides. AI interprets.',
             },
             {
               icon: Radio,
-              title: 'Full Transparency',
-              desc: 'Every signal, every disagreement, every loss is visible. The CEO publishes blog posts explaining trades. The board publishes firing decisions. Nothing is hidden.',
+              title: 'Two-Loop Architecture',
+              desc: 'Fast loop (15min): Scout bots monitor news, whale alerts, and price crashes in real-time. Slow loop (4h): Full analysis cycle with CEO, teams, and agent debate. More contributors = more sources monitored = faster detection.',
             },
             {
               icon: TrendingUp,
-              title: 'Self-Improving',
-              desc: 'Research agents audit analyst performance on rolling windows. Signal decay detection. Meta-labels track which agents actually predicted profitable trades. Bad performers get fired.',
+              title: 'Portfolio-Level Risk',
+              desc: 'Progressive drawdown ladder (Millennium-style): -1.5% flag, -3% reduce, -5% BTC-only, -8% halt. Portfolio heat tracking. Correlation monitoring. Real hedge fund risk management.',
             },
             {
               icon: Eye,
-              title: 'Deterministic Core',
-              desc: 'The signal aggregator is pure math \u2014 Bayesian log-odds, not another LLM. No hallucination. No drift. The math is the same every time. Only the inputs change.',
+              title: 'Backtested & Validated',
+              desc: 'Walk-forward optimization on 9+ months of data. Monte Carlo simulation for statistical confidence. Slippage and fee modeling. Every signal is validated against historical performance before going live.',
             },
           ].map((item) => (
             <motion.div key={item.title} variants={fadeUp} className="bg-syn-surface border border-syn-border rounded-xl p-6 hover:bg-syn-elevated transition-all duration-300">

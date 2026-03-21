@@ -302,7 +302,7 @@ class RiskLimits(BaseModel):
 
     max_position_pct: float = 0.05  # max 5% of portfolio per position
     max_sector_pct: float = 0.20  # max 20% in any one sector
-    max_daily_drawdown_pct: float = 0.03  # halt if portfolio drops 3% in a day
+    max_drawdown_pct: float = 0.03  # halt if portfolio drops 3% from peak
     max_open_positions: int = 20
     min_signal_confidence: float = 0.6  # ignore signals below this confidence
     min_consensus_ratio: float = 0.5  # at least 50% of teams must agree

@@ -63,11 +63,11 @@ class RiskManager:
         orders = []
 
         # Global check: halt all trading if drawdown limit breached
-        if portfolio.drawdown_pct >= self.limits.max_daily_drawdown_pct:
+        if portfolio.drawdown_pct >= self.limits.max_drawdown_pct:
             logger.warning(
                 "risk_halt_drawdown",
                 drawdown_pct=round(portfolio.drawdown_pct * 100, 2),
-                limit_pct=round(self.limits.max_daily_drawdown_pct * 100, 2),
+                limit_pct=round(self.limits.max_drawdown_pct * 100, 2),
             )
             return []
 

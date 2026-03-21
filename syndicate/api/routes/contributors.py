@@ -116,6 +116,7 @@ class RegisterRequest(BaseModel):
     max_agents: int = Field(default=2, ge=1, le=20)
     preferred_model: str = "claude-sonnet-4-6"
     cost_limit_usd: float | None = None
+    preferred_role: str = Field(default="analyst", pattern="^(analyst|scout|watchdog|research|any)$")
 
 
 class RegisterResponse(BaseModel):
@@ -165,6 +166,7 @@ async def register(
         api_key_openai_enc=encrypt_api_key(req.api_key_openai) if req.api_key_openai else None,
         api_key_google_enc=encrypt_api_key(req.api_key_google) if req.api_key_google else None,
         max_agents=req.max_agents,
+        preferred_role=req.preferred_role,
         cost_limit_usd=Decimal(str(req.cost_limit_usd)) if req.cost_limit_usd else None,
         api_token_hash=token_hash,
     )
@@ -174,9 +176,11 @@ async def register(
     # Create registered (unassigned) agents
     agents_created = 0
     for i in range(req.max_agents):
+        role_type = req.preferred_role if req.preferred_role != "any" else "analyst"
         agent = AgentRow(
             contributor_id=contributor.id,
-            role=f"analyst_{i + 1}",
+            role=f"{role_type}_{i + 1}",
+            role_type=role_type,
             model=req.preferred_model,
             provider=provider,
             status=AgentStatusDB.REGISTERED,

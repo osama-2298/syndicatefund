@@ -3,7 +3,7 @@ import type {
   RegisterRequest, RegisterResponse, PipelineEvent,
   BoardSession, CeoPost, ResearchReport, MoltbookInfo,
   TeamPerf, SignalItem, AgentStats, TradeEntry, AgentComm,
-  ContributorProfile,
+  ContributorProfile, PortfolioRisk, FastLoopEvent,
 } from './types';
 
 export interface CycleSummary {
@@ -119,4 +119,16 @@ export const api = {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   }),
+
+  // v2: Intelligence & Risk
+  getPortfolioRisk: () => fetchAPI<PortfolioRisk>('/api/v1/portfolio/risk'),
+  getIntelligenceEvents: (params?: { limit?: number; severity?: string; event_type?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.limit) q.set('limit', String(params.limit));
+    if (params?.severity) q.set('severity', params.severity);
+    if (params?.event_type) q.set('event_type', params.event_type);
+    const qs = q.toString();
+    return fetchAPI<{ events: FastLoopEvent[]; total: number }>(`/api/v1/intelligence/events${qs ? `?${qs}` : ''}`);
+  },
+  getIntelligenceStatus: () => fetchAPI<any>('/api/v1/intelligence/status'),
 };

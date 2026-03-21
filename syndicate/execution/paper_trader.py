@@ -24,18 +24,48 @@ from syndicate.data.models import (
 logger = structlog.get_logger()
 
 
+# Transaction cost configuration (Binance VIP0 rates)
+TAKER_FEE_BPS = 10    # 0.10% taker fee (market orders)
+MAKER_FEE_BPS = 4     # 0.04% maker fee (limit orders)
+
+# Tier-based slippage estimates (basis points)
+SLIPPAGE_BPS = {
+    "btc": 3,          # ~0.03% — deep liquidity
+    "top5": 5,         # ~0.05%
+    "large_cap": 8,    # ~0.08%
+    "mid_cap": 15,     # ~0.15%
+    "meme": 30,        # ~0.30% — thin books
+}
+
+
+def _estimate_execution_cost(symbol: str, notional: float) -> float:
+    """
+    Estimate total execution cost (fee + slippage) as a fraction.
+
+    Uses Binance taker fees + tier-based slippage estimates.
+    Returns a fraction (e.g., 0.0015 = 0.15%).
+    """
+    from syndicate.risk.trade_params import classify_tier
+
+    tier = classify_tier(symbol)
+    slippage_bps = SLIPPAGE_BPS.get(tier, 15)
+    total_bps = TAKER_FEE_BPS + slippage_bps
+    return total_bps / 10_000  # Convert bps to fraction
+
+
 class PaperTrader:
     """
     Simulated trade execution.
 
     Executes orders against a virtual portfolio at current market prices.
-    Assumes perfect fills (no slippage, no partial fills) — this is paper trading.
+    Models transaction costs (Binance taker fees + tier-based slippage).
     """
 
     def __init__(self, initial_cash: float = 100_000.0) -> None:
         self._initial_cash = initial_cash
         self.portfolio = PortfolioState(cash=initial_cash, peak_value=initial_cash)
         self.trade_history: list[TradeResult] = []
+        self.total_fees_paid: float = 0.0
 
     @classmethod
     def load(cls, path: str, initial_cash: float = 100_000.0) -> "PaperTrader":
@@ -179,10 +209,16 @@ class PaperTrader:
         else:
             pnl = (position.entry_price - price) * close_qty
 
-        # Return cash
+        # Calculate execution cost on partial close
+        exit_notional = close_qty * price
+        cost_fraction = _estimate_execution_cost(symbol, exit_notional)
+        exit_cost = exit_notional * cost_fraction
+
+        # Return cash (minus execution cost)
         original_notional = close_qty * position.entry_price
-        self.portfolio.cash += original_notional + pnl
-        self.portfolio.total_realized_pnl += pnl
+        self.portfolio.cash += original_notional + pnl - exit_cost
+        self.portfolio.total_realized_pnl += pnl - exit_cost
+        self.total_fees_paid += exit_cost
 
         # Reduce position quantity
         position.quantity -= close_qty
@@ -207,21 +243,27 @@ class PaperTrader:
     # ─── Internal ───
 
     def _open_position(self, order: TradeOrder) -> TradeResult | None:
-        """Open a new position."""
+        """Open a new position with realistic transaction costs."""
         notional = order.quantity * order.price
 
-        # Check cash
-        if notional > self.portfolio.cash:
+        # Calculate execution cost (fee + slippage)
+        cost_fraction = _estimate_execution_cost(order.symbol, notional)
+        entry_cost = notional * cost_fraction
+
+        # Check cash (need notional + fees)
+        total_required = notional + entry_cost
+        if total_required > self.portfolio.cash:
             logger.warning(
                 "paper_trade_insufficient_cash",
                 symbol=order.symbol,
-                required=round(notional, 2),
+                required=round(total_required, 2),
                 available=round(self.portfolio.cash, 2),
             )
             return None
 
-        # Deduct cash
-        self.portfolio.cash -= notional
+        # Deduct cash (notional + execution cost)
+        self.portfolio.cash -= total_required
+        self.total_fees_paid += entry_cost
 
         # Create position
         side = OrderSide.BUY if order.side == OrderSide.BUY else OrderSide.SELL
@@ -252,22 +294,29 @@ class PaperTrader:
             quantity=round(order.quantity, 6),
             price=round(order.price, 2),
             notional=round(notional, 2),
+            execution_cost=round(entry_cost, 2),
         )
 
         return result
 
     def _close_position(self, order: TradeOrder, position: Position) -> TradeResult | None:
-        """Close an existing position."""
-        # Calculate realized P&L
+        """Close an existing position with realistic transaction costs."""
+        # Calculate realized P&L (before fees)
         if position.side == OrderSide.BUY:
             pnl = (order.price - position.entry_price) * position.quantity
         else:
             pnl = (position.entry_price - order.price) * position.quantity
 
-        # Return cash (original notional + P&L)
+        # Calculate exit execution cost
+        exit_notional = position.quantity * order.price
+        cost_fraction = _estimate_execution_cost(order.symbol, exit_notional)
+        exit_cost = exit_notional * cost_fraction
+
+        # Return cash (original notional + P&L - exit fees)
         original_notional = position.quantity * position.entry_price
-        self.portfolio.cash += original_notional + pnl
-        self.portfolio.total_realized_pnl += pnl
+        self.portfolio.cash += original_notional + pnl - exit_cost
+        self.portfolio.total_realized_pnl += pnl - exit_cost
+        self.total_fees_paid += exit_cost
 
         # Remove position
         self.portfolio.positions = [
@@ -291,7 +340,9 @@ class PaperTrader:
             quantity=round(position.quantity, 6),
             entry_price=round(position.entry_price, 2),
             exit_price=round(order.price, 2),
-            pnl=round(pnl, 2),
+            pnl_gross=round(pnl, 2),
+            pnl_net=round(pnl - exit_cost, 2),
+            exit_cost=round(exit_cost, 2),
         )
 
         return result

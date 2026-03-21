@@ -196,7 +196,8 @@ class BaseTeamManager(BaseLLMCaller, ABC):
     def _deterministic_fallback(self, signals: list[Signal], symbol: str) -> TeamSignal:
         """Fallback when LLM fails — majority vote + average conviction."""
         bullish = sum(1 for s in signals if s.metadata.get("direction") == "BULLISH" or s.action in (SignalAction.BUY, SignalAction.COVER))
-        bearish = len(signals) - bullish
+        hold = sum(1 for s in signals if s.action == SignalAction.HOLD and s.metadata.get("direction") not in ("BULLISH", "BEARISH"))
+        bearish = len(signals) - bullish - hold
 
         direction = "BULLISH" if bullish >= bearish else "BEARISH"
         avg_conv = sum(s.metadata.get("conviction", int(s.confidence * 10)) for s in signals) / max(len(signals), 1)

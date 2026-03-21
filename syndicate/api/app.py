@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 import structlog
 from fastapi import FastAPI
 
-from syndicate.api.routes import agents, backtest, ceo_posts, comms, contributors, cycles, events, leaderboard, moltbook, portfolio, research, signals, teams
+from syndicate.api.routes import agents, backtest, ceo_posts, comms, contributors, cycles, events, intelligence, leaderboard, moltbook, portfolio, research, signals, teams
 from syndicate.polymarket.routes import router as polymarket_router
 from syndicate.config import settings
 
@@ -148,58 +148,62 @@ async def _price_monitor(shutdown_event: asyncio.Event):
                             triggered.append((symbol, price, "TAKE_PROFIT_2", exit_qty))
                             continue
 
-                # Execute triggered exits
+                # Execute triggered exits under lock to avoid race with pipeline
                 if triggered:
-                    paper_trader = PaperTrader.load(settings.portfolio_state_path)
-                    ledger = TradeLedger(storage_path=settings.trade_ledger_path)
+                    from syndicate.execution.state_lock import execution_lock
 
-                    for symbol, price, reason, qty in triggered:
-                        try:
-                            paper_trader.partial_close(symbol=symbol, quantity=qty, price=price)
-                            print(f"[MONITOR] {reason} triggered: {symbol} @ ${price:,.2f} (qty={qty:.6f})", flush=True)
+                    with execution_lock:
+                        # Re-load inside lock to get latest state
+                        paper_trader = PaperTrader.load(settings.portfolio_state_path)
+                        ledger = TradeLedger(storage_path=settings.trade_ledger_path)
 
-                            # Record in ledger
-                            trade = monitor.open_trades.get(symbol)
-                            if trade:
-                                pnl_pct = ((price - trade.entry_price) / trade.entry_price) * \
-                                          (1 if trade.side == OrderSide.BUY else -1)
-                                pnl_usd = (price - trade.entry_price) * qty * \
-                                           (1 if trade.side == OrderSide.BUY else -1)
-                                entry_time = trade.entry_time if hasattr(trade, 'entry_time') else None
-                                holding_hours = 0.0
-                                if entry_time:
-                                    try:
-                                        from datetime import datetime as dt
-                                        if isinstance(entry_time, str):
-                                            entry_dt = dt.fromisoformat(entry_time.replace('Z', '+00:00'))
-                                        else:
-                                            entry_dt = entry_time
-                                        holding_hours = (dt.now(timezone.utc) - entry_dt).total_seconds() / 3600
-                                    except Exception:
-                                        pass
-                                ledger.record_exit(
-                                    symbol=symbol,
-                                    exit_price=price,
-                                    exit_reason=reason,
-                                    pnl_pct=pnl_pct,
-                                    pnl_usd=pnl_usd,
-                                    holding_hours=holding_hours,
-                                    quantity=qty,
-                                )
+                        for symbol, price, reason, qty in triggered:
+                            try:
+                                paper_trader.partial_close(symbol=symbol, quantity=qty, price=price)
+                                print(f"[MONITOR] {reason} triggered: {symbol} @ ${price:,.2f} (qty={qty:.6f})", flush=True)
 
-                                # Update or remove from monitor
-                                trade.quantity -= qty
-                                if reason == "TAKE_PROFIT_1":
-                                    trade.tp1_hit = True
-                                elif reason == "TAKE_PROFIT_2":
-                                    trade.tp2_hit = True
-                                if trade.quantity <= 0.000001 or reason == "STOP_LOSS":
-                                    del monitor.open_trades[symbol]
-                        except Exception as e:
-                            logger.error("monitor_exit_failed", symbol=symbol, error=str(e))
+                                # Record in ledger
+                                trade = monitor.open_trades.get(symbol)
+                                if trade:
+                                    pnl_pct = ((price - trade.entry_price) / trade.entry_price) * \
+                                              (1 if trade.side == OrderSide.BUY else -1)
+                                    pnl_usd = (price - trade.entry_price) * qty * \
+                                               (1 if trade.side == OrderSide.BUY else -1)
+                                    entry_time = trade.entry_time if hasattr(trade, 'entry_time') else None
+                                    holding_hours = 0.0
+                                    if entry_time:
+                                        try:
+                                            from datetime import datetime as dt
+                                            if isinstance(entry_time, str):
+                                                entry_dt = dt.fromisoformat(entry_time.replace('Z', '+00:00'))
+                                            else:
+                                                entry_dt = entry_time
+                                            holding_hours = (dt.now(timezone.utc) - entry_dt).total_seconds() / 3600
+                                        except Exception:
+                                            pass
+                                    ledger.record_exit(
+                                        symbol=symbol,
+                                        exit_price=price,
+                                        exit_reason=reason,
+                                        pnl_pct=pnl_pct,
+                                        pnl_usd=pnl_usd,
+                                        holding_hours=holding_hours,
+                                        quantity=qty,
+                                    )
 
-                    paper_trader.save(settings.portfolio_state_path)
-                    monitor._save()
+                                    # Update or remove from monitor
+                                    trade.quantity -= qty
+                                    if reason == "TAKE_PROFIT_1":
+                                        trade.tp1_hit = True
+                                    elif reason == "TAKE_PROFIT_2":
+                                        trade.tp2_hit = True
+                                    if trade.quantity <= 0.000001 or reason == "STOP_LOSS":
+                                        del monitor.open_trades[symbol]
+                            except Exception as e:
+                                logger.error("monitor_exit_failed", symbol=symbol, error=str(e))
+
+                        paper_trader.save(settings.portfolio_state_path)
+                        monitor._save()
 
             except Exception as e:
                 logger.error("price_monitor_error", error=str(e))
@@ -613,6 +617,39 @@ async def _weekly_research_task(shutdown_event: asyncio.Event):
     print("[RESEARCH] Weekly research task stopped.", flush=True)
 
 
+async def _fast_intelligence_loop(shutdown_event: asyncio.Event):
+    """Fast loop — runs every 15 minutes. Monitors news, prices, portfolio risk."""
+    from syndicate.intelligence.fast_loop import FastLoopOrchestrator
+
+    orchestrator = FastLoopOrchestrator()
+    interval = getattr(settings, "fast_loop_interval_minutes", 15) * 60
+
+    # Wait 2 minutes before first run (let the system stabilize)
+    await asyncio.sleep(120)
+
+    while not shutdown_event.is_set():
+        try:
+            result = await asyncio.get_event_loop().run_in_executor(
+                None, orchestrator.run_once
+            )
+            if result.events:
+                logger.info(
+                    "fast_loop_iteration",
+                    events=len(result.events),
+                    actions=result.risk_actions_taken,
+                    duration_ms=result.duration_ms,
+                )
+        except Exception as e:
+            logger.error("fast_loop_error", error=str(e))
+
+        # Sleep until next interval
+        try:
+            await asyncio.wait_for(shutdown_event.wait(), timeout=interval)
+            break
+        except asyncio.TimeoutError:
+            continue
+
+
 async def _weather_oracle_loop(shutdown_event: asyncio.Event):
     """Background task that runs the Weather Oracle for Polymarket weather markets."""
     from syndicate.config import settings
@@ -653,6 +690,7 @@ async def lifespan(app: FastAPI):
     daily_research_task = asyncio.create_task(_daily_research_task(shutdown_event))
     weekly_research_task = asyncio.create_task(_weekly_research_task(shutdown_event))
     oracle_task = asyncio.create_task(_weather_oracle_loop(shutdown_event))
+    fast_loop_task = asyncio.create_task(_fast_intelligence_loop(shutdown_event))
 
     yield
 
@@ -660,7 +698,7 @@ async def lifespan(app: FastAPI):
     shutdown_event.set()
     all_tasks = [
         cycle_task, monitor_task, briefing_task, blog_task,
-        daily_research_task, weekly_research_task, oracle_task,
+        daily_research_task, weekly_research_task, oracle_task, fast_loop_task,
     ]
     for task in all_tasks:
         task.cancel()
@@ -681,6 +719,36 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Rate limiting — simple in-memory token bucket per IP
+import collections
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Simple per-IP rate limiter. 60 req/min reads, 10 req/min writes."""
+
+    def __init__(self, app, read_limit: int = 60, write_limit: int = 10, window: int = 60):
+        super().__init__(app)
+        self._read_limit = read_limit
+        self._write_limit = write_limit
+        self._window = window
+        self._hits: dict[str, list[float]] = collections.defaultdict(list)
+
+    async def dispatch(self, request: Request, call_next):
+        ip = request.client.host if request.client else "unknown"
+        now = time.monotonic()
+        key = f"{ip}:{'w' if request.method in ('POST', 'PUT', 'DELETE', 'PATCH') else 'r'}"
+        limit = self._write_limit if "w" in key.split(":")[-1] else self._read_limit
+
+        # Trim old entries
+        self._hits[key] = [t for t in self._hits[key] if now - t < self._window]
+        if len(self._hits[key]) >= limit:
+            return JSONResponse({"detail": "Rate limit exceeded"}, status_code=429)
+        self._hits[key].append(now)
+        return await call_next(request)
+
+
 # CORS — allow frontend to call the API
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -699,6 +767,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_middleware(RateLimitMiddleware, read_limit=60, write_limit=10)
+
 # Mount route modules
 app.include_router(contributors.router, prefix="/api/v1")
 app.include_router(agents.router, prefix="/api/v1")
@@ -713,10 +783,36 @@ app.include_router(moltbook.router, prefix="/api/v1")
 app.include_router(comms.router, prefix="/api/v1")
 app.include_router(events.router, prefix="/api/v1")
 app.include_router(leaderboard.router, prefix="/api/v1")
+app.include_router(intelligence.router, prefix="/api/v1")
 app.include_router(polymarket_router, prefix="/api/v1")
 
 
 @app.get("/health")
 async def health():
-    """Health check endpoint."""
-    return {"status": "ok", "service": "syndicate"}
+    """Health check endpoint — verifies DB and Redis connectivity."""
+    status = "ok"
+    checks = {}
+
+    # Check DB
+    try:
+        from syndicate.db.session import async_session_factory
+        async with async_session_factory() as session:
+            from sqlalchemy import text
+            await session.execute(text("SELECT 1"))
+        checks["db"] = "ok"
+    except Exception as e:
+        checks["db"] = f"error: {str(e)[:80]}"
+        status = "degraded"
+
+    # Check Redis
+    try:
+        import redis.asyncio as aioredis
+        r = aioredis.from_url(settings.redis_url, socket_connect_timeout=2)
+        await r.ping()
+        await r.aclose()
+        checks["redis"] = "ok"
+    except Exception as e:
+        checks["redis"] = f"error: {str(e)[:80]}"
+        status = "degraded"
+
+    return {"status": status, "service": "syndicate", "checks": checks}

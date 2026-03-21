@@ -12,7 +12,7 @@ from typing import Any
 
 from syndicate.agents.base import BaseAgent
 from syndicate.agents.team_manager import _load_manager_knowledge
-from syndicate.data.models import TeamType, TechnicalIndicators
+from syndicate.data.models import TeamType
 
 _TRADING_KB = _load_manager_knowledge(Path(__file__).parent / "trading_knowledge.md")
 

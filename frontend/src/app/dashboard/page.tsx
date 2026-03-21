@@ -8,8 +8,9 @@ import {
   Target, BarChart3, Clock,
 } from 'lucide-react';
 import CycleCard, { type CycleData, type PipelineEvent } from '@/components/CycleCard';
-import { AGENT_COLORS } from '@/lib/constants';
+import { AGENT_COLORS, DRAWDOWN_COLORS } from '@/lib/constants';
 import { API_BASE } from '@/lib/api';
+import type { PortfolioRisk } from '@/lib/types';
 
 // Lazy-load Recharts (no SSR)
 const AreaChart = dynamic(() => import('recharts').then(m => m.AreaChart), { ssr: false });
@@ -406,6 +407,7 @@ function LeaderboardSidebar({ agents }: { agents: AgentData[] }) {
 
 export default function Dashboard() {
   const [portfolio, setPortfolio] = useState<any>(null);
+  const [portfolioRisk, setPortfolioRisk] = useState<PortfolioRisk | null>(null);
   const [cycles, setCycles] = useState<CycleData[]>([]);
   const [allCycles, setAllCycles] = useState<CyclePoint[]>([]);
   const [agents, setAgents] = useState<AgentData[]>([]);
@@ -427,7 +429,9 @@ export default function Dashboard() {
       fetch(`${API_BASE}/api/v1/portfolio/trades`).then(r => r.json()).catch(() => ({ trades: [], stats: null })),
       fetch(`${API_BASE}/api/v1/events?limit=200`).then(r => r.json()).catch(() => []),
       fetch(`${API_BASE}/api/v1/cycles?limit=500`).then(r => r.json()).catch(() => []),
-    ]).then(([p, c, a, tr, evts, allC]) => {
+      fetch(`${API_BASE}/api/v1/portfolio/risk`).then(r => r.json()).catch(() => null),
+    ]).then(([p, c, a, tr, evts, allC, riskData]) => {
+      if (riskData) setPortfolioRisk(riskData);
       setPortfolio(p);
       setCycles(c);
       setAgents(a);
@@ -628,6 +632,53 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* ── Portfolio Risk Card ── */}
+      {portfolioRisk && (
+        <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Portfolio Risk</h3>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+              DRAWDOWN_COLORS[portfolioRisk.drawdown_level]?.bg ?? 'bg-syn-surface'
+            } ${DRAWDOWN_COLORS[portfolioRisk.drawdown_level]?.color ?? 'text-syn-muted'}`}>
+              {DRAWDOWN_COLORS[portfolioRisk.drawdown_level]?.label ?? portfolioRisk.drawdown_level}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div>
+              <p className="text-[10px] text-syn-text-tertiary">Drawdown</p>
+              <p className={`text-sm font-mono font-bold ${
+                portfolioRisk.drawdown_pct > 3 ? 'text-red-400' : portfolioRisk.drawdown_pct > 1.5 ? 'text-amber-400' : 'text-emerald-400'
+              }`}>{portfolioRisk.drawdown_pct.toFixed(1)}%</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-syn-text-tertiary">Portfolio Heat</p>
+              <p className={`text-sm font-mono font-bold ${
+                portfolioRisk.heat_exceeded ? 'text-red-400' : portfolioRisk.portfolio_heat > 5 ? 'text-amber-400' : 'text-emerald-400'
+              }`}>{portfolioRisk.portfolio_heat.toFixed(1)}%</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-syn-text-tertiary">Correlation</p>
+              <p className={`text-sm font-mono font-bold ${
+                portfolioRisk.correlation_warning ? 'text-red-400' : portfolioRisk.avg_correlation > 0.6 ? 'text-amber-400' : 'text-emerald-400'
+              }`}>{portfolioRisk.avg_correlation.toFixed(2)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-syn-text-tertiary">Size Multiplier</p>
+              <p className={`text-sm font-mono font-bold ${
+                portfolioRisk.size_multiplier < 1 ? 'text-amber-400' : 'text-emerald-400'
+              }`}>{(portfolioRisk.size_multiplier * 100).toFixed(0)}%</p>
+            </div>
+          </div>
+          {portfolioRisk.actions.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {portfolioRisk.actions.slice(0, 2).map((a, i) => (
+                <p key={i} className="text-[10px] text-orange-400/80 font-mono">{a}</p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Equity Curve ── */}
       <EquityCurve data={allCycles} />

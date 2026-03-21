@@ -19,6 +19,7 @@ from sqlalchemy import (
     String,
     Text,
 )
+from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, relationship
 
@@ -73,6 +74,9 @@ class SignalOutcome(str, PyEnum):
 
 class ContributorRow(Base):
     __tablename__ = "contributors"
+    __table_args__ = (
+        Index("ix_contributors_api_token_hash", "api_token_hash"),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     display_name = Column(String, nullable=False)
@@ -89,11 +93,14 @@ class ContributorRow(Base):
         Enum(ContributorStatus), nullable=False, default=ContributorStatus.ACTIVE
     )
     api_token_hash = Column(String, nullable=False)
+    # v2: Contributor role preference
+    preferred_role = Column(String, nullable=False, default="analyst")  # analyst/scout/watchdog/research/any
     created_at = Column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
+    updated_at = Column(DateTime(timezone=True), nullable=True, onupdate=func.now())
 
     agents = relationship("AgentRow", back_populates="contributor")
 
@@ -121,12 +128,18 @@ class TeamRow(Base):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
+    updated_at = Column(DateTime(timezone=True), nullable=True, onupdate=func.now())
 
     agents = relationship("AgentRow", back_populates="team")
 
 
 class AgentRow(Base):
     __tablename__ = "agents"
+    __table_args__ = (
+        Index("ix_agents_team_id", "team_id"),
+        Index("ix_agents_contributor_id", "contributor_id"),
+        Index("ix_agents_status", "status"),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     contributor_id = Column(
@@ -152,11 +165,16 @@ class AgentRow(Base):
     fired_at = Column(DateTime(timezone=True), nullable=True)
     quarantine_signals_remaining = Column(Integer, nullable=False, default=0)
     metadata_ = Column("metadata", JSONB, nullable=False, default=dict)
+    # v2: Contributor role system
+    role_type = Column(String, nullable=False, default="analyst")  # analyst/scout/watchdog/research/founding
+    fast_loop_source = Column(String, nullable=True)  # For scouts: what they monitor
+    last_active_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
+    updated_at = Column(DateTime(timezone=True), nullable=True, onupdate=func.now())
 
     contributor = relationship("ContributorRow", back_populates="agents")
     team = relationship("TeamRow", back_populates="agents")
@@ -165,6 +183,10 @@ class AgentRow(Base):
 
 class CycleRow(Base):
     __tablename__ = "cycles"
+    __table_args__ = (
+        Index("ix_cycles_started_at", "started_at"),
+        Index("ix_cycles_completed_at", "completed_at"),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     started_at = Column(
@@ -180,12 +202,23 @@ class CycleRow(Base):
     orders_executed = Column(Integer, nullable=False, default=0)
     portfolio_value = Column(Numeric(precision=14, scale=4), nullable=True)
     error = Column(Text, nullable=True)
+    # v2: Cycle type and quant-only flag
+    cycle_type = Column(String, nullable=False, default="slow")  # slow (4h) or fast (15min)
+    quant_only = Column(Boolean, nullable=False, default=False)  # True if no LLM agents invoked
+    updated_at = Column(DateTime(timezone=True), nullable=True, onupdate=func.now())
 
     signals = relationship("SignalRow", back_populates="cycle")
 
 
 class SignalRow(Base):
     __tablename__ = "signals"
+    __table_args__ = (
+        Index("ix_signals_cycle_id", "cycle_id"),
+        Index("ix_signals_agent_id", "agent_id"),
+        Index("ix_signals_symbol", "symbol"),
+        Index("ix_signals_outcome", "outcome"),
+        Index("ix_signals_created_at", "created_at"),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     cycle_id = Column(Integer, ForeignKey("cycles.id"), nullable=False)
@@ -212,6 +245,10 @@ class SignalRow(Base):
 
 class BoardDecisionRow(Base):
     __tablename__ = "board_decisions"
+    __table_args__ = (
+        Index("ix_board_decisions_session_id", "session_id"),
+        Index("ix_board_decisions_created_at", "created_at"),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_id = Column(UUID(as_uuid=True), nullable=False)
@@ -229,6 +266,10 @@ class BoardDecisionRow(Base):
 
 class CeoPostRow(Base):
     __tablename__ = "ceo_posts"
+    __table_args__ = (
+        Index("ix_ceo_posts_post_type", "post_type"),
+        Index("ix_ceo_posts_created_at", "created_at"),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     post_type = Column(String, nullable=False)  # "blog", "memo", "briefing"
@@ -241,6 +282,11 @@ class CeoPostRow(Base):
 
 class ResearchReportRow(Base):
     __tablename__ = "research_reports"
+    __table_args__ = (
+        Index("ix_research_reports_researcher", "researcher"),
+        Index("ix_research_reports_report_type", "report_type"),
+        Index("ix_research_reports_created_at", "created_at"),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     researcher = Column(String, nullable=False)  # head_of_research, quant_researcher, strategy_researcher
@@ -310,6 +356,71 @@ class AgentCommRow(Base):
     created_at  = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
 
 
+# ── v2 Tables: Quant Scoring, Portfolio Risk, Fast Loop ─────────────────────
+
+class QuantScoreRow(Base):
+    """Deterministic scoring audit trail — one row per coin per cycle."""
+    __tablename__ = "quant_scores"
+    __table_args__ = (
+        Index("ix_quant_scores_cycle_symbol", "cycle_id", "symbol"),
+        Index("ix_quant_scores_created_at", "created_at"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    cycle_id = Column(Integer, ForeignKey("cycles.id"), nullable=True)
+    symbol = Column(String, nullable=False)
+    technical_score = Column(Numeric(8, 4), nullable=True)
+    sentiment_score = Column(Numeric(8, 4), nullable=True)
+    macro_score = Column(Numeric(8, 4), nullable=True)
+    onchain_score = Column(Numeric(8, 4), nullable=True)
+    fundamental_score = Column(Numeric(8, 4), nullable=True)
+    composite_score = Column(Numeric(8, 4), nullable=True)
+    action = Column(String, nullable=True)  # BUY/SELL/HOLD
+    confidence = Column(Numeric(8, 4), nullable=True)
+    components = Column(JSONB, nullable=False, default=dict)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+class PortfolioRiskSnapshotRow(Base):
+    """Portfolio-level risk state — taken each cycle and fast loop."""
+    __tablename__ = "portfolio_risk_snapshots"
+    __table_args__ = (
+        Index("ix_prs_snapshot_at", "snapshot_at"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    portfolio_heat = Column(Numeric(12, 6), nullable=True)
+    max_drawdown_pct = Column(Numeric(12, 6), nullable=True)
+    drawdown_ladder_level = Column(Integer, nullable=False, default=0)
+    avg_correlation = Column(Numeric(12, 6), nullable=True)
+    gross_exposure = Column(Numeric(14, 4), nullable=True)
+    net_exposure = Column(Numeric(14, 4), nullable=True)
+    positions_count = Column(Integer, nullable=True)
+    detail = Column(JSONB, nullable=False, default=dict)
+    snapshot_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+class FastLoopEventRow(Base):
+    """Events from the 15-minute fast intelligence loop."""
+    __tablename__ = "fast_loop_events"
+    __table_args__ = (
+        Index("ix_fle_event_type", "event_type"),
+        Index("ix_fle_created_at", "created_at"),
+        Index("ix_fle_severity", "severity"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    event_type = Column(String, nullable=False)  # news_alert, whale_alert, flash_crash, risk_action
+    severity = Column(String, nullable=False)  # critical, high, medium, low
+    source = Column(String, nullable=False)  # twitter, cryptopanic, whale_monitor, price_monitor
+    title = Column(String, nullable=False)
+    detail = Column(JSONB, nullable=True)
+    scout_agent_id = Column(UUID(as_uuid=True), ForeignKey("agents.id"), nullable=True)
+    acted_upon = Column(Boolean, nullable=False, default=False)
+    action_taken = Column(String, nullable=True)  # reduce_position, halt_trading, alert_only
+    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
 # ── Polymarket Tables ──────────────────────────────────────────────────────
 
 class PmMarketRow(Base):
@@ -327,10 +438,10 @@ class PmMarketRow(Base):
     date = Column(String, nullable=False)
     unit = Column(String, nullable=False, default="fahrenheit")
     bins = Column(JSONB, nullable=False, default=list)
-    total_volume = Column(Float, nullable=True, default=0.0)
+    total_volume = Column(Numeric(18, 8), nullable=True, default=0.0)
     discovered_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     resolved_at = Column(DateTime(timezone=True), nullable=True)
-    actual_high = Column(Float, nullable=True)
+    actual_high = Column(Numeric(12, 6), nullable=True)
     winning_bin = Column(Integer, nullable=True)
 
 
@@ -345,8 +456,8 @@ class PmForecastRow(Base):
     target_date = Column(String, nullable=False)
     model = Column(String, nullable=False)
     member_highs = Column(JSONB, nullable=False, default=list)
-    mean = Column(Float, nullable=True)
-    std = Column(Float, nullable=True)
+    mean = Column(Numeric(12, 6), nullable=True)
+    std = Column(Numeric(12, 6), nullable=True)
     fetched_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
 
 
@@ -361,10 +472,10 @@ class PmAnalysisRow(Base):
     city = Column(String, nullable=False)
     date = Column(String, nullable=False)
     horizon_hours = Column(Float, nullable=False)
-    forecast_mean = Column(Float, nullable=True)
-    forecast_std = Column(Float, nullable=True)
+    forecast_mean = Column(Numeric(12, 6), nullable=True)
+    forecast_std = Column(Numeric(12, 6), nullable=True)
     bin_probabilities = Column(JSONB, nullable=False, default=list)
-    best_edge = Column(Float, nullable=True)
+    best_edge = Column(Numeric(12, 6), nullable=True)
     best_edge_bin = Column(Integer, nullable=True)
     analyzed_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
 
@@ -383,14 +494,14 @@ class PmTradeRow(Base):
     date = Column(String, nullable=False)
     bin_label = Column(String, nullable=False)
     side = Column(String, nullable=False, default="YES")
-    entry_price = Column(Float, nullable=False)
-    quantity = Column(Float, nullable=False)
-    model_prob = Column(Float, nullable=True)
-    edge_at_entry = Column(Float, nullable=True)
+    entry_price = Column(Numeric(18, 8), nullable=False)
+    quantity = Column(Numeric(18, 8), nullable=False)
+    model_prob = Column(Numeric(12, 6), nullable=True)
+    edge_at_entry = Column(Numeric(12, 6), nullable=True)
     placed_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     resolved_at = Column(DateTime(timezone=True), nullable=True)
     outcome = Column(Boolean, nullable=True)
-    pnl = Column(Float, nullable=True, default=0.0)
+    pnl = Column(Numeric(14, 4), nullable=True, default=0.0)
     is_paper = Column(Boolean, nullable=False, default=True)
 
 
@@ -401,10 +512,10 @@ class PmCalibrationRow(Base):
     city = Column(String, nullable=False)
     date = Column(String, nullable=False)
     model = Column(String, nullable=False)
-    forecast_mean = Column(Float, nullable=True)
-    forecast_std = Column(Float, nullable=True)
-    actual_high = Column(Float, nullable=True)
-    error = Column(Float, nullable=True)
+    forecast_mean = Column(Numeric(12, 6), nullable=True)
+    forecast_std = Column(Numeric(12, 6), nullable=True)
+    actual_high = Column(Numeric(12, 6), nullable=True)
+    error = Column(Numeric(12, 6), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
 
 
@@ -412,10 +523,10 @@ class PmPortfolioSnapshotRow(Base):
     __tablename__ = "pm_portfolio_snapshots"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    bankroll = Column(Float, nullable=False)
-    cash = Column(Float, nullable=False)
+    bankroll = Column(Numeric(14, 4), nullable=False)
+    cash = Column(Numeric(14, 4), nullable=False)
     open_positions = Column(Integer, nullable=False, default=0)
-    total_pnl = Column(Float, nullable=False, default=0.0)
+    total_pnl = Column(Numeric(14, 4), nullable=False, default=0.0)
     total_bets = Column(Integer, nullable=False, default=0)
     wins = Column(Integer, nullable=False, default=0)
     losses = Column(Integer, nullable=False, default=0)

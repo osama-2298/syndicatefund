@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from syndicate.api.dependencies import require_admin
 from syndicate.db.models import CycleRow
 from syndicate.db.session import get_db
 
@@ -146,14 +147,20 @@ async def list_snapshots(limit: int = 10):
 @router.get("/snapshots/{filename}")
 async def get_snapshot(filename: str):
     """Get full cycle snapshot data by filename."""
-    # Sanitize filename
+    # Sanitize filename — reject path separators and traversal
+    if "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
     if not filename.startswith("cycle_") or not filename.endswith(".json"):
         raise HTTPException(status_code=400, detail="Invalid snapshot filename")
-    path = Path("data/cycles") / filename
-    if not path.exists():
+    # Resolve and verify path stays within allowed directory
+    base_dir = Path("data/cycles").resolve()
+    resolved = (base_dir / filename).resolve()
+    if not str(resolved).startswith(str(base_dir)):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    if not resolved.exists():
         raise HTTPException(status_code=404, detail="Snapshot not found")
     try:
-        return json.loads(path.read_text())
+        return json.loads(resolved.read_text())
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read snapshot: {e}")
 
@@ -174,7 +181,7 @@ async def get_latest_snapshot():
 
 
 @router.post("/trigger")
-async def trigger_cycle():
+async def trigger_cycle(_admin: bool = Depends(require_admin)):
     """Manually trigger a full pipeline cycle (bypasses daily mode).
 
     Returns immediately; cycle runs in background.

@@ -121,7 +121,6 @@ def _load_team_stats_from_snapshots() -> dict[str, dict]:
 
 
 class AgentDetail(AgentSummary):
-    system_prompt: str | None
     metadata: dict
 
 
@@ -161,9 +160,26 @@ async def get_agent(
         total_cost_usd=float(agent.total_cost_usd),
         quarantine_signals_remaining=agent.quarantine_signals_remaining,
         created_at=agent.created_at.isoformat(),
-        system_prompt=agent.system_prompt,
         metadata=agent.metadata_ or {},
     )
+
+
+@router.get("/{agent_id}/prompt")
+async def get_agent_prompt(
+    agent_id: str,
+    db: AsyncSession = Depends(get_db),
+    _admin: bool = Depends(require_admin),
+):
+    """Admin: get an agent's system prompt."""
+    try:
+        uid = UUID(agent_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid agent_id UUID: '{agent_id}'")
+    result = await db.execute(select(AgentRow).where(AgentRow.id == uid))
+    agent = result.scalar_one_or_none()
+    if agent is None:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    return {"system_prompt": agent.system_prompt}
 
 
 class AssignRequest(BaseModel):

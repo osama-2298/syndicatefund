@@ -107,6 +107,8 @@ class SignalAggregator:
         self,
         signals: list[Signal],
         agent_profiles: dict[str, AgentProfile],
+        indicators_map: dict | None = None,
+        quant_scores: dict | None = None,
     ) -> list[AggregatedSignal]:
         if not signals:
             return []
@@ -118,6 +120,14 @@ class SignalAggregator:
         results = []
         for symbol, syms in by_symbol.items():
             agg = self._aggregate_symbol(symbol, syms, agent_profiles)
+
+            # ── QuantScore Integration (Layer 1 influence) ──
+            # If we have a quant score for this symbol, use it to validate
+            # and potentially boost/dampen the LLM-aggregated signal.
+            if quant_scores and symbol in quant_scores:
+                qs = quant_scores[symbol]
+                agg = self._apply_quant_score(agg, qs)
+
             results.append(agg)
             logger.info(
                 "signal_aggregated",
@@ -126,16 +136,14 @@ class SignalAggregator:
                 confidence=round(agg.aggregated_confidence, 3),
                 consensus=round(agg.consensus_ratio, 3),
                 quality=agg.weighted_scores.get("_decision_quality", "?"),
+                quant_aligned=agg.weighted_scores.get("_quant_aligned"),
             )
 
         # Deterministic baseline comparison for each aggregated signal
         for agg in results:
-            # Try to find indicators for this symbol from contributing signals
             indicators_4h = None
-            for sig in agg.contributing_signals:
-                if "atr_14" in sig.metadata:
-                    # We don't have full indicators here, but we can note agreement
-                    break
+            if indicators_map:
+                indicators_4h = indicators_map.get(agg.symbol)
 
             baseline = self.compute_deterministic_baseline(agg.symbol, indicators_4h)
             llm_direction = (
@@ -155,6 +163,61 @@ class SignalAggregator:
                 )
 
         return results
+
+    def _apply_quant_score(self, agg: AggregatedSignal, qs) -> AggregatedSignal:
+        """
+        Apply QuantScore (Layer 1) to modulate the LLM-aggregated signal.
+
+        Rules:
+        1. If quant and LLM agree on direction → boost confidence by 15%
+        2. If quant and LLM disagree → dampen confidence by 25%
+        3. If quant says HOLD but LLM has a signal → dampen by 15%
+        4. Store alignment info for transparency
+        """
+        # Determine LLM direction
+        llm_bullish = agg.recommended_action in (SignalAction.BUY, SignalAction.COVER)
+        llm_bearish = agg.recommended_action in (SignalAction.SELL, SignalAction.SHORT)
+        llm_hold = agg.recommended_action == SignalAction.HOLD
+
+        quant_bullish = qs.action == "BUY"
+        quant_bearish = qs.action == "SELL"
+        quant_hold = qs.action == "HOLD"
+
+        # Store quant score for transparency
+        agg.weighted_scores["_quant_score"] = qs.to_dict() if hasattr(qs, "to_dict") else {
+            "action": qs.action,
+            "confidence": qs.confidence,
+            "composite": qs.composite_score,
+        }
+
+        # Check alignment
+        if (llm_bullish and quant_bullish) or (llm_bearish and quant_bearish):
+            # Agreement — boost confidence
+            agg.aggregated_confidence = min(0.95, agg.aggregated_confidence * 1.15)
+            agg.weighted_scores["_quant_aligned"] = True
+            agg.weighted_scores["_quant_modifier"] = "boost_15pct"
+        elif (llm_bullish and quant_bearish) or (llm_bearish and quant_bullish):
+            # Disagreement — dampen confidence significantly
+            agg.aggregated_confidence *= 0.75
+            agg.weighted_scores["_quant_aligned"] = False
+            agg.weighted_scores["_quant_modifier"] = "dampen_25pct"
+            logger.warning(
+                "quant_llm_disagree",
+                symbol=agg.symbol,
+                llm_action=agg.recommended_action.value,
+                quant_action=qs.action,
+                quant_composite=round(qs.composite_score, 3),
+            )
+        elif not llm_hold and quant_hold:
+            # Quant says HOLD but LLM has a signal — mild dampen
+            agg.aggregated_confidence *= 0.85
+            agg.weighted_scores["_quant_aligned"] = None
+            agg.weighted_scores["_quant_modifier"] = "quant_hold_dampen_15pct"
+        else:
+            agg.weighted_scores["_quant_aligned"] = None
+            agg.weighted_scores["_quant_modifier"] = "none"
+
+        return agg
 
     # ─────────────────────────────────────────────
     #  DETERMINISTIC BASELINE
@@ -312,40 +375,38 @@ class SignalAggregator:
             return self._build_result(symbol, signals, SignalAction.HOLD, avg_conf, 1.0, alerts, weighted_signals)
 
         # ── Step 3: Bayesian log-odds combination ──
+        # Sum (not average) log-odds so more agents agreeing = stronger signal.
         bullish_log_odds = 0.0
-        bullish_total_w = 0.0
         for sig, w in bullish:
             conv = sig.metadata.get("conviction", int(sig.confidence * 10))
             bullish_log_odds += _conviction_to_log_odds(conv) * w
-            bullish_total_w += w
 
         bearish_log_odds = 0.0
-        bearish_total_w = 0.0
         for sig, w in bearish:
             conv = sig.metadata.get("conviction", int(sig.confidence * 10))
             bearish_log_odds += _conviction_to_log_odds(conv) * w
-            bearish_total_w += w
 
-        # Normalize
-        bull_avg = bullish_log_odds / max(bullish_total_w, 0.001)
-        bear_avg = bearish_log_odds / max(bearish_total_w, 0.001)
+        # Net log-odds: bullish evidence minus bearish evidence
+        net_log_odds = bullish_log_odds - bearish_log_odds
 
-        bull_conf = _log_odds_to_confidence(bull_avg) if bullish else 0
-        bear_conf = _log_odds_to_confidence(bear_avg) if bearish else 0
+        bull_conf = _log_odds_to_confidence(bullish_log_odds) if bullish else 0
+        bear_conf = _log_odds_to_confidence(bearish_log_odds) if bearish else 0
 
-        # Winner
-        if bullish_log_odds > abs(bearish_log_odds):
+        # Winner determined by net log-odds direction
+        if net_log_odds > 0:
             direction = "bullish"
-            raw_confidence = bull_conf
+            raw_confidence = _log_odds_to_confidence(net_log_odds)
             action = SignalAction.BUY
             winner_count = len(bullish)
         else:
             direction = "bearish"
-            raw_confidence = bear_conf
+            raw_confidence = _log_odds_to_confidence(abs(net_log_odds))
             action = SignalAction.SHORT if any(s.action == SignalAction.SHORT for s, _ in bearish) else SignalAction.SELL
             winner_count = len(bearish)
 
-        consensus = winner_count / n_total
+        # Consensus: fraction of directional signals that agree (neutral excluded)
+        n_directional = len(bullish) + len(bearish)
+        consensus = winner_count / max(n_directional, 1)
 
         # ── Step 4: Conviction distribution (polarization) ──
         all_convictions = [sig.metadata.get("conviction", int(sig.confidence * 10)) for sig, _ in weighted_signals]
@@ -358,6 +419,8 @@ class SignalAggregator:
             ))
 
         # ── Step 5: Directional strength (margin of victory) ──
+        bullish_total_w = sum(w for _, w in bullish)
+        bearish_total_w = sum(w for _, w in bearish)
         total_directional = bullish_total_w + bearish_total_w
         directional_strength = abs(bullish_log_odds - abs(bearish_log_odds)) / max(abs(bullish_log_odds) + abs(bearish_log_odds), 0.001)
         directional_strength = _clamp(directional_strength, 0, 1)
@@ -381,7 +444,9 @@ class SignalAggregator:
 
         # ── Step 7: Apply modifiers ──
         confidence = raw_confidence
-        pre_modifier_confidence = raw_confidence  # Save for penalty floor
+        # pre_modifier_confidence is captured AFTER consensus bonus
+        # so the penalty floor reflects the consensus-boosted base value
+        pre_modifier_confidence = confidence
 
         # 7a: Polarization penalty (high polarization = reduce size)
         # Was 0.4 — too aggressive. Disagreement can be healthy (3 vs 2 teams)
@@ -417,10 +482,22 @@ class SignalAggregator:
                 f"Close call — directional strength {directional_strength:.2f}, consensus {consensus:.0%}.",
             ))
 
+        # Model diversity bonus: if signals from 2+ different providers agree, boost
+        # Applied BEFORE penalty floor so it counts as part of the modifier stack
+        if n_directional >= 2:
+            winner_providers = set()
+            for sig, w in (bullish if direction == "bullish" else bearish):
+                provider = sig.metadata.get("provider", "anthropic")
+                winner_providers.add(provider)
+            if len(winner_providers) >= 2:
+                confidence *= 1.15  # 15% ensemble diversity premium
+
         # ── Step 8b: Penalty floor — no signal loses >50% from modifier stack ──
         # Prevents multiplicative penalties (polarization × macro × tech × close-call)
         # from crushing otherwise valid signals.
         confidence = max(confidence, pre_modifier_confidence * 0.50)
+
+        confidence = _clamp(confidence, 0.0, 1.0)
 
         # ── Step 9: Decision quality rating ──
         if directional_strength > 0.5 and consensus >= 0.7 and polarization < 0.3:
@@ -439,17 +516,6 @@ class SignalAggregator:
                 f"All teams aligned with high conviction. Strongest signal type.",
                 {"convictions": all_convictions},
             ))
-
-        # Model diversity bonus: if signals from 2+ different providers agree, boost
-        if n_directional >= 2:
-            winner_providers = set()
-            for sig, w in (bullish if direction == "bullish" else bearish):
-                provider = sig.metadata.get("provider", "anthropic")
-                winner_providers.add(provider)
-            if len(winner_providers) >= 2:
-                confidence *= 1.15  # 15% ensemble diversity premium
-
-        confidence = _clamp(confidence, 0.0, 1.0)
 
         # ── Build result with enriched metadata ──
         scores = {

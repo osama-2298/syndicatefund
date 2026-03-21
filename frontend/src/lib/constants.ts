@@ -77,6 +77,31 @@ export const OUTCOME_COLORS: Record<string, string> = {
   pending: 'bg-syn-surface text-syn-muted',
 };
 
+// ── v2: Contributor role & severity colors ──
+
+export const ROLE_COLORS: Record<string, string> = {
+  analyst: 'text-blue-400 bg-blue-400/10 ring-blue-400/30',
+  scout: 'text-cyan-400 bg-cyan-400/10 ring-cyan-400/30',
+  watchdog: 'text-red-400 bg-red-400/10 ring-red-400/30',
+  research: 'text-purple-400 bg-purple-400/10 ring-purple-400/30',
+  founding: 'text-amber-400 bg-amber-400/10 ring-amber-400/30',
+};
+
+export const SEVERITY_COLORS: Record<string, string> = {
+  critical: 'text-red-500 bg-red-500/10 ring-red-500/30',
+  high: 'text-orange-400 bg-orange-400/10 ring-orange-400/30',
+  medium: 'text-amber-400 bg-amber-400/10 ring-amber-400/30',
+  low: 'text-blue-400 bg-blue-400/10 ring-blue-400/30',
+};
+
+export const DRAWDOWN_COLORS: Record<string, { color: string; bg: string; label: string }> = {
+  OK: { color: 'text-emerald-400', bg: 'bg-emerald-400/20', label: 'Normal' },
+  FLAGGED: { color: 'text-yellow-400', bg: 'bg-yellow-400/20', label: 'Flagged' },
+  REDUCED: { color: 'text-orange-400', bg: 'bg-orange-400/20', label: 'Reduced' },
+  BTC_ETH_ONLY: { color: 'text-red-400', bg: 'bg-red-400/20', label: 'BTC/ETH Only' },
+  HALTED: { color: 'text-red-500', bg: 'bg-red-500/20', label: 'HALTED' },
+};
+
 // ── Research page configs ──
 
 export const researcherConfig: Record<string, { name: string; title: string; gradient: string; initial: string }> = {
@@ -123,6 +148,8 @@ export const COMM_TYPE_CONFIG: Record<string, { label: string; color: string }> 
   aggregation:       { label: 'AGGREGATION',  color: 'text-emerald-400 bg-emerald-400/10 ring-emerald-400/20' },
   trade_execution:   { label: 'TRADE',        color: 'text-green-400 bg-green-400/10 ring-green-400/20' },
   ceo_review:        { label: 'CEO REVIEW',   color: 'text-violet-400 bg-violet-400/10 ring-violet-400/20' },
+  quant_scoring:     { label: 'QUANT SCORE',  color: 'text-teal-400 bg-teal-400/10 ring-teal-400/20' },
+  risk_check:        { label: 'RISK CHECK',   color: 'text-orange-400 bg-orange-400/10 ring-orange-400/20' },
 };
 
 export const EXECUTIVE_NAMES: Record<string, { name: string; title: string; gradient: string }> = {

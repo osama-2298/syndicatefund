@@ -23,14 +23,18 @@ class CommGenerator:
         final_orders: list | None = None,
         results: list | None = None,
         ceo_feedback: dict | None = None,
+        quant_scores: dict | None = None,
+        risk_snapshot=None,
     ) -> list[dict]:
         comms: list[dict] = []
         comms.extend(self._from_ceo_directive(directive))
         comms.extend(self._from_coo_selection(selection))
         comms.extend(self._from_cro_rules(risk_limits, cro_reasoning))
+        comms.extend(self._from_quant_scores(quant_scores or {}))
         comms.extend(self._from_agent_signals(individual_signals or []))
         comms.extend(self._from_manager_signals(manager_signals or []))
         comms.extend(self._from_aggregation(aggregated or []))
+        comms.extend(self._from_portfolio_risk(risk_snapshot))
         comms.extend(self._from_trades(final_orders or [], results or []))
         comms.extend(self._from_ceo_review(ceo_feedback))
         return comms
@@ -110,7 +114,7 @@ class CommGenerator:
             "content": content,
             "metadata": {
                 "max_position_pct": getattr(risk_limits, "max_position_pct", None),
-                "max_daily_drawdown_pct": getattr(risk_limits, "max_daily_drawdown_pct", None),
+                "max_drawdown_pct": getattr(risk_limits, "max_drawdown_pct", None),
                 "max_open_positions": getattr(risk_limits, "max_open_positions", None),
                 "min_signal_confidence": getattr(risk_limits, "min_signal_confidence", None),
                 "min_consensus_ratio": getattr(risk_limits, "min_consensus_ratio", None),
@@ -191,6 +195,97 @@ class CommGenerator:
                 },
             })
         return comms
+
+    # ── Quant Scoring Engine ──────────────────────────────────────────
+
+    def _from_quant_scores(self, quant_scores: dict) -> list[dict]:
+        """Generate comms from the Quantitative Scoring Engine (Layer 1)."""
+        comms = []
+        for symbol, qs in quant_scores.items():
+            base = symbol.replace("USDT", "")
+            action = getattr(qs, "action", "HOLD")
+            composite = getattr(qs, "composite_score", 0)
+            confidence = getattr(qs, "confidence", 0)
+
+            tech = getattr(qs, "technical_score", 0)
+            sent = getattr(qs, "sentiment_score", 0)
+            macro = getattr(qs, "macro_score", 0)
+            onchain = getattr(qs, "onchain_score", 0)
+            fund = getattr(qs, "fundamental_score", 0)
+
+            content = (
+                f"Quantitative analysis for {base}: {action} "
+                f"(composite {composite:+.2f}, confidence {confidence:.0%}). "
+                f"Technical {tech:+.1f} | Sentiment {sent:+.1f} | "
+                f"Macro {macro:+.1f} | On-Chain {onchain:+.1f} | Fundamental {fund:+.1f}"
+            )
+
+            direction = "BULLISH" if action == "BUY" else "BEARISH" if action == "SELL" else "NEUTRAL"
+            comms.append({
+                "comm_type": "quant_scoring",
+                "agent_class": "QuantScoringEngine",
+                "agent_name": "Quant Engine",
+                "team": None,
+                "symbol": symbol,
+                "direction": direction,
+                "conviction": int(confidence * 10),
+                "content": content,
+                "metadata": {
+                    "action": action,
+                    "composite_score": round(composite, 4),
+                    "confidence": round(confidence, 4),
+                    "technical_score": round(tech, 4),
+                    "sentiment_score": round(sent, 4),
+                    "macro_score": round(macro, 4),
+                    "onchain_score": round(onchain, 4),
+                    "fundamental_score": round(fund, 4),
+                    "components": getattr(qs, "components", {}),
+                },
+            })
+        return comms
+
+    def _from_portfolio_risk(self, risk_snapshot) -> list[dict]:
+        """Generate comm from portfolio-level risk check."""
+        if risk_snapshot is None:
+            return []
+
+        dd_pct = getattr(risk_snapshot, "drawdown_pct", 0)
+        heat = getattr(risk_snapshot, "portfolio_heat", 0)
+        corr = getattr(risk_snapshot, "avg_correlation", 0)
+        level = getattr(risk_snapshot, "drawdown_level", None)
+        level_name = level.name if level else "OK"
+        actions = getattr(risk_snapshot, "actions", [])
+
+        content = (
+            f"Portfolio risk check: Drawdown {dd_pct*100:.1f}% (level {level_name}), "
+            f"heat {heat*100:.1f}%, avg correlation {corr:.2f}."
+        )
+        if actions:
+            content += f" Actions: {'; '.join(actions[:3])}"
+
+        direction = "NEUTRAL"
+        if level_name in ("REDUCED", "BTC_ETH_ONLY"):
+            direction = "BEARISH"
+        elif level_name == "HALTED":
+            direction = "BEARISH"
+
+        return [{
+            "comm_type": "risk_check",
+            "agent_class": "PortfolioRiskManager",
+            "agent_name": "Risk Sentinel",
+            "team": None,
+            "symbol": None,
+            "direction": direction,
+            "conviction": max(1, min(10, int(dd_pct * 100))),
+            "content": content,
+            "metadata": {
+                "drawdown_pct": round(dd_pct * 100, 2),
+                "drawdown_level": level_name,
+                "portfolio_heat": round(heat * 100, 2),
+                "avg_correlation": round(corr, 4),
+                "actions": actions,
+            },
+        }]
 
     # ── Aggregation ──────────────────────────────────────────────────
 

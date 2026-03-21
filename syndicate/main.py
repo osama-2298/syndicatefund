@@ -507,7 +507,9 @@ def run_pipeline(
 
     _binance = binance or BinanceClient()
     _owns_binance = binance is None
-    paper_trader = PaperTrader.load(settings.portfolio_state_path)
+    from syndicate.execution.state_lock import execution_lock
+    with execution_lock:
+        paper_trader = PaperTrader.load(settings.portfolio_state_path)
     tracker = PerformanceTracker(storage_path=settings.perf_history_path)
 
     # CEO memory — persists across cycles
@@ -941,7 +943,7 @@ def run_pipeline(
         cro_card(
             {
                 "max_position_pct": risk_limits.max_position_pct,
-                "max_daily_drawdown_pct": risk_limits.max_daily_drawdown_pct,
+                "max_drawdown_pct": risk_limits.max_drawdown_pct,
                 "max_open_positions": risk_limits.max_open_positions,
                 "min_signal_confidence": risk_limits.min_signal_confidence,
                 "min_consensus_ratio": risk_limits.min_consensus_ratio,
@@ -1016,12 +1018,46 @@ def run_pipeline(
         weight_strs = "  ".join(f"{t[:4]}={w:.2f}" for t, w in final_weights.items())
         print(f"    Phase {phase_weights.phase} ({phase_label[phase_weights.phase]}, {closed_trades} trades): {weight_strs}")
 
+        # ═══════════════════════════════════════
+        # STEP 6b: Quantitative Scoring Engine (Layer 1 — 0 LLM calls)
+        # ═══════════════════════════════════════
+        # Pure math scoring across 5 domains: technical, sentiment, macro, onchain, fundamental
+        # This is the PRIMARY signal. LLM agents provide interpretation (Layer 2).
+        from syndicate.scoring.engine import QuantScoringEngine
+
+        quant_engine = QuantScoringEngine()
+        global_data = {
+            "fear_greed": intelligence.get("fear_greed") if intelligence else None,
+            "global_market": intelligence.get("coingecko_global") if intelligence else None,
+            "defi": intelligence.get("defillama") if intelligence else None,
+        }
+        quant_scores = quant_engine.score_all(snapshot, selected_coins, global_data=global_data)
+
+        # Display quant scores
+        for sym, qs in quant_scores.items():
+            base = sym.replace("USDT", "")
+            action_color = C.B_GREEN if qs.action == "BUY" else C.B_RED if qs.action == "SELL" else C.YELLOW
+            print(f"    {c(qs.action, action_color):>8} {base:<6} composite={qs.composite_score:+.2f}  "
+                  f"tech={qs.technical_score:+.1f} sent={qs.sentiment_score:+.1f} "
+                  f"macro={qs.macro_score:+.1f} onchain={qs.onchain_score:+.1f} "
+                  f"fund={qs.fundamental_score:+.1f}  conf={qs.confidence:.2f}")
+
         aggregator = SignalAggregator(
             team_weight_overrides=final_weights,
             regime=directive.regime.value,
             calibration_data=calibration_data,
         )
-        aggregated = aggregator.aggregate(all_coin_signals, all_agent_profiles)
+        # Build indicators map for deterministic baseline (avoids always-NEUTRAL)
+        indicators_map = {
+            sym: coin.indicators_4h
+            for sym, coin in snapshot.coins.items()
+            if coin.indicators_4h is not None
+        }
+        aggregated = aggregator.aggregate(
+            all_coin_signals, all_agent_profiles,
+            indicators_map=indicators_map,
+            quant_scores=quant_scores,
+        )
 
         # Persist latest signals for API
         _save_latest_signals(aggregated)
@@ -1065,8 +1101,79 @@ def run_pipeline(
         above_consensus = [a for a in above_confidence if a.consensus_ratio >= risk_limits.min_consensus_ratio]
         funnel["after_consensus_filter"] = len(above_consensus)
 
+        # ── Portfolio-level risk check (NEW: progressive drawdown + heat + correlation) ──
+        from syndicate.risk.portfolio_risk import PortfolioRiskManager
+
+        portfolio_risk_mgr = PortfolioRiskManager()
+        # Load open trades for heat calculation
+        open_trades_data = None
+        try:
+            import json as _json
+            _ot_path = settings.open_trades_path
+            if Path(_ot_path).exists():
+                open_trades_data = _json.loads(Path(_ot_path).read_text())
+                if isinstance(open_trades_data, dict):
+                    open_trades_data = list(open_trades_data.values())
+        except Exception:
+            pass
+
+        # Compute rolling returns for correlation monitoring
+        # Fetch last 30 daily closes per held symbol via Binance
+        returns_history: dict[str, list[float]] = {}
+        held_symbols = [p.symbol for p in paper_trader.portfolio.positions]
+        if held_symbols and len(held_symbols) >= 2:
+            try:
+                import math
+                _bc = _binance  # Use the already-initialized client
+                for sym in held_symbols:
+                    try:
+                        daily_candles = _bc.get_klines(sym, interval="1d", limit=35)
+                        closes = [c.close for c in daily_candles if c.close and c.close > 0]
+                        if len(closes) >= 5:
+                            daily_returns = []
+                            for i in range(1, len(closes)):
+                                if closes[i - 1] > 0:
+                                    daily_returns.append(math.log(closes[i] / closes[i - 1]))
+                            if daily_returns:
+                                returns_history[sym] = daily_returns
+                    except Exception:
+                        pass  # Skip symbol if candle fetch fails
+            except Exception:
+                pass  # Skip correlation if Binance unavailable
+
+        risk_snapshot = portfolio_risk_mgr.check(
+            portfolio=paper_trader.portfolio,
+            open_trades=open_trades_data,
+            returns_history=returns_history if returns_history else None,
+            regime=directive.regime,
+        )
+
+        # Display risk snapshot
+        if risk_snapshot.actions:
+            for action_msg in risk_snapshot.actions:
+                print(f"    {c('!', C.B_RED)} {dim(action_msg)}")
+        else:
+            print(f"    {c('OK', C.B_GREEN)} Drawdown {risk_snapshot.drawdown_pct*100:.1f}% | "
+                  f"Heat {risk_snapshot.portfolio_heat*100:.1f}% | "
+                  f"Corr {risk_snapshot.avg_correlation:.2f}")
+
         risk_manager = RiskManager(limits=risk_limits, regime=directive.regime)
-        risk_orders = risk_manager.evaluate(aggregated, paper_trader.portfolio)
+
+        # If portfolio risk says trading is halted, skip risk evaluation entirely
+        if not risk_snapshot.trading_allowed:
+            risk_orders = []
+            print(f"    {c('HALTED', C.B_RED)} {risk_snapshot.drawdown_message}")
+        else:
+            risk_orders = risk_manager.evaluate(aggregated, paper_trader.portfolio)
+
+            # Apply portfolio-level position size adjustments
+            if risk_snapshot.size_multiplier < 1.0:
+                for order in risk_orders:
+                    order.quantity = portfolio_risk_mgr.adjust_position_size(
+                        order.quantity, risk_snapshot
+                    )
+                print(f"    {dim(f'Position sizes adjusted by {risk_snapshot.size_multiplier:.0%} (portfolio risk)')}")
+
         funnel["after_risk_manager"] = len(risk_orders)
 
         # ═══════════════════════════════════════
@@ -1183,7 +1290,8 @@ def run_pipeline(
                         source_signal_id=order.source_signal_id,
                     )
             paper_trader.update_prices(coin_prices)
-            paper_trader.save(settings.portfolio_state_path)
+            with execution_lock:
+                paper_trader.save(settings.portfolio_state_path)
 
         summary = paper_trader.get_summary()
         portfolio_card(summary, paper_trader.portfolio.positions or None)
@@ -1323,6 +1431,8 @@ def run_pipeline(
                 final_orders=final_orders,
                 results=results,
                 ceo_feedback=ceo_feedback,
+                quant_scores=quant_scores,
+                risk_snapshot=risk_snapshot,
             )
             # JSON fallback
             comms_path = Path("data/latest_comms.json")
@@ -1334,6 +1444,33 @@ def run_pipeline(
             logger.warning("comms_generation_failed", error=str(e), traceback=_tb.format_exc())
             print(f"    {dim(f'⚠ Comms generation failed: {e}')}")
             _cycle_comms = []
+
+        # ── Persist quant scores and risk snapshot (JSON fallback + DB) ──
+        try:
+            # Quant scores
+            qs_data = {sym: qs.to_dict() for sym, qs in quant_scores.items()} if quant_scores else {}
+            qs_path = Path("data/latest_quant_scores.json")
+            qs_path.parent.mkdir(parents=True, exist_ok=True)
+            qs_path.write_text(json.dumps(qs_data, indent=2, default=str))
+
+            # Risk snapshot
+            rs_data = risk_snapshot.to_dict() if risk_snapshot else {}
+            rs_path = Path("data/latest_risk_snapshot.json")
+            rs_path.write_text(json.dumps(rs_data, indent=2, default=str))
+
+            # Append to risk history (for /portfolio/risk/history endpoint)
+            risk_history_path = Path("data/risk_snapshots.json")
+            try:
+                history = json.loads(risk_history_path.read_text()) if risk_history_path.exists() else []
+            except Exception:
+                history = []
+            history.append(rs_data)
+            history = history[-500:]  # Keep last 500 snapshots
+            risk_history_path.write_text(json.dumps(history, indent=2, default=str))
+
+            print(f"    {dim(f'Quant scores + risk snapshot persisted ({len(qs_data)} coins)')}")
+        except Exception as e:
+            logger.warning("quant_risk_persistence_failed", error=str(e))
 
         # Write a blog post about this cycle
         blog_entry = None
@@ -1549,7 +1686,8 @@ def run_pipeline(
             print(f"    {dim(f'⚠ DB record failed: {e}')}")
 
     finally:
-        paper_trader.save(settings.portfolio_state_path)
+        with execution_lock:
+            paper_trader.save(settings.portfolio_state_path)
         if _owns_binance:
             _binance.close()
 

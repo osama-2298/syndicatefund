@@ -328,6 +328,10 @@ class TradeMonitor:
                     trade.quantity -= exit_qty
                     trade.tp1_hit = True
                     trade.stop_moved_to_breakeven = True
+                    # Activate trailing for shorts (mirrors long logic above)
+                    if low <= params.trailing_stop_activation:
+                        trade.trailing_active = True
+                        trade.current_trailing_stop = low + params.trailing_stop_distance
 
             # ── Check TAKE PROFIT 2 ──
             if trade.tp1_hit and not trade.tp2_hit and params.take_profit_2 > 0:
@@ -427,7 +431,9 @@ class TradeMonitor:
             logger.error("trade_monitor_load_failed", error=str(e))
 
     def _save(self) -> None:
-        """Save open trades to disk."""
+        """Save open trades to disk. Uses atomic write-to-temp-then-rename."""
         self._path.parent.mkdir(parents=True, exist_ok=True)
         data = [trade.to_dict() for trade in self.open_trades.values()]
-        self._path.write_text(json.dumps(data, indent=2, default=str))
+        tmp = self._path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, indent=2, default=str))
+        tmp.rename(self._path)  # atomic on POSIX

@@ -103,16 +103,24 @@ class WalkForwardOptimizer:
         test_delta = timedelta(days=wf_config.test_days)
         step_delta = timedelta(days=wf_config.step_days)
 
-        # Build the list of (train_start, train_end, test_start, test_end) windows
+        # Build the list of (train_start, train_end, test_start, test_end) windows.
+        # Each test window is trimmed so it doesn't overlap with the previous
+        # window's test period (step_days < test_days causes overlap otherwise).
         windows_spec: list[tuple[datetime, datetime, datetime, datetime]] = []
         cursor = start_dt
+        prev_test_end: datetime | None = None
 
         while cursor + train_delta + test_delta <= end_dt + timedelta(days=1):
             train_start = cursor
             train_end = cursor + train_delta
             test_start = train_end
             test_end = min(train_end + test_delta, end_dt)
-            windows_spec.append((train_start, train_end, test_start, test_end))
+            # Trim start to avoid overlap with previous window's test period
+            if prev_test_end is not None and test_start < prev_test_end:
+                test_start = prev_test_end
+            if test_start < test_end:
+                windows_spec.append((train_start, train_end, test_start, test_end))
+                prev_test_end = test_end
             cursor += step_delta
 
         if not windows_spec:

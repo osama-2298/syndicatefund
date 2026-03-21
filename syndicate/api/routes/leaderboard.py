@@ -50,18 +50,41 @@ async def get_leaderboard(
     result = await db.execute(query)
     agents = result.unique().scalars().all()
 
+    if not agents:
+        return []
+
+    # Batch-load recent signals for all agents in one query (fixes N+1)
+    from sqlalchemy import and_
+    agent_ids = [a.id for a in agents]
+    # Use window function to get last 20 signals per agent
+    row_num = func.row_number().over(
+        partition_by=SignalRow.agent_id,
+        order_by=desc(SignalRow.created_at),
+    ).label("rn")
+    sub = (
+        select(SignalRow.agent_id, SignalRow.outcome, row_num)
+        .where(
+            and_(
+                SignalRow.agent_id.in_(agent_ids),
+                SignalRow.outcome != SignalOutcome.PENDING,
+            )
+        )
+        .subquery()
+    )
+    streak_result = await db.execute(
+        select(sub.c.agent_id, sub.c.outcome)
+        .where(sub.c.rn <= 20)
+        .order_by(sub.c.agent_id, sub.c.rn)
+    )
+    # Group by agent
+    from collections import defaultdict
+    signals_by_agent: dict[str, list] = defaultdict(list)
+    for row in streak_result.all():
+        signals_by_agent[row.agent_id].append(row.outcome)
+
     entries = []
     for agent in agents:
-        # Compute streak from recent signals
-        streak_query = (
-            select(SignalRow.outcome)
-            .where(SignalRow.agent_id == agent.id)
-            .where(SignalRow.outcome != SignalOutcome.PENDING)
-            .order_by(desc(SignalRow.created_at))
-            .limit(20)
-        )
-        streak_result = await db.execute(streak_query)
-        recent_outcomes = [r[0] for r in streak_result.all()]
+        recent_outcomes = signals_by_agent.get(agent.id, [])
 
         streak_count = 0
         streak_type = "none"

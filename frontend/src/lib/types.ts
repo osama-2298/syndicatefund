@@ -214,6 +214,7 @@ export interface RegisterRequest {
   max_agents: number;
   preferred_model: string;
   cost_limit_usd?: number;
+  preferred_role?: string;  // analyst | scout | watchdog | research | any
 }
 
 export interface RegisterResponse {
@@ -249,4 +250,52 @@ export interface AgentDetail {
   total_signals: number;
   accuracy: number;
   total_cost_usd: number;
+}
+
+// ── v2: Intelligence & Risk Types ──
+
+export type ContributorRole = 'analyst' | 'scout' | 'watchdog' | 'research' | 'any';
+
+export interface FastLoopEvent {
+  event_type: string;
+  severity: string;
+  source: string;
+  title: string;
+  detail: Record<string, any> | null;
+  symbols: string[];
+  acted_upon: boolean;
+  action_taken: string | null;
+  timestamp: string;
+}
+
+export interface PortfolioRisk {
+  drawdown_pct: number;
+  drawdown_level: string;
+  drawdown_message: string;
+  portfolio_heat: number;
+  heat_budget_remaining: number;
+  heat_exceeded: boolean;
+  avg_correlation: number;
+  correlation_warning: boolean;
+  gross_exposure: number;
+  net_exposure: number;
+  positions_count: number;
+  actions: string[];
+  allowed_tiers: string[];
+  size_multiplier: number;
+  trading_allowed: boolean;
+  snapshot_at: string;
+}
+
+export interface QuantScore {
+  symbol: string;
+  technical_score: number;
+  sentiment_score: number;
+  macro_score: number;
+  onchain_score: number;
+  fundamental_score: number;
+  composite_score: number;
+  action: string;
+  confidence: number;
+  components: Record<string, number>;
 }

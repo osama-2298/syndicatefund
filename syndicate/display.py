@@ -492,7 +492,7 @@ def multi_verdict_row(symbol: str, action: str, confidence: float, consensus: fl
 def cro_card(limits_dict: dict, reasoning: str, elapsed: float) -> None:
     """Print the CRO's risk rules."""
     pos_pct = limits_dict.get("max_position_pct", 0.05) * 100
-    dd_pct = limits_dict.get("max_daily_drawdown_pct", 0.03) * 100
+    dd_pct = limits_dict.get("max_drawdown_pct", 0.03) * 100
     max_pos = limits_dict.get("max_open_positions", 10)
     min_conf = limits_dict.get("min_signal_confidence", 0.50) * 100
     min_cons = limits_dict.get("min_consensus_ratio", 0.50) * 100

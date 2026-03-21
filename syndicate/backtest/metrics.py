@@ -165,11 +165,18 @@ def _max_drawdown(equity_curve: list[dict]) -> float:
 def _vs_benchmark(
     strategy_return_pct: float,
     benchmark_prices: list[float] | None,
+    round_trip_cost_bps: float = 40.0,
 ) -> float:
-    """Alpha vs buy-and-hold of a benchmark asset."""
+    """Alpha vs buy-and-hold of a benchmark asset.
+
+    Deducts entry/exit friction (default 20bps each way = 40bps round trip)
+    from the benchmark return so the comparison is fair.
+    """
     if not benchmark_prices or len(benchmark_prices) < 2:
         return 0.0
     bm_return_pct = ((benchmark_prices[-1] / benchmark_prices[0]) - 1) * 100
+    # Deduct friction: one buy at start + one sell at end
+    bm_return_pct -= round_trip_cost_bps / 100.0
     return strategy_return_pct - bm_return_pct
 
 

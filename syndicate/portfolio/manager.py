@@ -128,8 +128,8 @@ class PortfolioManager:
                 current_pct=round(current_exposure / total_value * 100, 1),
                 max_pct=round(self.max_allocation * 100, 1),
             )
-            # Still allow close orders (SELL side)
-            return [o for o in orders if o.side.value == "SELL"]
+            # Still allow orders that close existing positions (longs AND shorts)
+            return [o for o in orders if portfolio.get_position(o.symbol) is not None]
 
         approved = []
         used = 0.0
@@ -156,6 +156,7 @@ class PortfolioManager:
                             quantity=reduced_qty,
                             price=order.price,
                             source_signal_id=order.source_signal_id,
+                            params=order.params,
                         )
                         approved.append(reduced_order)
                         used += reduced_order.notional_value

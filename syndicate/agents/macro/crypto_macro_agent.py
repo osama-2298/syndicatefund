@@ -6,7 +6,6 @@ from typing import Any
 from syndicate.agents.base import BaseAgent
 from syndicate.agents.team_manager import _load_manager_knowledge
 from syndicate.data.models import TeamType
-from syndicate.agents.macro.macro_agent import compute_macro_scores
 
 _TRADING_KB = _load_manager_knowledge(Path(__file__).parent / "trading_knowledge.md")
 
