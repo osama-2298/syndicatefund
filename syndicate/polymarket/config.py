@@ -66,10 +66,23 @@ class PolymarketSettings(BaseSettings):
 
     @property
     def polymarket_data_dir(self) -> Path:
-        """Return (and create) the data directory for polymarket state files."""
+        """Return (and create) the data directory for polymarket state files.
+
+        Falls back to /tmp/polymarket if the project data dir is not writable
+        (e.g. read-only container filesystems on Railway).
+        """
         d = _syndicate_settings.project_root / "data" / "polymarket"
-        d.mkdir(parents=True, exist_ok=True)
-        return d
+        try:
+            d.mkdir(parents=True, exist_ok=True)
+            # Test writability
+            test = d / ".write_test"
+            test.write_text("ok")
+            test.unlink()
+            return d
+        except OSError:
+            fallback = Path("/tmp/polymarket")
+            fallback.mkdir(parents=True, exist_ok=True)
+            return fallback
 
 
 # Singleton — import this everywhere in the polymarket package
