@@ -46,16 +46,6 @@ def kelly_size(
     fraction = min(kelly_fraction * fractional, max_fraction)
 
     amount = fraction * bankroll
-
-    # Cap by notional exposure: at low prices you get massive leverage
-    # (e.g. $100 at 1c buys 10,000 shares paying $10,000 if won).
-    # Limit max payout to 50% of bankroll to prevent runaway compounding.
-    if market_price > 0:
-        shares = amount / market_price
-        max_payout = bankroll * 0.50
-        if shares > max_payout:
-            amount = max_payout * market_price
-
     return max(0.0, amount)
 
 
@@ -135,6 +125,10 @@ def size_position(
       2. Apply city and day exposure limits
       3. Check minimum bet threshold
       4. Check available cash
+
+    Note: the paper trader's place_bet() applies an additional
+    liquidity-aware cap based on estimated bin depth.  This function
+    computes the *desired* size; place_bet() enforces the *fillable* size.
 
     Args:
         prob: BinProbability with model_prob, market_price, and edge.

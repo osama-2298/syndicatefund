@@ -206,6 +206,8 @@ class WeatherOracle:
                                     edge=opp.edge,
                                     forecast_mean=blend["mean"],
                                     forecast_std=blend["std"],
+                                    total_market_volume=market.total_volume,
+                                    n_bins=len(market.bins),
                                 )
                                 if result is not None:
                                     summary["bets_placed"] += 1

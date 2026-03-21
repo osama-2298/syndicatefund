@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import random
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,27 +15,112 @@ from syndicate.polymarket.models import WeatherPortfolio, WeatherPosition
 
 logger = structlog.get_logger()
 
-# Spread/slippage simulation parameters for realistic paper trading
-DEFAULT_HALF_SPREAD = 0.015   # 1.5% half-spread (bid-ask gap / 2)
-DEFAULT_SLIPPAGE = 0.005      # 0.5% additional slippage on market orders
+
+# ── Market Impact Model ────────────────────────────────────────────────────
+#
+# Polymarket weather markets are thin.  A typical bin has $50-500 of
+# resting liquidity on each side.  The paper trader must simulate what
+# would actually happen if we tried to fill a $200 order at a 1-cent
+# mid-price — the answer is we'd walk the book and pay far more.
+#
+# We model this with a simple square-root market impact model:
+#
+#   impact = k * sqrt(order_usd / available_liquidity)
+#
+# where k is a scaling constant.  This is the standard model used by
+# institutional equity desks (Almgren-Chriss), adapted for thin crypto
+# prediction markets.
+#
+# The available liquidity at a given price is estimated from the market's
+# total_volume.  Low-volume markets have less depth.
+
+
+# Base half-spread in probability points (bid-ask gap / 2)
+BASE_HALF_SPREAD = 0.01
+
+# Market impact constant — probability points per sqrt(order/liquidity).
+# Calibrated so that buying the entire resting book (order = liquidity)
+# moves price by ~10 cents (10 percentage points).
+# $50 order in $50 liq → +10c.  $10 in $50 → +4.5c.  $200 in $500 → +6.3c.
+IMPACT_K = 0.10
+
+# Estimated resting liquidity per side as fraction of total market volume
+# Weather markets are thin; ~10% of total volume sits on each side of a bin
+LIQUIDITY_FRACTION = 0.10
+
+# Minimum estimated liquidity per bin (even zero-volume markets have MM bots)
+# Polymarket weather bins typically have $50-200 of resting orders
+MIN_BIN_LIQUIDITY = 50.0
+
+# Maximum bet size as multiple of estimated bin liquidity
+# Even with impact model, don't try to fill more than 2x the book
+MAX_BET_TO_LIQUIDITY_RATIO = 2.0
+
+
+def estimate_bin_liquidity(total_market_volume: float, n_bins: int = 10) -> float:
+    """Estimate resting liquidity for one bin on one side.
+
+    A market with $5,000 total volume and 10 bins has roughly
+    $5,000 * 10% / 10 = $50 per bin per side.
+    """
+    per_bin = (total_market_volume * LIQUIDITY_FRACTION) / max(n_bins, 1)
+    return max(per_bin, MIN_BIN_LIQUIDITY)
 
 
 def simulate_fill_price(
     market_price: float,
-    half_spread: float = DEFAULT_HALF_SPREAD,
-    slippage: float = DEFAULT_SLIPPAGE,
+    order_usd: float,
+    bin_liquidity: float = MIN_BIN_LIQUIDITY,
 ) -> float:
-    """Simulate a realistic fill price for a BUY order.
+    """Simulate a realistic fill price accounting for spread and market impact.
 
-    A market mid-price of 0.40 with 1.5% half-spread means the ask is ~0.415.
-    Add random slippage of 0-0.5% to model market impact.
+    Components:
+      1. Half-spread: fixed cost of crossing bid-ask
+      2. Market impact: sqrt(order_size / liquidity) — large orders move price
+      3. Random noise: small uniform jitter for realism
 
-    Returns the simulated fill price (always >= market_price).
+    Returns the volume-weighted average fill price (always > market_price).
     """
-    ask_price = market_price + half_spread
-    random_slip = random.uniform(0, slippage)
-    fill = ask_price + random_slip
-    return min(fill, 0.99)  # Can't pay more than 99c
+    # 1. Half-spread
+    spread_cost = BASE_HALF_SPREAD
+
+    # 2. Market impact — square root model
+    #    A $100 order against $50 liquidity: impact = 1.0 * sqrt(100/50) = 1.41
+    #    which means price moves ~141% of the way through the book — very costly.
+    #    A $10 order against $500 liquidity: impact = 1.0 * sqrt(10/500) = 0.14
+    ratio = order_usd / max(bin_liquidity, 1.0)
+    impact = IMPACT_K * math.sqrt(ratio)
+
+    # Cap impact at 0.80 — beyond this the order is unfillable
+    impact = min(impact, 0.80)
+
+    # 3. Random noise (±0.5% for realism)
+    noise = random.uniform(0, 0.005)
+
+    fill = market_price + spread_cost + impact + noise
+
+    # Can't pay more than 99c for a YES share
+    return min(fill, 0.99)
+
+
+def max_fillable_amount(
+    market_price: float,
+    bin_liquidity: float,
+    max_acceptable_impact: float = 0.30,
+) -> float:
+    """Maximum USDC we can deploy before impact exceeds threshold.
+
+    Solves: max_impact = k * sqrt(amount / liquidity)
+    → amount = liquidity * (max_impact / k)^2
+
+    With default params: $50 liquidity, 30% max impact
+    → max amount = 50 * (0.30/1.0)^2 = $4.50
+
+    This prevents us from placing orders that would walk the
+    entire book and fill at 5-10x the mid-price.
+    """
+    max_amount = bin_liquidity * (max_acceptable_impact / IMPACT_K) ** 2
+    return max(0.0, max_amount)
 
 
 class WeatherPaperTrader:
@@ -43,7 +129,10 @@ class WeatherPaperTrader:
     Manages a virtual USDC portfolio: place bets, resolve outcomes,
     and persist state to JSON between restarts.
 
-    Includes spread/slippage simulation for realistic P&L tracking.
+    Simulates realistic execution with:
+    - Bid-ask spread
+    - Square-root market impact (Almgren-Chriss style)
+    - Liquidity-aware position sizing caps
     """
 
     def __init__(self, portfolio: WeatherPortfolio | None = None):
@@ -57,10 +146,7 @@ class WeatherPaperTrader:
     # ── Betting ───────────────────────────────────────────────────────────
 
     def check_daily_loss_limit(self, limit_pct: float = 0.10) -> bool:
-        """Return True if daily losses exceed limit_pct of bankroll.
-
-        Checks P&L of positions resolved today.
-        """
+        """Return True if daily losses exceed limit_pct of bankroll."""
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         daily_pnl = sum(
             p.pnl for p in self._portfolio.positions
@@ -93,11 +179,14 @@ class WeatherPaperTrader:
         edge: float,
         forecast_mean: float = 0.0,
         forecast_std: float = 0.0,
+        total_market_volume: float = 0.0,
+        n_bins: int = 10,
     ) -> WeatherPosition | None:
-        """Place a paper bet with simulated spread/slippage.
+        """Place a paper bet with realistic market impact simulation.
 
-        The fill price is worse than the mid-price by ~2% (spread + slippage).
-        This makes paper trading realistic — real Polymarket fills are never at mid.
+        The fill price accounts for spread AND market impact based on
+        order size relative to estimated bin liquidity.  Large orders
+        at low prices will get terrible fills or be rejected entirely.
 
         Args:
             condition_id: Polymarket condition ID.
@@ -106,30 +195,57 @@ class WeatherPaperTrader:
             date: Resolution date YYYY-MM-DD.
             bin_label: Human-readable bin label (e.g. "40-41F").
             entry_price: YES share mid-price at entry (0-1).
-            quantity: USDC amount to spend.
+            quantity: USDC amount to spend (from sizing engine).
             model_prob: Our model's probability for this bin.
             edge: model_prob - entry_price at time of entry.
-            forecast_mean: Ensemble forecast mean (stored for calibration at resolution).
-            forecast_std: Ensemble forecast std (stored for calibration at resolution).
+            forecast_mean: Ensemble forecast mean (for calibration).
+            forecast_std: Ensemble forecast std (for calibration).
+            total_market_volume: Total market volume in USDC (for liquidity estimate).
+            n_bins: Number of bins in this market (for liquidity estimate).
 
         Returns:
-            The created WeatherPosition, or None if blocked by safety rails.
+            The created WeatherPosition, or None if blocked.
         """
         if self.check_daily_loss_limit():
             logger.warning("paper_bet_blocked.daily_loss_limit", city=city, date=date)
             return None
 
-        # Simulate realistic fill price (worse than mid by spread + slippage)
-        fill_price = simulate_fill_price(entry_price)
+        # Estimate liquidity for this bin
+        bin_liq = estimate_bin_liquidity(total_market_volume, n_bins)
 
-        # Recheck edge after simulated fill — if fill eats the edge, skip
+        # Cap order size by what the book can realistically absorb
+        max_fill = max_fillable_amount(entry_price, bin_liq)
+        if quantity > max_fill and max_fill > 0:
+            logger.info(
+                "paper_bet_reduced.liquidity_cap",
+                city=city, date=date, bin=bin_label,
+                original=round(quantity, 2),
+                capped=round(max_fill, 2),
+                bin_liquidity=round(bin_liq, 2),
+            )
+            quantity = max_fill
+
+        if quantity < 1.0:
+            logger.info(
+                "paper_bet_skipped.too_small_after_liquidity_cap",
+                city=city, date=date, bin=bin_label,
+                amount=round(quantity, 2),
+                bin_liquidity=round(bin_liq, 2),
+            )
+            return None
+
+        # Simulate fill price with market impact
+        fill_price = simulate_fill_price(entry_price, quantity, bin_liq)
+
+        # Recheck edge after impact — if fill eats the edge, skip
         effective_edge = model_prob - fill_price
         if effective_edge <= 0:
             logger.info(
-                "paper_bet_skipped.edge_eaten_by_spread",
+                "paper_bet_skipped.edge_eaten_by_impact",
                 city=city, date=date, bin=bin_label,
                 mid=round(entry_price, 4), fill=round(fill_price, 4),
                 model_prob=round(model_prob, 4),
+                impact=round(fill_price - entry_price, 4),
             )
             return None
 
@@ -160,8 +276,10 @@ class WeatherPaperTrader:
             bin=bin_label,
             mid_price=round(entry_price, 4),
             fill_price=round(fill_price, 4),
+            impact=round(fill_price - entry_price, 4),
             qty=round(quantity, 2),
             edge=round(effective_edge, 4),
+            bin_liquidity=round(bin_liq, 2),
             cash_remaining=round(self._portfolio.cash, 2),
         )
 
@@ -189,17 +307,6 @@ class WeatherPaperTrader:
 
                 if won:
                     payout = pos.quantity / price
-                    # Safety: cap payout at 100x the bet (prevents runaway at sub-penny prices)
-                    max_payout = pos.quantity * 100
-                    if payout > max_payout:
-                        logger.warning(
-                            "payout_capped",
-                            condition_id=condition_id,
-                            raw_payout=round(payout, 2),
-                            capped=round(max_payout, 2),
-                            fill_price=round(price, 4),
-                        )
-                        payout = max_payout
                     pnl = payout - pos.quantity
                     self._portfolio.cash += payout
                     self._portfolio.wins += 1
@@ -239,7 +346,9 @@ class WeatherPaperTrader:
         """Persist portfolio to JSON."""
         data = self._portfolio.model_dump(mode="json")
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._path.write_text(json.dumps(data, indent=2, default=str))
+        tmp = self._path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, indent=2, default=str))
+        tmp.rename(self._path)
         logger.debug("portfolio_saved", path=str(self._path))
 
     @classmethod
