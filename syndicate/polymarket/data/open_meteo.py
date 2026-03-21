@@ -33,10 +33,12 @@ from syndicate.polymarket.models import EnsembleForecast, EnsembleMember, Temper
 
 logger = structlog.get_logger()
 
-# ── Global rate limiter for Open-Meteo free tier (~600 req/min) ────────────────
-# Allow max 5 concurrent requests with a small delay between each
-_rate_semaphore = asyncio.Semaphore(5)
-_MIN_REQUEST_GAP = 0.3  # seconds between requests
+# ── Global rate limiter for Open-Meteo free tier ──────────────────────────────
+# Serialize all requests (1 at a time) with 1-second gap to avoid 429s.
+# 120 markets × 4 models = 480 requests, but cache deduplicates by city+date.
+# Unique cities are ~30, so ~120 actual requests at 1/sec = 2 min per cycle.
+_rate_semaphore = asyncio.Semaphore(1)
+_MIN_REQUEST_GAP = 1.0  # seconds between requests
 
 # ── Simple TTL cache for ensemble forecasts ───────────────────────────────────
 
