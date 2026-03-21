@@ -1,24 +1,12 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import dynamic from 'next/dynamic';
 import {
-  Cloud, Sun, Thermometer, TrendingUp,
-  Activity, DollarSign, Target, BarChart3, Clock,
+  Cloud, TrendingUp, Activity, DollarSign, Target, Clock,
   RefreshCw, AlertTriangle, CheckCircle, XCircle,
-  ShieldAlert, ShieldCheck, Wallet, ListOrdered,
-  Zap, Ban, Play,
+  Zap, Ban, Thermometer, Sun,
 } from 'lucide-react';
 import { API_BASE } from '@/lib/api';
-
-// Lazy-load Recharts (no SSR)
-const BarChart = dynamic(() => import('recharts').then(m => m.BarChart), { ssr: false });
-const Bar = dynamic(() => import('recharts').then(m => m.Bar), { ssr: false });
-const XAxis = dynamic(() => import('recharts').then(m => m.XAxis), { ssr: false });
-const YAxis = dynamic(() => import('recharts').then(m => m.YAxis), { ssr: false });
-const Tooltip = dynamic(() => import('recharts').then(m => m.Tooltip), { ssr: false });
-const ResponsiveContainer = dynamic(() => import('recharts').then(m => m.ResponsiveContainer), { ssr: false });
-const Cell = dynamic(() => import('recharts').then(m => m.Cell), { ssr: false });
 
 /* ── Types ── */
 
@@ -54,8 +42,6 @@ interface Position {
   model_prob: number;
   edge: number;
   edge_at_entry: number;
-  forecast_mean: number;
-  forecast_std: number;
   condition_id: string;
   placed_at: string;
   resolved: boolean;
@@ -65,34 +51,21 @@ interface Position {
 
 interface LiveOrder {
   order_id: string;
-  condition_id: string;
   city: string;
   date: string;
   bin_label: string;
   price: number;
   size: number;
   quantity_usd: number;
-  model_prob: number;
   edge: number;
   status: string;
-  fill_price: number;
-  filled_size: number;
   created_at: string;
-  updated_at: string;
-  cancelled_at: string | null;
-  error: string;
 }
 
 interface OpenOrdersData {
   orders: LiveOrder[];
   count: number;
   committed_capital: number;
-  mode: string;
-}
-
-interface OrderHistoryData {
-  orders: LiveOrder[];
-  count: number;
   mode: string;
 }
 
@@ -108,614 +81,263 @@ interface TradesData {
   };
 }
 
-interface EdgeOpportunity {
-  city: string;
-  date: string;
-  bin_label: string;
-  model_prob: number;
-  market_price: number;
-  edge: number;
-  quantity: number;
-}
-
 /* ── Helpers ── */
 
 function fmtUsd(n: number | undefined | null): string {
   const v = n ?? 0;
-  if (Math.abs(v) >= 1000) return `$${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-  return `$${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  return `$${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function fmtEdge(n: number | undefined | null): string {
+function fmtPnl(n: number | undefined | null): string {
   const v = n ?? 0;
-  return `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`;
+  return `${v >= 0 ? '+' : ''}$${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function timeAgo(iso: string | null): string {
-  if (!iso) return '--';
+  if (!iso) return 'never';
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (diff < 0) return 'just now';
   if (diff < 60) return 'just now';
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-function daysUntil(dateStr: string): string {
-  const target = new Date(dateStr + 'T00:00:00Z');
-  const now = new Date();
-  const diff = (target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-  if (diff < 0) return 'Resolved';
-  if (diff < 1) return 'Today';
-  if (diff < 2) return 'Tomorrow';
-  return `${Math.ceil(diff)}d`;
-}
-
-function formatUptime(seconds: number): string {
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-  if (seconds < 86400) return `${(seconds / 3600).toFixed(1)}h`;
-  return `${(seconds / 86400).toFixed(1)}d`;
-}
-
-function cityWeatherIcon(city: string) {
+function cityIcon(city: string) {
   const hot = ['miami', 'phoenix', 'las vegas', 'dubai', 'rio'];
-  const cold = ['anchorage', 'minneapolis', 'helsinki', 'moscow'];
   const lower = city.toLowerCase();
-  if (hot.some(c => lower.includes(c))) return <Sun size={16} className="text-amber-400" />;
-  if (cold.some(c => lower.includes(c))) return <Cloud size={16} className="text-blue-300" />;
-  return <Thermometer size={16} className="text-syn-text-secondary" />;
+  if (hot.some(c => lower.includes(c))) return <Sun size={14} className="text-amber-400" />;
+  return <Thermometer size={14} className="text-syn-text-secondary" />;
 }
 
-function orderStatusBadge(status: string) {
-  const s = status.toLowerCase();
-  if (s === 'filled') return <span className="text-xs font-medium text-syn-accent bg-syn-accent/10 px-2 py-0.5 rounded">Filled</span>;
-  if (s === 'pending') return <span className="text-xs font-medium text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded animate-pulse">Pending</span>;
-  if (s === 'cancelled') return <span className="text-xs font-medium text-syn-text-tertiary bg-syn-bg px-2 py-0.5 rounded">Cancelled</span>;
-  if (s === 'failed' || s === 'rejected') return <span className="text-xs font-medium text-red-400 bg-red-400/10 px-2 py-0.5 rounded">Failed</span>;
-  if (s === 'partial') return <span className="text-xs font-medium text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded">Partial</span>;
-  return <span className="text-xs text-syn-text-tertiary">{status}</span>;
-}
-
-/* ── Page Component ── */
+/* ── Page ── */
 
 export default function PolymarketPage() {
   const [status, setStatus] = useState<OracleStatus | null>(null);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [trades, setTrades] = useState<TradesData | null>(null);
-  const [opportunities, setOpportunities] = useState<EdgeOpportunity[]>([]);
   const [openOrders, setOpenOrders] = useState<OpenOrdersData | null>(null);
-  const [orderHistory, setOrderHistory] = useState<OrderHistoryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
-  const [killSwitchLoading, setKillSwitchLoading] = useState(false);
+  const [killLoading, setKillLoading] = useState(false);
 
   const isLive = openOrders?.mode === 'live';
 
   const fetchData = useCallback(async () => {
     try {
-      const [statusRes, portfolioRes, tradesRes, oppsRes, ordersRes, historyRes] = await Promise.all([
+      const [s, p, t, o] = await Promise.all([
         fetch(`${API_BASE}/api/v1/polymarket/status`).then(r => r.ok ? r.json() : null).catch(() => null),
         fetch(`${API_BASE}/api/v1/polymarket/portfolio`).then(r => r.ok ? r.json() : null).catch(() => null),
         fetch(`${API_BASE}/api/v1/polymarket/trades`).then(r => r.ok ? r.json() : null).catch(() => null),
-        fetch(`${API_BASE}/api/v1/polymarket/opportunities`).then(r => r.ok ? r.json() : null).catch(() => null),
         fetch(`${API_BASE}/api/v1/polymarket/open-orders`).then(r => r.ok ? r.json() : null).catch(() => null),
-        fetch(`${API_BASE}/api/v1/polymarket/order-history`).then(r => r.ok ? r.json() : null).catch(() => null),
       ]);
-
-      if (statusRes) setStatus(statusRes);
-      if (portfolioRes) setPortfolio(portfolioRes);
-      if (tradesRes) setTrades(tradesRes);
-      if (oppsRes) setOpportunities(oppsRes?.opportunities ?? []);
-      if (ordersRes) setOpenOrders(ordersRes);
-      if (historyRes) setOrderHistory(historyRes);
-
+      if (s) setStatus(s);
+      if (p) setPortfolio(p);
+      if (t) setTrades(t);
+      if (o) setOpenOrders(o);
       setError(null);
     } catch {
-      setError('Failed to connect to Weather Oracle API');
+      setError('Cannot reach API');
     } finally {
       setLoading(false);
-      setLastRefresh(new Date());
     }
   }, []);
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 15000); // refresh every 15s for live
-    return () => clearInterval(interval);
+    const iv = setInterval(fetchData, 15000);
+    return () => clearInterval(iv);
   }, [fetchData]);
 
   const handleKillSwitch = async () => {
-    if (!confirm('EMERGENCY HALT: Cancel all open orders and stop trading?')) return;
-    setKillSwitchLoading(true);
+    if (!confirm('Cancel all orders and stop trading?')) return;
+    setKillLoading(true);
     try {
-      const adminToken = prompt('Enter admin token:');
-      if (!adminToken) return;
-      const res = await fetch(`${API_BASE}/api/v1/polymarket/kill-switch`, {
+      const token = prompt('Admin token:');
+      if (!token) return;
+      await fetch(`${API_BASE}/api/v1/polymarket/kill-switch`, {
         method: 'POST',
-        headers: { Authorization: adminToken, 'Content-Type': 'application/json' },
+        headers: { Authorization: token, 'Content-Type': 'application/json' },
       });
-      const data = await res.json();
-      alert(`Kill switch activated: ${data.orders_cancelled} orders cancelled`);
       fetchData();
-    } catch (e) {
-      alert('Kill switch failed — check console');
     } finally {
-      setKillSwitchLoading(false);
+      setKillLoading(false);
     }
   };
 
+  // Combine all positions & trades into one timeline
   const openPositions = portfolio?.positions?.filter(p => !p.resolved) ?? [];
-  const winRate = portfolio
-    ? portfolio.total_bets > 0
-      ? ((portfolio.wins / portfolio.total_bets) * 100).toFixed(1)
-      : '0.0'
-    : '--';
+  const resolvedTrades = trades?.resolved ?? [];
+  const pendingOrders = openOrders?.orders ?? [];
+  const totalBets = portfolio?.total_bets ?? 0;
+  const wins = portfolio?.wins ?? 0;
+  const losses = portfolio?.losses ?? 0;
+  const pnl = portfolio?.total_pnl ?? 0;
+  const balance = portfolio?.bankroll ?? 0;
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <RefreshCw size={32} className="text-syn-accent animate-spin" />
-        <p className="text-syn-text-secondary text-sm">Loading Weather Oracle...</p>
+        <RefreshCw size={28} className="text-syn-accent animate-spin" />
+        <p className="text-syn-text-secondary text-sm">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 max-w-4xl mx-auto">
+
       {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Cloud size={28} className="text-syn-accent" />
-          <div>
-            <h1 className="text-2xl font-bold text-white">Weather Oracle</h1>
-            <p className="text-sm text-syn-text-secondary">
-              Polymarket weather prediction markets
-            </p>
-          </div>
-          <div className="flex items-center gap-2 ml-4">
-            <span
-              className={`inline-block w-2.5 h-2.5 rounded-full ${
-                status?.running ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'
-              }`}
-            />
-            <span className="text-xs text-syn-text-secondary">
-              {status?.running ? 'Running' : 'Offline'}
-            </span>
-          </div>
-          {/* Trading Mode Badge */}
+          <Cloud size={24} className="text-syn-accent" />
+          <h1 className="text-xl font-bold text-white">Weather Oracle</h1>
           {isLive ? (
-            <span className="ml-2 inline-flex items-center gap-1 text-xs font-bold text-amber-300 bg-amber-400/15 border border-amber-400/30 px-2.5 py-1 rounded-full">
-              <Zap size={12} /> LIVE
+            <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-300 bg-amber-400/15 border border-amber-400/30 px-2 py-0.5 rounded-full">
+              <Zap size={10} /> LIVE
             </span>
           ) : (
-            <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium text-syn-text-tertiary bg-syn-bg border border-syn-border px-2.5 py-1 rounded-full">
-              Paper
-            </span>
+            <span className="text-xs text-syn-text-tertiary bg-syn-bg border border-syn-border px-2 py-0.5 rounded-full">Paper</span>
           )}
+          <span className={`w-2 h-2 rounded-full ${status?.running ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
+          <span className="text-xs text-syn-text-tertiary">
+            {status?.running ? `Scanned ${timeAgo(status.last_scan)}` : 'Offline'}
+          </span>
         </div>
-        <div className="flex items-center gap-3">
-          {isLive && (
-            <button
-              onClick={handleKillSwitch}
-              disabled={killSwitchLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-50"
-            >
-              <Ban size={14} />
-              {killSwitchLoading ? 'Halting...' : 'Kill Switch'}
-            </button>
-          )}
-          <div className="text-xs text-syn-text-tertiary">
-            {status?.uptime_seconds != null && (
-              <span className="mr-3">Uptime: {formatUptime(status.uptime_seconds)}</span>
-            )}
-            <span>Last scan: {timeAgo(status?.last_scan ?? null)}</span>
-          </div>
-        </div>
+        {isLive && (
+          <button onClick={handleKillSwitch} disabled={killLoading}
+            className="flex items-center gap-1 px-3 py-1.5 text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg hover:bg-red-500/20 disabled:opacity-50">
+            <Ban size={12} /> {killLoading ? 'Stopping...' : 'Emergency Stop'}
+          </button>
+        )}
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 flex items-center gap-2 text-red-300 text-sm">
-          <AlertTriangle size={16} />
-          {error}
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-2 flex items-center gap-2 text-red-300 text-sm">
+          <AlertTriangle size={14} /> {error}
         </div>
       )}
 
-      {/* ── Stats Cards ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-        {/* Wallet Balance */}
-        <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
-          <div className="flex items-center gap-1.5 text-syn-text-secondary text-xs mb-1.5">
-            <Wallet size={13} />
-            Wallet
-          </div>
-          <div className="text-xl font-bold text-white font-mono">
-            {fmtUsd(portfolio?.bankroll ?? 0)}
-          </div>
+      {/* ── Balance + Stats ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="bg-syn-surface border border-syn-border rounded-xl p-5">
+          <p className="text-xs text-syn-text-tertiary mb-1">Balance</p>
+          <p className="text-2xl font-bold text-white font-mono">{fmtUsd(balance)}</p>
         </div>
-
-        {/* Available */}
-        <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
-          <div className="flex items-center gap-1.5 text-syn-text-secondary text-xs mb-1.5">
-            <DollarSign size={13} />
-            Available
-          </div>
-          <div className="text-xl font-bold text-white font-mono">
-            {fmtUsd(portfolio?.cash ?? 0)}
-          </div>
+        <div className="bg-syn-surface border border-syn-border rounded-xl p-5">
+          <p className="text-xs text-syn-text-tertiary mb-1">P&L</p>
+          <p className={`text-2xl font-bold font-mono ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            {fmtPnl(pnl)}
+          </p>
         </div>
-
-        {/* Committed */}
-        <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
-          <div className="flex items-center gap-1.5 text-syn-text-secondary text-xs mb-1.5">
-            <ListOrdered size={13} />
-            Committed
-          </div>
-          <div className="text-xl font-bold text-amber-400 font-mono">
-            {fmtUsd(openOrders?.committed_capital ?? 0)}
-          </div>
+        <div className="bg-syn-surface border border-syn-border rounded-xl p-5">
+          <p className="text-xs text-syn-text-tertiary mb-1">Win Rate</p>
+          <p className="text-2xl font-bold text-white font-mono">
+            {totalBets > 0 ? `${((wins / totalBets) * 100).toFixed(0)}%` : '--'}
+          </p>
+          <p className="text-xs text-syn-text-tertiary">{wins}W {losses}L</p>
         </div>
-
-        {/* Total P&L */}
-        <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
-          <div className="flex items-center gap-1.5 text-syn-text-secondary text-xs mb-1.5">
-            <TrendingUp size={13} />
-            P&L
-          </div>
-          <div className={`text-xl font-bold font-mono ${
-            (portfolio?.total_pnl ?? 0) >= 0 ? 'text-syn-accent' : 'text-red-400'
-          }`}>
-            {portfolio ? `${(portfolio.total_pnl ?? 0) >= 0 ? '+' : ''}${fmtUsd(portfolio.total_pnl)}` : '--'}
-          </div>
-        </div>
-
-        {/* Win Rate */}
-        <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
-          <div className="flex items-center gap-1.5 text-syn-text-secondary text-xs mb-1.5">
-            <Target size={13} />
-            Win Rate
-          </div>
-          <div className="text-xl font-bold text-white font-mono">
-            {winRate}%
-          </div>
-          <div className="text-xs text-syn-text-tertiary">
-            {portfolio ? `${portfolio.wins}W / ${portfolio.losses}L` : ''}
-          </div>
-        </div>
-
-        {/* Markets */}
-        <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
-          <div className="flex items-center gap-1.5 text-syn-text-secondary text-xs mb-1.5">
-            <BarChart3 size={13} />
-            Markets
-          </div>
-          <div className="text-xl font-bold text-white font-mono">
-            {status?.markets_tracked ?? '--'}
-          </div>
-          <div className="text-xs text-syn-text-tertiary">
-            {status ? `${status.open_positions} positions` : ''}
-          </div>
+        <div className="bg-syn-surface border border-syn-border rounded-xl p-5">
+          <p className="text-xs text-syn-text-tertiary mb-1">Bets / Markets</p>
+          <p className="text-2xl font-bold text-white font-mono">{totalBets}</p>
+          <p className="text-xs text-syn-text-tertiary">{status?.markets_tracked ?? 0} markets tracked</p>
         </div>
       </div>
 
-      {/* ── Open Orders (Live Trading) ── */}
-      {isLive && (
+      {/* ── Pending Orders ── */}
+      {pendingOrders.length > 0 && (
         <section>
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <ListOrdered size={18} className="text-amber-400" />
-            Open Orders
-            {openOrders && openOrders.count > 0 && (
-              <span className="text-xs font-normal text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full ml-2">
-                {openOrders.count} pending
-              </span>
-            )}
+          <h2 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+            <Activity size={14} className="text-amber-400" />
+            Pending Orders ({pendingOrders.length})
           </h2>
-          <div className="bg-syn-surface border border-syn-border rounded-xl overflow-hidden">
-            {openOrders && openOrders.orders.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-syn-border text-syn-text-secondary text-xs">
-                      <th className="text-left px-4 py-3 font-medium">City</th>
-                      <th className="text-left px-4 py-3 font-medium">Date</th>
-                      <th className="text-left px-4 py-3 font-medium">Bin</th>
-                      <th className="text-right px-4 py-3 font-medium">Price</th>
-                      <th className="text-right px-4 py-3 font-medium">Size</th>
-                      <th className="text-right px-4 py-3 font-medium">Amount</th>
-                      <th className="text-right px-4 py-3 font-medium">Edge</th>
-                      <th className="text-center px-4 py-3 font-medium">Status</th>
-                      <th className="text-right px-4 py-3 font-medium">Age</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {openOrders.orders.map((order, i) => (
-                      <tr key={order.order_id} className="border-b border-syn-border/50 hover:bg-syn-bg/30 transition-colors">
-                        <td className="px-4 py-3 flex items-center gap-2">
-                          {cityWeatherIcon(order.city)}
-                          <span className="text-white font-medium">{order.city}</span>
-                        </td>
-                        <td className="px-4 py-3 text-syn-text-secondary">{order.date}</td>
-                        <td className="px-4 py-3">
-                          <span className="bg-syn-bg px-2 py-0.5 rounded text-xs font-mono text-syn-text-secondary">{order.bin_label}</span>
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono text-syn-text-secondary">{(order.price * 100).toFixed(1)}c</td>
-                        <td className="px-4 py-3 text-right font-mono text-syn-text-secondary">{order.size}</td>
-                        <td className="px-4 py-3 text-right font-mono text-white">{fmtUsd(order.quantity_usd)}</td>
-                        <td className={`px-4 py-3 text-right font-mono ${order.edge >= 0 ? 'text-syn-accent' : 'text-red-400'}`}>
-                          {fmtEdge(order.edge)}
-                        </td>
-                        <td className="px-4 py-3 text-center">{orderStatusBadge(order.status)}</td>
-                        <td className="px-4 py-3 text-right text-xs text-syn-text-tertiary">{timeAgo(order.created_at)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          <div className="bg-syn-surface border border-syn-border rounded-xl divide-y divide-syn-border/50">
+            {pendingOrders.map((o) => (
+              <div key={o.order_id} className="px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {cityIcon(o.city)}
+                  <span className="text-white text-sm font-medium">{o.city}</span>
+                  <span className="text-xs text-syn-text-tertiary">{o.date}</span>
+                  <span className="bg-syn-bg px-2 py-0.5 rounded text-xs font-mono text-syn-text-secondary">{o.bin_label}</span>
+                </div>
+                <div className="flex items-center gap-4 text-xs">
+                  <span className="font-mono text-white">{fmtUsd(o.quantity_usd)}</span>
+                  <span className="font-mono text-syn-text-secondary">{(o.price * 100).toFixed(0)}c</span>
+                  <span className="text-amber-400 animate-pulse font-medium">Pending</span>
+                  <span className="text-syn-text-tertiary">{timeAgo(o.created_at)}</span>
+                </div>
               </div>
-            ) : (
-              <div className="px-6 py-8 text-center text-syn-text-tertiary text-sm">
-                No open orders — waiting for weather markets with edge
-              </div>
-            )}
+            ))}
           </div>
         </section>
       )}
 
       {/* ── Open Positions ── */}
-      <section>
-        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <Activity size={18} className="text-syn-accent" />
-          Open Positions
-          {openPositions.length > 0 && (
-            <span className="text-xs font-normal text-syn-accent bg-syn-accent/10 px-2 py-0.5 rounded-full ml-2">
-              {openPositions.length}
-            </span>
-          )}
-        </h2>
-        <div className="bg-syn-surface border border-syn-border rounded-xl overflow-hidden">
-          {openPositions.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-syn-border text-syn-text-secondary text-xs">
-                    <th className="text-left px-4 py-3 font-medium">City</th>
-                    <th className="text-left px-4 py-3 font-medium">Date</th>
-                    <th className="text-left px-4 py-3 font-medium">Bin</th>
-                    <th className="text-right px-4 py-3 font-medium">Entry</th>
-                    <th className="text-right px-4 py-3 font-medium">Fill</th>
-                    <th className="text-right px-4 py-3 font-medium">Amount</th>
-                    <th className="text-right px-4 py-3 font-medium">Model</th>
-                    <th className="text-right px-4 py-3 font-medium">Edge</th>
-                    <th className="text-center px-4 py-3 font-medium">Resolves</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {openPositions.map((pos, i) => (
-                    <tr key={`${pos.condition_id}-${i}`} className="border-b border-syn-border/50 hover:bg-syn-bg/30 transition-colors">
-                      <td className="px-4 py-3 flex items-center gap-2">
-                        {cityWeatherIcon(pos.city)}
-                        <span className="text-white font-medium">{pos.city}</span>
-                      </td>
-                      <td className="px-4 py-3 text-syn-text-secondary">{pos.date}</td>
-                      <td className="px-4 py-3">
-                        <span className="bg-syn-bg px-2 py-0.5 rounded text-xs font-mono text-syn-text-secondary">{pos.bin_label}</span>
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-syn-text-secondary">{(pos.entry_price * 100).toFixed(1)}c</td>
-                      <td className="px-4 py-3 text-right font-mono text-syn-text-secondary">
-                        {pos.fill_price > 0 ? `${(pos.fill_price * 100).toFixed(1)}c` : '--'}
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-white">{fmtUsd(pos.quantity)}</td>
-                      <td className="px-4 py-3 text-right font-mono text-syn-text-secondary">{(pos.model_prob * 100).toFixed(1)}%</td>
-                      <td className={`px-4 py-3 text-right font-mono ${
-                        (pos.edge_at_entry ?? pos.edge ?? 0) >= 0 ? 'text-syn-accent' : 'text-red-400'
-                      }`}>
-                        {fmtEdge(pos.edge_at_entry ?? pos.edge ?? 0)}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="text-xs text-syn-text-tertiary bg-syn-bg px-2 py-0.5 rounded">{daysUntil(pos.date)}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="px-6 py-8 text-center text-syn-text-tertiary text-sm">
-              No open positions
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ── Recent Trades ── */}
-      <section>
-        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <Clock size={18} className="text-syn-accent" />
-          Recent Trades
-        </h2>
-        <div className="bg-syn-surface border border-syn-border rounded-xl overflow-hidden">
-          {trades && trades.resolved.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-syn-border text-syn-text-secondary text-xs">
-                    <th className="text-left px-4 py-3 font-medium">City</th>
-                    <th className="text-left px-4 py-3 font-medium">Date</th>
-                    <th className="text-left px-4 py-3 font-medium">Bin</th>
-                    <th className="text-right px-4 py-3 font-medium">Entry</th>
-                    <th className="text-right px-4 py-3 font-medium">Amount</th>
-                    <th className="text-center px-4 py-3 font-medium">Result</th>
-                    <th className="text-right px-4 py-3 font-medium">P&L</th>
-                    <th className="text-right px-4 py-3 font-medium">Placed</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {trades.resolved.slice(0, 20).map((trade, i) => (
-                    <tr
-                      key={`trade-${i}`}
-                      className={`border-b border-syn-border/50 transition-colors ${
-                        trade.outcome === true ? 'bg-emerald-500/5 hover:bg-emerald-500/10' :
-                        trade.outcome === false ? 'bg-red-500/5 hover:bg-red-500/10' : 'hover:bg-syn-bg/30'
-                      }`}
-                    >
-                      <td className="px-4 py-3 flex items-center gap-2">
-                        {cityWeatherIcon(trade.city)}
-                        <span className="text-white font-medium">{trade.city}</span>
-                      </td>
-                      <td className="px-4 py-3 text-syn-text-secondary">{trade.date}</td>
-                      <td className="px-4 py-3">
-                        <span className="bg-syn-bg px-2 py-0.5 rounded text-xs font-mono text-syn-text-secondary">{trade.bin_label}</span>
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-syn-text-secondary">{(trade.entry_price * 100).toFixed(1)}c</td>
-                      <td className="px-4 py-3 text-right font-mono text-white">{fmtUsd(trade.quantity)}</td>
-                      <td className="px-4 py-3 text-center">
-                        {trade.outcome === true ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-syn-accent"><CheckCircle size={14} /> Won</span>
-                        ) : trade.outcome === false ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400"><XCircle size={14} /> Lost</span>
-                        ) : (
-                          <span className="text-xs text-syn-text-tertiary">Pending</span>
-                        )}
-                      </td>
-                      <td className={`px-4 py-3 text-right font-mono ${(trade.pnl ?? 0) >= 0 ? 'text-syn-accent' : 'text-red-400'}`}>
-                        {trade.pnl != null ? `${trade.pnl >= 0 ? '+' : ''}${fmtUsd(trade.pnl)}` : '--'}
-                      </td>
-                      <td className="px-4 py-3 text-right text-xs text-syn-text-tertiary">{timeAgo(trade.placed_at)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="px-6 py-8 text-center text-syn-text-tertiary text-sm">
-              No resolved trades yet
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ── Order History (Live Trading) ── */}
-      {isLive && orderHistory && orderHistory.orders.length > 0 && (
+      {openPositions.length > 0 && (
         <section>
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <Clock size={18} className="text-syn-text-secondary" />
-            Order History
-            <span className="text-xs font-normal text-syn-text-tertiary ml-2">{orderHistory.count} total</span>
+          <h2 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+            <Target size={14} className="text-syn-accent" />
+            Open Positions ({openPositions.length})
           </h2>
-          <div className="bg-syn-surface border border-syn-border rounded-xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-syn-border text-syn-text-secondary text-xs">
-                    <th className="text-left px-4 py-3 font-medium">City</th>
-                    <th className="text-left px-4 py-3 font-medium">Bin</th>
-                    <th className="text-right px-4 py-3 font-medium">Price</th>
-                    <th className="text-right px-4 py-3 font-medium">Fill</th>
-                    <th className="text-right px-4 py-3 font-medium">Amount</th>
-                    <th className="text-center px-4 py-3 font-medium">Status</th>
-                    <th className="text-right px-4 py-3 font-medium">Time</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orderHistory.orders.slice(0, 30).map((order, i) => (
-                    <tr key={`hist-${i}`} className="border-b border-syn-border/50 hover:bg-syn-bg/30 transition-colors">
-                      <td className="px-4 py-3 flex items-center gap-2">
-                        {cityWeatherIcon(order.city)}
-                        <span className="text-white text-xs">{order.city}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="bg-syn-bg px-2 py-0.5 rounded text-xs font-mono text-syn-text-secondary">{order.bin_label}</span>
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-xs text-syn-text-secondary">{(order.price * 100).toFixed(1)}c</td>
-                      <td className="px-4 py-3 text-right font-mono text-xs text-syn-text-secondary">
-                        {order.fill_price > 0 ? `${(order.fill_price * 100).toFixed(1)}c` : '--'}
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-xs text-white">{fmtUsd(order.quantity_usd)}</td>
-                      <td className="px-4 py-3 text-center">{orderStatusBadge(order.status)}</td>
-                      <td className="px-4 py-3 text-right text-xs text-syn-text-tertiary">{timeAgo(order.created_at)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div className="bg-syn-surface border border-syn-border rounded-xl divide-y divide-syn-border/50">
+            {openPositions.map((pos, i) => (
+              <div key={`${pos.condition_id}-${i}`} className="px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {cityIcon(pos.city)}
+                  <span className="text-white text-sm font-medium">{pos.city}</span>
+                  <span className="text-xs text-syn-text-tertiary">{pos.date}</span>
+                  <span className="bg-syn-bg px-2 py-0.5 rounded text-xs font-mono text-syn-text-secondary">{pos.bin_label}</span>
+                </div>
+                <div className="flex items-center gap-4 text-xs">
+                  <span className="font-mono text-white">{fmtUsd(pos.quantity)}</span>
+                  <span className="font-mono text-syn-text-secondary">@ {(pos.entry_price * 100).toFixed(0)}c</span>
+                  <span className="text-syn-accent font-mono">+{((pos.edge_at_entry ?? pos.edge) * 100).toFixed(1)}% edge</span>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
       )}
 
-      {/* ── Edge Opportunities ── */}
-      {opportunities.length > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <TrendingUp size={18} className="text-syn-accent" />
-            Edge Opportunities
-          </h2>
-          <div className="bg-syn-surface border border-syn-border rounded-xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-syn-border text-syn-text-secondary text-xs">
-                    <th className="text-left px-4 py-3 font-medium">City</th>
-                    <th className="text-left px-4 py-3 font-medium">Date</th>
-                    <th className="text-left px-4 py-3 font-medium">Bin</th>
-                    <th className="text-right px-4 py-3 font-medium">Model</th>
-                    <th className="text-right px-4 py-3 font-medium">Market</th>
-                    <th className="text-right px-4 py-3 font-medium">Edge</th>
-                    <th className="text-right px-4 py-3 font-medium">Size</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {opportunities.map((opp, i) => (
-                    <tr key={`opp-${i}`} className="border-b border-syn-border/50 hover:bg-syn-bg/30 transition-colors">
-                      <td className="px-4 py-3 flex items-center gap-2">
-                        {cityWeatherIcon(opp.city)}
-                        <span className="text-white text-xs font-medium">{opp.city}</span>
-                      </td>
-                      <td className="px-4 py-3 text-syn-text-secondary text-xs">{opp.date}</td>
-                      <td className="px-4 py-3">
-                        <span className="bg-syn-bg px-2 py-0.5 rounded text-xs font-mono text-syn-text-secondary">{opp.bin_label}</span>
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-xs text-syn-text-secondary">{(opp.model_prob * 100).toFixed(1)}%</td>
-                      <td className="px-4 py-3 text-right font-mono text-xs text-syn-text-secondary">{(opp.market_price * 100).toFixed(1)}c</td>
-                      <td className={`px-4 py-3 text-right font-mono text-xs font-medium ${opp.edge >= 0 ? 'text-syn-accent' : 'text-red-400'}`}>
-                        {fmtEdge(opp.edge)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-xs text-white">{fmtUsd(opp.quantity)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
+      {/* ── Empty State ── */}
+      {openPositions.length === 0 && pendingOrders.length === 0 && (
+        <div className="bg-syn-surface border border-syn-border rounded-xl px-6 py-12 text-center">
+          <Cloud size={32} className="text-syn-text-tertiary mx-auto mb-3" />
+          <p className="text-syn-text-secondary text-sm">No active trades</p>
+          <p className="text-syn-text-tertiary text-xs mt-1">
+            The oracle scans every 5 minutes for weather markets with edge. Trades appear here automatically.
+          </p>
+        </div>
       )}
 
-      {/* ── P&L Distribution ── */}
-      {trades && trades.resolved.length > 3 && (
+      {/* ── Trade History ── */}
+      {resolvedTrades.length > 0 && (
         <section>
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <BarChart3 size={18} className="text-syn-accent" />
-            Trade P&L Distribution
+          <h2 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+            <Clock size={14} className="text-syn-text-secondary" />
+            Trade History
           </h2>
-          <div className="bg-syn-surface border border-syn-border rounded-xl p-6">
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={trades.resolved.slice(0, 30).map((t) => ({
-                  name: `${t.city.slice(0, 3)} ${t.date.slice(5)}`,
-                  pnl: t.pnl ?? 0,
-                }))}>
-                  <XAxis dataKey="name" tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={{ stroke: '#374151' }} tickLine={false} />
-                  <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={{ stroke: '#374151' }} tickLine={false} tickFormatter={(v: number) => `$${v}`} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#1a1a2e', border: '1px solid #2d2d44', borderRadius: '8px', fontSize: '12px' }}
-                    formatter={(value) => [`$${Number(value ?? 0).toFixed(2)}`, 'P&L']}
-                  />
-                  <Bar dataKey="pnl" radius={[4, 4, 0, 0]}>
-                    {trades.resolved.slice(0, 30).map((t, i) => (
-                      <Cell key={`cell-${i}`} fill={(t.pnl ?? 0) >= 0 ? '#34d399' : '#f87171'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+          <div className="bg-syn-surface border border-syn-border rounded-xl divide-y divide-syn-border/50">
+            {resolvedTrades.slice(0, 20).map((t, i) => (
+              <div key={`t-${i}`} className={`px-4 py-3 flex items-center justify-between ${
+                t.outcome === true ? 'bg-emerald-500/5' : t.outcome === false ? 'bg-red-500/5' : ''
+              }`}>
+                <div className="flex items-center gap-3">
+                  {t.outcome === true ? <CheckCircle size={14} className="text-emerald-400" /> :
+                   t.outcome === false ? <XCircle size={14} className="text-red-400" /> :
+                   <Clock size={14} className="text-syn-text-tertiary" />}
+                  <span className="text-white text-sm">{t.city}</span>
+                  <span className="text-xs text-syn-text-tertiary">{t.date}</span>
+                  <span className="bg-syn-bg px-2 py-0.5 rounded text-xs font-mono text-syn-text-secondary">{t.bin_label}</span>
+                </div>
+                <div className="flex items-center gap-4 text-xs">
+                  <span className="font-mono text-syn-text-secondary">{fmtUsd(t.quantity)}</span>
+                  <span className={`font-mono font-medium ${(t.pnl ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {fmtPnl(t.pnl)}
+                  </span>
+                  <span className="text-syn-text-tertiary">{timeAgo(t.placed_at)}</span>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
       )}
