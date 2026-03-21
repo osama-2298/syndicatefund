@@ -118,8 +118,6 @@ export default function PolymarketPage() {
   const [openOrders, setOpenOrders] = useState<OpenOrdersData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [killLoading, setKillLoading] = useState(false);
-
   const isLive = openOrders?.mode === 'live';
 
   const fetchData = useCallback(async () => {
@@ -147,22 +145,6 @@ export default function PolymarketPage() {
     const iv = setInterval(fetchData, 15000);
     return () => clearInterval(iv);
   }, [fetchData]);
-
-  const handleKillSwitch = async () => {
-    if (!confirm('Cancel all orders and stop trading?')) return;
-    setKillLoading(true);
-    try {
-      const token = prompt('Admin token:');
-      if (!token) return;
-      await fetch(`${API_BASE}/api/v1/polymarket/kill-switch`, {
-        method: 'POST',
-        headers: { Authorization: token, 'Content-Type': 'application/json' },
-      });
-      fetchData();
-    } finally {
-      setKillLoading(false);
-    }
-  };
 
   // Combine all positions & trades into one timeline
   const openPositions = portfolio?.positions?.filter(p => !p.resolved) ?? [];
@@ -203,12 +185,6 @@ export default function PolymarketPage() {
             {status?.running ? `Scanned ${timeAgo(status.last_scan)}` : 'Offline'}
           </span>
         </div>
-        {isLive && (
-          <button onClick={handleKillSwitch} disabled={killLoading}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg hover:bg-red-500/20 disabled:opacity-50">
-            <Ban size={12} /> {killLoading ? 'Stopping...' : 'Emergency Stop'}
-          </button>
-        )}
       </div>
 
       {error && (
