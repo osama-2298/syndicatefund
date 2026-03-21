@@ -33,6 +33,11 @@ from syndicate.polymarket.models import EnsembleForecast, EnsembleMember, Temper
 
 logger = structlog.get_logger()
 
+# ── Global rate limiter for Open-Meteo free tier (~600 req/min) ────────────────
+# Allow max 5 concurrent requests with a small delay between each
+_rate_semaphore = asyncio.Semaphore(5)
+_MIN_REQUEST_GAP = 0.3  # seconds between requests
+
 # ── Simple TTL cache for ensemble forecasts ───────────────────────────────────
 
 _cache: dict[str, tuple[float, EnsembleForecast]] = {}  # key → (timestamp, forecast)
@@ -76,7 +81,7 @@ def _put_cache(city: str, target_date: str, model_name: str, forecast: EnsembleF
 
 @retry(
     stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=2, max=15),
+    wait=wait_exponential(multiplier=2, min=5, max=30),
     reraise=True,
 )
 async def _fetch_single_model(
@@ -113,8 +118,10 @@ async def _fetch_single_model(
         "forecast_days": ENSEMBLE_FORECAST_DAYS,
     }
 
-    resp = await client.get(ENSEMBLE_API, params=params)
-    resp.raise_for_status()
+    async with _rate_semaphore:
+        await asyncio.sleep(_MIN_REQUEST_GAP)
+        resp = await client.get(ENSEMBLE_API, params=params)
+        resp.raise_for_status()
     data = resp.json()
 
     hourly = data.get("hourly", {})
