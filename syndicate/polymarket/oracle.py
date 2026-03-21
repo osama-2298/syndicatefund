@@ -349,6 +349,15 @@ async def oracle_loop(shutdown_event: asyncio.Event) -> None:
     # Auto-bootstrap calibration on first deploy
     await _auto_bootstrap_calibration()
 
+    # Cooldown after bootstrap — let Open-Meteo rate limits recover
+    print("[ORACLE] Waiting 60s for rate limit cooldown...", flush=True)
+    try:
+        await asyncio.wait_for(shutdown_event.wait(), timeout=60)
+        print("[ORACLE] Shutdown during cooldown.", flush=True)
+        return
+    except asyncio.TimeoutError:
+        pass
+
     while not shutdown_event.is_set():
         try:
             print("[ORACLE] Starting cycle...", flush=True)

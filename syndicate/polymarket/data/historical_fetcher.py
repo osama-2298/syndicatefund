@@ -30,6 +30,10 @@ HISTORICAL_FORECAST_API = (
 HISTORICAL_MODELS = ["gfs_seamless", "ecmwf_ifs025", "icon_seamless"]
 HISTORICAL_TIMEOUT = 60
 
+# Rate limiter — shared across all cities to respect Open-Meteo free tier
+_hist_semaphore = asyncio.Semaphore(1)
+_HIST_REQUEST_GAP = 1.5  # seconds between requests
+
 
 # ── Single-city backfill ─────────────────────────────────────────────────────
 
@@ -83,7 +87,10 @@ async def backfill_city(
                     "end_date": date_str,
                     "temperature_unit": temp_unit,
                 }
-                resp = await client.get(HISTORICAL_FORECAST_API, params=params)
+                # Rate-limited: serialize all historical requests globally
+                async with _hist_semaphore:
+                    await asyncio.sleep(_HIST_REQUEST_GAP)
+                    resp = await client.get(HISTORICAL_FORECAST_API, params=params)
                 resp.raise_for_status()
                 data = resp.json()
 
@@ -181,7 +188,7 @@ async def backfill_all_cities(
     Returns:
         Mapping of city name to list of backfill records.
     """
-    sem = asyncio.Semaphore(5)
+    sem = asyncio.Semaphore(3)
     all_data: dict[str, list[dict]] = {}
 
     async def _limited(city: str, cfg) -> tuple[str, list[dict]]:

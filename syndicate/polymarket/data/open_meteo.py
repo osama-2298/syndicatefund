@@ -34,11 +34,12 @@ from syndicate.polymarket.models import EnsembleForecast, EnsembleMember, Temper
 logger = structlog.get_logger()
 
 # ── Global rate limiter for Open-Meteo free tier ──────────────────────────────
-# Serialize all requests (1 at a time) with 1-second gap to avoid 429s.
-# 120 markets × 4 models = 480 requests, but cache deduplicates by city+date.
-# Unique cities are ~30, so ~120 actual requests at 1/sec = 2 min per cycle.
+# Serialize all requests (1 at a time) with adaptive gap to avoid 429s.
+# On 429, gap doubles (up to 30s). On success, gap decays back toward 1.5s.
 _rate_semaphore = asyncio.Semaphore(1)
-_MIN_REQUEST_GAP = 1.0  # seconds between requests
+_MIN_GAP = 1.5  # floor — never go below this
+_MAX_GAP = 30.0  # ceiling — after many 429s
+_current_gap = 1.5  # adaptive: grows on 429, shrinks on success
 
 # ── Simple TTL cache for ensemble forecasts ───────────────────────────────────
 
@@ -82,8 +83,8 @@ def _put_cache(city: str, target_date: str, model_name: str, forecast: EnsembleF
 
 
 @retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=2, min=5, max=30),
+    stop=stop_after_attempt(6),
+    wait=wait_exponential(multiplier=3, min=10, max=120),
     reraise=True,
 )
 async def _fetch_single_model(
@@ -99,6 +100,8 @@ async def _fetch_single_model(
     Returns a list of EnsembleMember objects, one per member, each containing
     the daily high temperature for the target date.
     """
+    global _current_gap
+
     temp_unit = "fahrenheit" if unit == TemperatureUnit.FAHRENHEIT else "celsius"
 
     # Open-Meteo uses different API model names than our internal names.
@@ -121,8 +124,18 @@ async def _fetch_single_model(
     }
 
     async with _rate_semaphore:
-        await asyncio.sleep(_MIN_REQUEST_GAP)
+        await asyncio.sleep(_current_gap)
         resp = await client.get(ENSEMBLE_API, params=params)
+        if resp.status_code == 429:
+            _current_gap = min(_MAX_GAP, _current_gap * 2)
+            logger.warning(
+                "open_meteo.429_backoff",
+                model=model_cfg.name,
+                new_gap=round(_current_gap, 1),
+            )
+            resp.raise_for_status()
+        # Success — decay gap back toward minimum
+        _current_gap = max(_MIN_GAP, _current_gap * 0.85)
         resp.raise_for_status()
     data = resp.json()
 
