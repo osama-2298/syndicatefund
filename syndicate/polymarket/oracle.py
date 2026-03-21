@@ -326,8 +326,8 @@ async def _auto_bootstrap_calibration() -> None:
             emos.fit_city(city)
 
         emos.save(emos_path)
-        bias.save()
-        mw.save()
+        bias.save(settings.polymarket_data_dir / "bias_history.json")
+        mw.save(settings.polymarket_data_dir / "model_weights.json")
         save_historical(data, settings.polymarket_data_dir / "historical_data.json")
 
         print(f"[ORACLE] Calibration bootstrapped ({total} points, {len(data)} cities).", flush=True)
