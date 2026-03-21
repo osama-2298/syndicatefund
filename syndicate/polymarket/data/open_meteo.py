@@ -35,11 +35,12 @@ logger = structlog.get_logger()
 
 # ── Global rate limiter for Open-Meteo free tier ──────────────────────────────
 # Serialize all requests (1 at a time) with adaptive gap to avoid 429s.
-# On 429, gap doubles (up to 30s). On success, gap decays back toward 1.5s.
+# On 429, gap doubles (up to 15s). On success, gap decays back toward 1.5s.
 _rate_semaphore = asyncio.Semaphore(1)
 _MIN_GAP = 1.5  # floor — never go below this
-_MAX_GAP = 30.0  # ceiling — after many 429s
+_MAX_GAP = 15.0  # ceiling — after many 429s
 _current_gap = 1.5  # adaptive: grows on 429, shrinks on success
+_rate_limited_until: float = 0.0  # monotonic timestamp — skip requests until this
 
 # ── Simple TTL cache for ensemble forecasts ───────────────────────────────────
 
@@ -82,10 +83,20 @@ def _put_cache(city: str, target_date: str, model_name: str, forecast: EnsembleF
 # ── Per-model fetch ───────────────────────────────────────────────────────────
 
 
+class RateLimitedError(Exception):
+    """Raised when Open-Meteo returns 429 — signals the cycle to stop."""
+    pass
+
+
 @retry(
-    stop=stop_after_attempt(6),
-    wait=wait_exponential(multiplier=3, min=10, max=120),
+    stop=stop_after_attempt(2),
+    wait=wait_exponential(multiplier=2, min=5, max=30),
     reraise=True,
+    retry=lambda retry_state: (
+        retry_state.outcome is not None
+        and retry_state.outcome.failed
+        and not isinstance(retry_state.outcome.exception(), RateLimitedError)
+    ),
 )
 async def _fetch_single_model(
     client: httpx.AsyncClient,
@@ -99,13 +110,14 @@ async def _fetch_single_model(
 
     Returns a list of EnsembleMember objects, one per member, each containing
     the daily high temperature for the target date.
+
+    Raises RateLimitedError on 429 — never retried, propagates immediately.
     """
-    global _current_gap
+    global _current_gap, _rate_limited_until
 
     temp_unit = "fahrenheit" if unit == TemperatureUnit.FAHRENHEIT else "celsius"
 
     # Open-Meteo uses different API model names than our internal names.
-    # Map: "gfs" → "gfs_seamless", "ecmwf_ifs" → "ecmwf_ifs025", etc.
     api_model_name = {
         "gfs": "gfs_seamless",
         "ecmwf_ifs": "ecmwf_ifs025",
@@ -123,17 +135,26 @@ async def _fetch_single_model(
         "forecast_days": ENSEMBLE_FORECAST_DAYS,
     }
 
+    # If we're in a rate-limit cooldown, fail immediately
+    now = time.monotonic()
+    if now < _rate_limited_until:
+        remaining = int(_rate_limited_until - now)
+        raise RateLimitedError(f"Rate limited, {remaining}s remaining")
+
     async with _rate_semaphore:
         await asyncio.sleep(_current_gap)
         resp = await client.get(ENSEMBLE_API, params=params)
         if resp.status_code == 429:
             _current_gap = min(_MAX_GAP, _current_gap * 2)
+            # Block ALL requests for 15 minutes
+            _rate_limited_until = time.monotonic() + 900
             logger.warning(
-                "open_meteo.429_backoff",
+                "open_meteo.rate_limited",
                 model=model_cfg.name,
-                new_gap=round(_current_gap, 1),
+                gap=round(_current_gap, 1),
+                cooldown_minutes=15,
             )
-            resp.raise_for_status()
+            raise RateLimitedError("429 Too Many Requests — cooling down 15 min")
         # Success — decay gap back toward minimum
         _current_gap = max(_MIN_GAP, _current_gap * 0.85)
         resp.raise_for_status()
@@ -276,6 +297,15 @@ async def fetch_ensemble_forecast(
         )
         return cached
 
+    # If rate-limited, return empty immediately — don't even try
+    if time.monotonic() < _rate_limited_until:
+        return EnsembleForecast(
+            city=city,
+            target_date=target_date,
+            fetched_at=datetime.now(timezone.utc),
+            members=[],
+        )
+
     # Fetch all 4 models in parallel
     async with httpx.AsyncClient(timeout=ENSEMBLE_TIMEOUT) as client:
         tasks = [
@@ -286,7 +316,11 @@ async def fetch_ensemble_forecast(
 
     # Merge results, handling any individual model failures gracefully
     all_members: list[EnsembleMember] = []
+    rate_limited = False
     for model_cfg, result in zip(ENSEMBLE_MODELS, results):
+        if isinstance(result, RateLimitedError):
+            rate_limited = True
+            continue
         if isinstance(result, Exception):
             logger.warning(
                 "open_meteo.model_failed",
@@ -305,6 +339,9 @@ async def fetch_ensemble_forecast(
             members=result,
         )
         _put_cache(city, target_date, model_cfg.name, model_forecast)
+
+    if rate_limited and not all_members:
+        logger.warning("open_meteo.cycle_rate_limited", city=city, target_date=target_date)
 
     forecast = EnsembleForecast(
         city=city,

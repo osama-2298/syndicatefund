@@ -364,6 +364,7 @@ async def oracle_loop(shutdown_event: asyncio.Event) -> None:
             summary = await oracle.run_cycle()
             print(
                 f"[ORACLE] Cycle: {summary['markets_found']} markets, "
+                f"{summary['forecasts_fetched']} forecasts, "
                 f"{summary['edges_detected']} edges, "
                 f"{summary['bets_placed']} bets, "
                 f"{summary['positions_resolved']} resolved",
@@ -377,11 +378,19 @@ async def oracle_loop(shutdown_event: asyncio.Event) -> None:
             print(f"[ORACLE] Cycle CRASHED: {e}", flush=True)
             traceback.print_exc()
 
-        # Use dynamic scan interval based on model release timing
-        interval = optimal_scan_interval()
-        fresh = is_fresh_data_window()
-        if fresh:
-            logger.info("oracle.fresh_data_window", interval=interval)
+        # If rate-limited by Open-Meteo, wait 15 min instead of normal interval
+        from syndicate.polymarket.data.open_meteo import _rate_limited_until
+        rate_limited_remaining = _rate_limited_until - time.monotonic()
+        if rate_limited_remaining > 0:
+            wait_min = int(rate_limited_remaining / 60) + 1
+            print(f"[ORACLE] Rate limited by Open-Meteo — waiting {wait_min} min...", flush=True)
+            interval = rate_limited_remaining + 30  # extra 30s buffer
+        else:
+            # Use dynamic scan interval based on model release timing
+            interval = optimal_scan_interval()
+            fresh = is_fresh_data_window()
+            if fresh:
+                logger.info("oracle.fresh_data_window", interval=interval)
 
         try:
             await asyncio.wait_for(shutdown_event.wait(), timeout=interval)

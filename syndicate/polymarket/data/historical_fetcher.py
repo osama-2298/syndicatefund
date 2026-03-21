@@ -91,6 +91,9 @@ async def backfill_city(
                 async with _hist_semaphore:
                     await asyncio.sleep(_HIST_REQUEST_GAP)
                     resp = await client.get(HISTORICAL_FORECAST_API, params=params)
+                if resp.status_code == 429:
+                    logger.warning("historical.rate_limited", city=city, date=date_str)
+                    break  # Stop this city — don't hammer a blocked API
                 resp.raise_for_status()
                 data = resp.json()
 
