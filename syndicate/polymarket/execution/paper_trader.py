@@ -189,6 +189,17 @@ class WeatherPaperTrader:
 
                 if won:
                     payout = pos.quantity / price
+                    # Safety: cap payout at 100x the bet (prevents runaway at sub-penny prices)
+                    max_payout = pos.quantity * 100
+                    if payout > max_payout:
+                        logger.warning(
+                            "payout_capped",
+                            condition_id=condition_id,
+                            raw_payout=round(payout, 2),
+                            capped=round(max_payout, 2),
+                            fill_price=round(price, 4),
+                        )
+                        payout = max_payout
                     pnl = payout - pos.quantity
                     self._portfolio.cash += payout
                     self._portfolio.wins += 1

@@ -7,6 +7,9 @@ from datetime import datetime, timezone
 import structlog
 from fastapi import APIRouter
 
+from fastapi import Depends
+
+from syndicate.api.dependencies import require_admin
 from syndicate.polymarket.oracle import get_oracle
 from syndicate.polymarket.constants import CITY_STATIONS
 from syndicate.polymarket.markets.edge import compute_horizon_hours
@@ -198,3 +201,17 @@ async def get_timing():
         }
     except Exception as e:
         return {"error": str(e)}
+
+
+@router.post("/reset")
+async def reset_portfolio(_admin: bool = Depends(require_admin)):
+    """Admin: reset weather portfolio to initial bankroll."""
+    oracle = get_oracle()
+    from syndicate.polymarket.config import PolymarketSettings
+    from syndicate.polymarket.models import WeatherPortfolio
+    settings = PolymarketSettings()
+    fresh = WeatherPortfolio(bankroll=settings.polymarket_bankroll, cash=settings.polymarket_bankroll)
+    oracle.trader._portfolio = fresh
+    oracle.trader.save()
+    logger.info("polymarket_portfolio_reset", bankroll=settings.polymarket_bankroll)
+    return {"status": "reset", "bankroll": settings.polymarket_bankroll}

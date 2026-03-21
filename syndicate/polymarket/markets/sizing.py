@@ -46,6 +46,16 @@ def kelly_size(
     fraction = min(kelly_fraction * fractional, max_fraction)
 
     amount = fraction * bankroll
+
+    # Cap by notional exposure: at low prices you get massive leverage
+    # (e.g. $100 at 1c buys 10,000 shares paying $10,000 if won).
+    # Limit max payout to 50% of bankroll to prevent runaway compounding.
+    if market_price > 0:
+        shares = amount / market_price
+        max_payout = bankroll * 0.50
+        if shares > max_payout:
+            amount = max_payout * market_price
+
     return max(0.0, amount)
 
 
