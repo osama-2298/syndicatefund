@@ -175,7 +175,25 @@ def _extract_market_price(market: dict) -> float:
 
 
 def _extract_token_id(market: dict) -> str:
-    """Extract the YES token ID from a Gamma market object."""
+    """Extract the YES token ID from a Gamma market object.
+
+    Gamma API stores token IDs in 'clobTokenIds' as a JSON string like:
+    '["<yes_token_id>", "<no_token_id>"]'
+    The first element is the YES token.
+    """
+    import json as _json
+
+    # Primary: clobTokenIds (JSON string or list)
+    raw = market.get("clobTokenIds", "")
+    if raw:
+        try:
+            ids = _json.loads(raw) if isinstance(raw, str) else raw
+            if isinstance(ids, list) and ids:
+                return str(ids[0])  # First = YES token
+        except (ValueError, TypeError):
+            pass
+
+    # Fallback: tokens array (older format)
     tokens = market.get("tokens", [])
     if isinstance(tokens, list):
         for token in tokens:
