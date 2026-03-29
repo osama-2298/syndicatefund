@@ -20,6 +20,8 @@ import {
   Layers,
   Bot,
   ArrowRight,
+  UserCheck,
+  Globe,
 } from 'lucide-react';
 import { API_BASE } from '@/lib/api';
 
@@ -80,7 +82,71 @@ const providers = [
   },
 ];
 
-const steps = ['Identity', 'Provider', 'Configure'];
+const steps = ['Identity', 'Verification', 'Provider', 'Configure'];
+
+const BLOCKED_JURISDICTIONS = ['IR', 'KP', 'CU', 'SY', 'RU'];
+
+const COUNTRIES = [
+  { code: '', label: 'Select your country' },
+  { code: 'US', label: 'United States' },
+  { code: 'GB', label: 'United Kingdom' },
+  { code: 'CA', label: 'Canada' },
+  { code: 'AU', label: 'Australia' },
+  { code: 'DE', label: 'Germany' },
+  { code: 'FR', label: 'France' },
+  { code: 'JP', label: 'Japan' },
+  { code: 'SG', label: 'Singapore' },
+  { code: 'CH', label: 'Switzerland' },
+  { code: 'HK', label: 'Hong Kong' },
+  { code: 'AE', label: 'United Arab Emirates' },
+  { code: 'KR', label: 'South Korea' },
+  { code: 'BR', label: 'Brazil' },
+  { code: 'IN', label: 'India' },
+  { code: 'MX', label: 'Mexico' },
+  { code: 'NL', label: 'Netherlands' },
+  { code: 'SE', label: 'Sweden' },
+  { code: 'NO', label: 'Norway' },
+  { code: 'DK', label: 'Denmark' },
+  { code: 'NZ', label: 'New Zealand' },
+  { code: 'IE', label: 'Ireland' },
+  { code: 'IL', label: 'Israel' },
+  { code: 'IT', label: 'Italy' },
+  { code: 'ES', label: 'Spain' },
+  { code: 'PT', label: 'Portugal' },
+  { code: 'PL', label: 'Poland' },
+  { code: 'CZ', label: 'Czech Republic' },
+  { code: 'AT', label: 'Austria' },
+  { code: 'FI', label: 'Finland' },
+  { code: 'BE', label: 'Belgium' },
+  { code: 'ZA', label: 'South Africa' },
+  { code: 'TW', label: 'Taiwan' },
+  { code: 'TH', label: 'Thailand' },
+  { code: 'PH', label: 'Philippines' },
+  { code: 'ID', label: 'Indonesia' },
+  { code: 'MY', label: 'Malaysia' },
+  { code: 'VN', label: 'Vietnam' },
+  { code: 'AR', label: 'Argentina' },
+  { code: 'CL', label: 'Chile' },
+  { code: 'CO', label: 'Colombia' },
+  { code: 'PE', label: 'Peru' },
+  { code: 'NG', label: 'Nigeria' },
+  { code: 'EG', label: 'Egypt' },
+  { code: 'KE', label: 'Kenya' },
+  { code: 'GH', label: 'Ghana' },
+  { code: 'RO', label: 'Romania' },
+  { code: 'UA', label: 'Ukraine' },
+  { code: 'TR', label: 'Turkey' },
+  { code: 'SA', label: 'Saudi Arabia' },
+  { code: 'QA', label: 'Qatar' },
+  { code: 'BH', label: 'Bahrain' },
+  { code: 'KW', label: 'Kuwait' },
+  { code: 'OM', label: 'Oman' },
+  { code: 'IR', label: 'Iran' },
+  { code: 'KP', label: 'North Korea' },
+  { code: 'CU', label: 'Cuba' },
+  { code: 'SY', label: 'Syria' },
+  { code: 'RU', label: 'Russia' },
+];
 
 const STORAGE_KEY = 'syn_bearer_token';
 
@@ -94,6 +160,15 @@ export default function RegisterPage() {
     max_agents: 2,
     preferred_model: 'claude-sonnet-4-6',
     preferred_role: 'analyst',
+    investor_type: 'individual' as 'individual' | 'accredited' | 'institutional',
+    accredited_income: false,
+    accredited_net_worth: false,
+    accredited_licensed: false,
+    ack_ai_signals: false,
+    ack_risk: false,
+    ack_risk_disclosure: false,
+    ack_terms: false,
+    country: '',
   });
   const [showKey, setShowKey] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -114,9 +189,17 @@ export default function RegisterPage() {
     [form.preferred_model],
   );
 
+  const isBlockedJurisdiction = BLOCKED_JURISDICTIONS.includes(form.country);
+
   const canAdvance = () => {
     if (step === 0) return form.display_name.trim().length > 0;
-    if (step === 1) return form.api_key.trim().length > 0;
+    if (step === 1) {
+      // Verification step
+      if (!form.country || isBlockedJurisdiction) return false;
+      if (!form.ack_ai_signals || !form.ack_risk || !form.ack_risk_disclosure || !form.ack_terms) return false;
+      return true;
+    }
+    if (step === 2) return form.api_key.trim().length > 0;
     return true;
   };
 
@@ -426,8 +509,207 @@ export default function RegisterPage() {
               </div>
             )}
 
-            {/* ── Step 1: Provider + API key ── */}
+            {/* ── Step 1: Institutional Verification ── */}
             {step === 1 && (
+              <div className="space-y-5">
+                {/* Investor Type Selection */}
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted block mb-3">
+                    Investor Type
+                  </label>
+                  <div className="space-y-2">
+                    {([
+                      { id: 'individual' as const, label: 'Individual', desc: 'Retail investor' },
+                      { id: 'accredited' as const, label: 'Accredited Investor', desc: 'Meets SEC accredited investor criteria' },
+                      { id: 'institutional' as const, label: 'Institutional / QIB', desc: 'Qualified Institutional Buyer' },
+                    ]).map((type) => (
+                      <button
+                        key={type.id}
+                        type="button"
+                        onClick={() => setForm({ ...form, investor_type: type.id })}
+                        className={`w-full text-left p-4 rounded-xl border transition-all flex items-center gap-3 ${
+                          form.investor_type === type.id
+                            ? 'border-syn-accent bg-syn-accent/10 ring-1 ring-syn-accent/20'
+                            : 'border-syn-border hover:border-white/20 bg-white/[0.02]'
+                        }`}
+                      >
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                          form.investor_type === type.id
+                            ? 'border-syn-accent'
+                            : 'border-white/20'
+                        }`}>
+                          {form.investor_type === type.id && (
+                            <div className="w-2 h-2 rounded-full bg-syn-accent" />
+                          )}
+                        </div>
+                        <div>
+                          <p className={`text-sm font-semibold ${form.investor_type === type.id ? 'text-white' : 'text-white/70'}`}>
+                            {type.label}
+                          </p>
+                          <p className="text-[10px] text-white/30 mt-0.5">{type.desc}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Accredited Investor Questionnaire */}
+                {form.investor_type === 'accredited' && (
+                  <div className="bg-gradient-to-b from-amber-400/[0.04] to-transparent border border-amber-400/10 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <UserCheck size={14} className="text-amber-400" />
+                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/80">
+                        Accredited Investor Questionnaire
+                      </p>
+                    </div>
+                    <p className="text-[10px] text-white/30 leading-relaxed">
+                      Please confirm at least one of the following criteria (SEC Rule 501):
+                    </p>
+                    <div className="space-y-2.5">
+                      <label className="flex items-start gap-3 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={form.accredited_income}
+                          onChange={(e) => setForm({ ...form, accredited_income: e.target.checked })}
+                          className="mt-0.5 w-4 h-4 rounded border-syn-border bg-white/[0.03] text-syn-accent focus:ring-syn-accent/20 flex-shrink-0"
+                        />
+                        <span className="text-xs text-white/50 group-hover:text-white/70 transition-colors leading-relaxed">
+                          Annual income exceeds $200K (or $300K joint) for last 2 years
+                        </span>
+                      </label>
+                      <label className="flex items-start gap-3 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={form.accredited_net_worth}
+                          onChange={(e) => setForm({ ...form, accredited_net_worth: e.target.checked })}
+                          className="mt-0.5 w-4 h-4 rounded border-syn-border bg-white/[0.03] text-syn-accent focus:ring-syn-accent/20 flex-shrink-0"
+                        />
+                        <span className="text-xs text-white/50 group-hover:text-white/70 transition-colors leading-relaxed">
+                          Net worth exceeds $1M (excluding primary residence)
+                        </span>
+                      </label>
+                      <label className="flex items-start gap-3 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={form.accredited_licensed}
+                          onChange={(e) => setForm({ ...form, accredited_licensed: e.target.checked })}
+                          className="mt-0.5 w-4 h-4 rounded border-syn-border bg-white/[0.03] text-syn-accent focus:ring-syn-accent/20 flex-shrink-0"
+                        />
+                        <span className="text-xs text-white/50 group-hover:text-white/70 transition-colors leading-relaxed">
+                          Licensed securities professional (Series 7, 65, or 82)
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {/* Geographic Restriction */}
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted block mb-2">
+                    <Globe size={10} className="inline mr-1" />
+                    Country of Residence
+                  </label>
+                  <select
+                    value={form.country}
+                    onChange={(e) => setForm({ ...form, country: e.target.value })}
+                    className="w-full bg-white/[0.03] border border-syn-border rounded-lg px-4 py-3 text-white text-sm focus:border-syn-accent/50 focus:outline-none focus:ring-1 focus:ring-syn-accent/20 transition-all appearance-none cursor-pointer"
+                  >
+                    {COUNTRIES.map((c) => (
+                      <option key={c.code} value={c.code} className="bg-syn-bg text-white">
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                  {isBlockedJurisdiction && (
+                    <div className="mt-2 bg-red-400/[0.05] border border-red-400/20 rounded-lg p-3 flex items-start gap-2.5">
+                      <AlertCircle size={14} className="text-red-400 shrink-0 mt-0.5" />
+                      <p className="text-xs text-red-400">
+                        Not available in your jurisdiction. This platform is not accessible from OFAC-sanctioned countries.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Required Acknowledgments */}
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted block mb-3">
+                    Required Acknowledgments
+                  </label>
+                  <div className="space-y-2.5 bg-white/[0.02] border border-syn-border rounded-xl p-4">
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={form.ack_ai_signals}
+                        onChange={(e) => setForm({ ...form, ack_ai_signals: e.target.checked })}
+                        className="mt-0.5 w-4 h-4 rounded border-syn-border bg-white/[0.03] text-syn-accent focus:ring-syn-accent/20 flex-shrink-0"
+                      />
+                      <span className="text-xs text-white/50 group-hover:text-white/70 transition-colors leading-relaxed">
+                        I understand this platform uses AI-generated trading signals and is <strong className="text-white/70">NOT</strong> investment advice
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={form.ack_risk}
+                        onChange={(e) => setForm({ ...form, ack_risk: e.target.checked })}
+                        className="mt-0.5 w-4 h-4 rounded border-syn-border bg-white/[0.03] text-syn-accent focus:ring-syn-accent/20 flex-shrink-0"
+                      />
+                      <span className="text-xs text-white/50 group-hover:text-white/70 transition-colors leading-relaxed">
+                        I understand algorithmic trading carries substantial risk of loss
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={form.ack_risk_disclosure}
+                        onChange={(e) => setForm({ ...form, ack_risk_disclosure: e.target.checked })}
+                        className="mt-0.5 w-4 h-4 rounded border-syn-border bg-white/[0.03] text-syn-accent focus:ring-syn-accent/20 flex-shrink-0"
+                      />
+                      <span className="text-xs text-white/50 group-hover:text-white/70 transition-colors leading-relaxed">
+                        I have read the{' '}
+                        <a href="/compliance" target="_blank" className="text-syn-accent hover:text-violet-300 underline underline-offset-2 transition-colors">
+                          Risk Disclosure
+                        </a>
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={form.ack_terms}
+                        onChange={(e) => setForm({ ...form, ack_terms: e.target.checked })}
+                        className="mt-0.5 w-4 h-4 rounded border-syn-border bg-white/[0.03] text-syn-accent focus:ring-syn-accent/20 flex-shrink-0"
+                      />
+                      <span className="text-xs text-white/50 group-hover:text-white/70 transition-colors leading-relaxed">
+                        I accept the{' '}
+                        <a href="/terms" target="_blank" className="text-syn-accent hover:text-violet-300 underline underline-offset-2 transition-colors">
+                          Terms of Service
+                        </a>
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex gap-2.5">
+                  <button
+                    onClick={() => setStep(0)}
+                    className="px-5 bg-white/[0.04] hover:bg-white/[0.06] text-white/50 py-3 rounded-xl text-sm transition-all"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={() => canAdvance() && setStep(2)}
+                    disabled={!canAdvance()}
+                    className="flex-1 bg-white/[0.06] hover:bg-white/[0.10] text-white py-3 rounded-xl font-semibold text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    Continue
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ── Step 2: Provider + API key ── */}
+            {step === 2 && (
               <div className="space-y-5">
                 <div>
                   <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted block mb-3">
@@ -504,13 +786,13 @@ export default function RegisterPage() {
 
                 <div className="flex gap-2.5">
                   <button
-                    onClick={() => setStep(0)}
+                    onClick={() => setStep(1)}
                     className="px-5 bg-white/[0.04] hover:bg-white/[0.06] text-white/50 py-3 rounded-xl text-sm transition-all"
                   >
                     Back
                   </button>
                   <button
-                    onClick={() => canAdvance() && setStep(2)}
+                    onClick={() => canAdvance() && setStep(3)}
                     disabled={!canAdvance()}
                     className="flex-1 bg-white/[0.06] hover:bg-white/[0.10] text-white py-3 rounded-xl font-semibold text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
@@ -521,8 +803,8 @@ export default function RegisterPage() {
               </div>
             )}
 
-            {/* ── Step 2: Configure + Submit ── */}
-            {step === 2 && (
+            {/* ── Step 3: Configure + Submit ── */}
+            {step === 3 && (
               <div className="space-y-5">
                 <div>
                   <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted block mb-2">
@@ -682,7 +964,7 @@ export default function RegisterPage() {
 
                 <div className="flex gap-2.5">
                   <button
-                    onClick={() => setStep(1)}
+                    onClick={() => setStep(2)}
                     className="px-5 bg-white/[0.04] hover:bg-white/[0.06] text-white/50 py-3 rounded-xl text-sm transition-all"
                   >
                     Back

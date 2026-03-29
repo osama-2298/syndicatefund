@@ -5,7 +5,8 @@ import dynamic from 'next/dynamic';
 import {
   TrendingUp, TrendingDown, Shield, Activity, ArrowRight,
   ChevronRight, ChevronDown, ChevronUp, Zap, Swords,
-  Target, BarChart3, Clock,
+  Target, BarChart3, Clock, Globe, DollarSign, Gauge,
+  ArrowUpRight, ArrowDownRight, Timer, Layers, Coins,
 } from 'lucide-react';
 import CycleCard, { type CycleData, type PipelineEvent } from '@/components/CycleCard';
 import { AGENT_COLORS, DRAWDOWN_COLORS } from '@/lib/constants';
@@ -564,6 +565,206 @@ export default function Dashboard() {
 
   return (
     <div className="slide-up">
+
+      {/* ══ Macro Regime Bar ══ */}
+      <div className="bg-syn-surface border border-syn-border rounded-xl p-4 mb-4 relative overflow-hidden">
+        <div className="absolute -top-12 -right-12 w-48 h-48 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Globe size={14} className="text-cyan-400" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Macro Regime</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[10px] font-bold text-emerald-400 tracking-wider">GOLDILOCKS</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {/* Fed Funds Rate */}
+          <div className="text-center">
+            <p className="text-[10px] text-syn-text-tertiary mb-1">Fed Funds Rate</p>
+            <div className="flex items-center justify-center gap-1">
+              <span className="text-lg font-bold font-mono text-syn-text">5.33%</span>
+              <ArrowDownRight size={12} className="text-emerald-400" />
+            </div>
+            <p className="text-[10px] text-syn-muted mt-0.5">Cuts expected</p>
+          </div>
+          {/* M2 Money Supply */}
+          <div className="text-center">
+            <p className="text-[10px] text-syn-text-tertiary mb-1">M2 Money Supply</p>
+            <div className="flex items-center justify-center gap-1">
+              <span className="text-lg font-bold font-mono text-emerald-400">+3.8%</span>
+              <ArrowUpRight size={12} className="text-emerald-400" />
+            </div>
+            <p className="text-[10px] text-syn-muted mt-0.5">YoY — leads BTC 10-12wk</p>
+          </div>
+          {/* DXY */}
+          <div className="text-center">
+            <p className="text-[10px] text-syn-text-tertiary mb-1">DXY Index</p>
+            <div className="flex items-center justify-center gap-1">
+              <span className="text-lg font-bold font-mono text-amber-400">103.2</span>
+              <ArrowDownRight size={12} className="text-emerald-400" />
+            </div>
+            <p className="text-[10px] text-syn-muted mt-0.5">Below 200-day MA</p>
+          </div>
+          {/* FOMC Countdown */}
+          <div className="text-center">
+            <p className="text-[10px] text-syn-text-tertiary mb-1">FOMC Meeting</p>
+            <div className="flex items-center justify-center gap-1">
+              <Timer size={14} className="text-amber-400" />
+              <span className="text-lg font-bold font-mono text-syn-text">12d</span>
+            </div>
+            <p className="text-[10px] text-syn-muted mt-0.5">Next decision in 12 days</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ══ On-Chain Signals Row ══ */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        {/* MVRV Ratio */}
+        <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
+          <div className="flex items-center gap-1.5 mb-2">
+            <Layers size={12} className="text-cyan-400" />
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">MVRV Ratio</p>
+          </div>
+          <p className="text-xl font-bold font-mono text-amber-400">2.1</p>
+          <div className="mt-2 h-1.5 bg-white/[0.04] rounded-full overflow-hidden relative">
+            <div className="absolute inset-y-0 left-0 w-[57%] rounded-full" style={{ background: 'linear-gradient(90deg, #34d399 0%, #34d399 35%, #fbbf24 35%, #fbbf24 65%, #f87171 65%)' }} />
+            <div className="absolute top-1/2 -translate-y-1/2 h-3 w-0.5 bg-white rounded-full shadow-lg" style={{ left: '42%' }} />
+          </div>
+          <div className="flex justify-between mt-1">
+            <span className="text-[9px] text-emerald-400/60">&lt;2 Accum</span>
+            <span className="text-[9px] text-amber-400/60">2-3.5</span>
+            <span className="text-[9px] text-red-400/60">&gt;3.5 Top</span>
+          </div>
+        </div>
+
+        {/* Funding Rate */}
+        <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
+          <div className="flex items-center gap-1.5 mb-2">
+            <DollarSign size={12} className="text-emerald-400" />
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Funding Rate</p>
+          </div>
+          <p className="text-xl font-bold font-mono text-emerald-400">0.03%</p>
+          <p className="text-[10px] text-syn-text-tertiary mt-1">per 8hr</p>
+          <div className="mt-1.5 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <span className="text-[10px] text-emerald-400">Neutral — healthy long bias</span>
+          </div>
+        </div>
+
+        {/* BTC Dominance */}
+        <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
+          <div className="flex items-center gap-1.5 mb-2">
+            <Coins size={12} className="text-orange-400" />
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">BTC Dominance</p>
+          </div>
+          <p className="text-xl font-bold font-mono text-syn-text">57.2%</p>
+          <div className="mt-1.5 flex items-center gap-1">
+            <ArrowUpRight size={10} className="text-amber-400" />
+            <span className="text-[10px] text-amber-400">Stage 3 — BTC leading</span>
+          </div>
+          <p className="text-[10px] text-syn-muted mt-0.5">Alt rotation not yet started</p>
+        </div>
+
+        {/* Stablecoin Supply */}
+        <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
+          <div className="flex items-center gap-1.5 mb-2">
+            <DollarSign size={12} className="text-blue-400" />
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Stablecoin Supply</p>
+          </div>
+          <p className="text-xl font-bold font-mono text-syn-text">$168B</p>
+          <div className="mt-1.5 flex items-center gap-1">
+            <ArrowUpRight size={10} className="text-emerald-400" />
+            <span className="text-[10px] text-emerald-400">Growing — bullish inflow</span>
+          </div>
+          <p className="text-[10px] text-syn-muted mt-0.5">+$4.2B last 30 days</p>
+        </div>
+      </div>
+
+      {/* ══ Fear & Greed + VIX Row ══ */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+        {/* Fear & Greed Gauge */}
+        <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
+          <div className="flex items-center gap-1.5 mb-3">
+            <Gauge size={14} className="text-amber-400" />
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">Crypto Fear & Greed</p>
+          </div>
+          <div className="flex items-center gap-6">
+            {/* Gauge visual */}
+            <div className="relative w-28 h-16 shrink-0">
+              <svg viewBox="0 0 120 70" className="w-full h-full">
+                {/* Background arc */}
+                <path d="M 10 65 A 50 50 0 0 1 110 65" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" strokeLinecap="round" />
+                {/* Extreme Fear (red) */}
+                <path d="M 10 65 A 50 50 0 0 1 35 22" fill="none" stroke="#ef4444" strokeWidth="8" strokeLinecap="round" opacity="0.6" />
+                {/* Fear (orange) */}
+                <path d="M 35 22 A 50 50 0 0 1 60 15" fill="none" stroke="#f97316" strokeWidth="8" strokeLinecap="round" opacity="0.6" />
+                {/* Neutral (yellow) */}
+                <path d="M 60 15 A 50 50 0 0 1 85 22" fill="none" stroke="#eab308" strokeWidth="8" strokeLinecap="round" opacity="0.6" />
+                {/* Greed (lime) */}
+                <path d="M 85 22 A 50 50 0 0 1 100 40" fill="none" stroke="#84cc16" strokeWidth="8" strokeLinecap="round" opacity="0.6" />
+                {/* Extreme Greed (green) */}
+                <path d="M 100 40 A 50 50 0 0 1 110 65" fill="none" stroke="#22c55e" strokeWidth="8" strokeLinecap="round" opacity="0.6" />
+                {/* Needle — 68/100 = ~122 degrees from left */}
+                <line x1="60" y1="65" x2={60 + 40 * Math.cos(Math.PI * (1 - 68 / 100))} y2={65 - 40 * Math.sin(Math.PI * (1 - 68 / 100))} stroke="white" strokeWidth="2" strokeLinecap="round" />
+                <circle cx="60" cy="65" r="3" fill="white" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-3xl font-bold font-mono text-lime-400">68</p>
+              <p className="text-xs font-semibold text-lime-400">Greed</p>
+              <p className="text-[10px] text-syn-muted mt-1">Historically favors continuation</p>
+            </div>
+          </div>
+        </div>
+
+        {/* VIX Card */}
+        <div className="bg-syn-surface border border-syn-border rounded-xl p-4">
+          <div className="flex items-center gap-1.5 mb-3">
+            <Activity size={14} className="text-blue-400" />
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-syn-muted">VIX — Volatility Index</p>
+          </div>
+          <div className="flex items-center gap-6">
+            <div>
+              <p className="text-3xl font-bold font-mono text-emerald-400">16.8</p>
+              <p className="text-xs text-syn-text-tertiary mt-0.5">25th percentile</p>
+            </div>
+            <div className="flex-1 space-y-2">
+              <div>
+                <div className="flex justify-between text-[10px] mb-0.5">
+                  <span className="text-syn-muted">Term Structure</span>
+                  <span className="text-emerald-400 font-semibold">Contango</span>
+                </div>
+                <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
+                  <div className="h-full bg-emerald-500/40 rounded-full" style={{ width: '30%' }} />
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between text-[10px] mb-0.5">
+                  <span className="text-syn-muted">Risk Level</span>
+                  <span className="text-emerald-400 font-semibold">Low Vol</span>
+                </div>
+                <div className="flex gap-0.5">
+                  {[
+                    { label: '<15', active: false, color: 'bg-emerald-500/30' },
+                    { label: '15-20', active: true, color: 'bg-emerald-500/60' },
+                    { label: '20-30', active: false, color: 'bg-amber-500/30' },
+                    { label: '>30', active: false, color: 'bg-red-500/30' },
+                  ].map((zone) => (
+                    <div key={zone.label} className={`flex-1 h-1.5 rounded-sm ${zone.active ? zone.color + ' ring-1 ring-white/20' : 'bg-white/[0.04]'}`} />
+                  ))}
+                </div>
+                <div className="flex justify-between mt-0.5">
+                  <span className="text-[8px] text-syn-muted">Calm</span>
+                  <span className="text-[8px] text-syn-muted">Panic</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* ── Stats Strip ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         {/* Portfolio Value */}

@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import threading
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any
 
 import anthropic
@@ -28,6 +29,32 @@ from syndicate.config import LLMProvider, OPENAI_COMPAT_BASE_URLS
 from syndicate.data.models import AgentProfile, Signal, SignalAction, TeamType
 
 logger = structlog.get_logger()
+
+# ---------------------------------------------------------------------------
+# Master DATA knowledge base — loaded once, injected into every agent prompt.
+# The file is updated periodically by the data updater module.
+# ---------------------------------------------------------------------------
+_DATA_KB: str = ""
+_DATA_KB_PATH = Path(__file__).resolve().parents[2] / "DATA.md"
+
+def _load_data_kb() -> str:
+    """Load the master DATA.md knowledge base from the repo root."""
+    try:
+        if _DATA_KB_PATH.exists():
+            text = _DATA_KB_PATH.read_text(encoding="utf-8")
+            logger.info("data_kb_loaded", path=str(_DATA_KB_PATH), chars=len(text))
+            return text
+    except Exception as e:
+        logger.warning("data_kb_load_failed", error=str(e))
+    return ""
+
+def reload_data_kb() -> None:
+    """Reload the DATA knowledge base (call after updates)."""
+    global _DATA_KB
+    _DATA_KB = _load_data_kb()
+
+# Load on module import
+_DATA_KB = _load_data_kb()
 
 # Per-provider concurrency limits
 _PROVIDER_SEMAPHORES = {
@@ -323,8 +350,19 @@ class BaseAgent(BaseLLMCaller, ABC):
         """
         prompt = self.build_analysis_prompt(market_data)
 
+        # Inject master DATA knowledge base into system prompt
+        sys_prompt = self.system_prompt
+        if _DATA_KB:
+            sys_prompt += (
+                "\n\n=== MASTER MARKET KNOWLEDGE BASE ===\n"
+                "Use this reference data to inform your analysis. "
+                "Cross-reference sector catalysts, macro regime, and "
+                "historical patterns with the current market data.\n\n"
+                + _DATA_KB
+            )
+
         try:
-            raw = self._call_llm_with_tool(self.system_prompt, prompt, SIGNAL_TOOL)
+            raw = self._call_llm_with_tool(sys_prompt, prompt, SIGNAL_TOOL)
         except Exception as e:
             logger.error("agent_llm_call_failed", agent_id=self.profile.agent_id, error=str(e))
             return Signal(

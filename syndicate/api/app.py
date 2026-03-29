@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 import structlog
 from fastapi import FastAPI
 
-from syndicate.api.routes import agents, backtest, ceo_posts, comms, contributors, cycles, events, intelligence, leaderboard, moltbook, portfolio, research, signals, teams
+from syndicate.api.routes import agents, backtest, ceo_posts, comms, contributors, cycles, events, intelligence, leaderboard, moltbook, portfolio, research, risk_analytics, signals, teams, data_kb
 from syndicate.polymarket.routes import router as polymarket_router
 from syndicate.config import settings
 
@@ -61,6 +61,23 @@ async def _background_cycle_loop(shutdown_event: asyncio.Event):
                     None, lambda: run_pipeline(binance=binance, registry=registry)
                 )
                 print("[CYCLE] Pipeline completed successfully", flush=True)
+
+                # Auto-update DATA.md with latest market intelligence
+                try:
+                    from syndicate.research.data_updater import (
+                        refresh_data_file,
+                        build_snapshot_from_pipeline,
+                    )
+                    snapshot = build_snapshot_from_pipeline()
+                    refresh_data_file(
+                        market_snapshot=snapshot,
+                        macro_summary=f"Pipeline cycle completed at {datetime.now(timezone.utc).isoformat()}. "
+                                      "Agents have fresh market data.",
+                    )
+                    print("[CYCLE] DATA.md auto-updated", flush=True)
+                except Exception as data_err:
+                    logger.warning("data_auto_update_failed", error=str(data_err))
+
             except Exception as e:
                 import traceback
                 logger.error("cycle_failed", error=str(e), traceback=traceback.format_exc())
@@ -784,6 +801,8 @@ app.include_router(comms.router, prefix="/api/v1")
 app.include_router(events.router, prefix="/api/v1")
 app.include_router(leaderboard.router, prefix="/api/v1")
 app.include_router(intelligence.router, prefix="/api/v1")
+app.include_router(data_kb.router, prefix="/api/v1")
+app.include_router(risk_analytics.router, prefix="/api/v1")
 app.include_router(polymarket_router, prefix="/api/v1")
 
 
